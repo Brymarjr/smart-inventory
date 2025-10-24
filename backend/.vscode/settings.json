@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "/home/brymar/projects/smart-inventory/backend/venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.extraPaths": ["./"],
+  "python.analysis.useLibraryCodeForTypes": true,
+  "python.languageServer": "Pylance"
+}
