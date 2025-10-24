@@ -100,7 +100,7 @@ def auto_renew_subscriptions_task():
             reference = f"AUTO-{tenant.slug}-{uuid.uuid4().hex[:8]}"
             result = PaystackService.create_payment_link(
                 email=email,
-                amount=plan.amount,  # now in naira, not kobo
+                amount=plan.amount,  # now in naira
                 reference=reference,
                 metadata={
                     "tenant_id": tenant.id,
@@ -119,7 +119,7 @@ def auto_renew_subscriptions_task():
             sub.status = "pending"
             sub.save(update_fields=["paystack_reference", "status"])
 
-            # ✅ Record Transaction
+            #  Record Transaction
             Transaction.objects.create(
                 tenant=tenant,
                 subscription=sub,
