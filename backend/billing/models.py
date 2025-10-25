@@ -55,7 +55,20 @@ class Subscription(models.Model):
     def is_expired(self):
         return self.expires_at and timezone.now() > self.expires_at
 
+    def save(self, *args, **kwargs):
+        """
+        Auto-cancel any other active subscriptions for this tenant
+        before saving this one as active.
+        """
+        if self.status.lower() == "active" and self.tenant_id:
+            Subscription.objects.filter(
+                tenant=self.tenant,
+                status__iexact="active"
+            ).exclude(pk=self.pk).update(status="cancelled")
 
+        super().save(*args, **kwargs)
+        
+        
 class Transaction(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="transactions")
     subscription = models.ForeignKey(Subscription, on_delete=models.SET_NULL, null=True, blank=True, related_name="transactions")

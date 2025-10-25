@@ -49,8 +49,7 @@ def verify_paystack_transaction_task(self, reference):
 def auto_renew_subscriptions_task():
     """
     Automatically renew subscriptions that are about to expire or have just expired.
-    Sends escalation emails if renewal fails.
-    Grace period: 3 days after expiry before marking as fully expired.
+    Skips free trial plans.
     """
     now = timezone.now()
     grace_period_days = 3
@@ -79,6 +78,12 @@ def auto_renew_subscriptions_task():
     logger.info(f"🔁 Found {expiring.count()} subscriptions eligible for auto-renewal check at {now}.")
 
     for sub in expiring:
+        plan = sub.plan
+        if not plan or plan.name.lower() == "free":
+            # Skip free plan renewals
+            logger.info(f"⏭️ Skipping auto-renew for tenant '{sub.tenant.slug}' — free plan detected.")
+            continue
+
         tenant = sub.tenant
         owner = getattr(tenant, "owner", None)
         email = getattr(owner, "email", None)
@@ -91,16 +96,11 @@ def auto_renew_subscriptions_task():
                 logger.warning(f"⚠️ Tenant '{tenant.name}' has no owner email — skipping auto-renew.")
                 continue
 
-            plan = sub.plan
-            if not plan:
-                logger.warning(f"⚠️ Subscription {sub.id} has no plan — skipping.")
-                continue
-
-            # ✅ Generate proper Paystack metadata and amount (in naira)
+            # ✅ Proceed with payment for Pro/Enterprise
             reference = f"AUTO-{tenant.slug}-{uuid.uuid4().hex[:8]}"
             result = PaystackService.create_payment_link(
                 email=email,
-                amount=plan.amount,  # now in naira
+                amount=plan.amount,
                 reference=reference,
                 metadata={
                     "tenant_id": tenant.id,
@@ -119,7 +119,6 @@ def auto_renew_subscriptions_task():
             sub.status = "pending"
             sub.save(update_fields=["paystack_reference", "status"])
 
-            #  Record Transaction
             Transaction.objects.create(
                 tenant=tenant,
                 subscription=sub,
@@ -135,24 +134,23 @@ def auto_renew_subscriptions_task():
         except Exception as e:
             logger.exception(f"❌ Auto-renew failed for tenant '{tenant.slug}': {e}")
 
-            if not email:
-                logger.warning(f"⚠️ Skipping escalation email for tenant '{tenant.name}' (no owner email).")
-                continue
-
-            recipients = [email]
+            recipients = []
+            if email:
+                recipients.append(email)
             if hasattr(settings, "SUPPORT_EMAIL"):
                 recipients.append(settings.SUPPORT_EMAIL)
 
-            subject = f"Subscription Renewal Failed for {tenant.name}"
-            message = (
-                f"Dear {name},\n\n"
-                f"Automatic renewal for your Smart Inventory subscription failed.\n"
-                f"Please log in and manually renew to avoid service interruption.\n\n"
-                f"Tenant: {tenant.name}\nError: {str(e)}\n\n"
-                f"- Smart Inventory Billing System"
-            )
+            if recipients:
+                subject = f"Subscription Renewal Failed for {tenant.name}"
+                message = (
+                    f"Dear {name},\n\n"
+                    f"Automatic renewal for your Smart Inventory subscription failed.\n"
+                    f"Please log in and manually renew to avoid service interruption.\n\n"
+                    f"Tenant: {tenant.name}\nError: {str(e)}\n\n"
+                    f"- Smart Inventory Billing System"
+                )
+                send_billing_alert_email(subject, message, recipients)
 
-            send_billing_alert_email(subject, message, recipients)
 
 
 

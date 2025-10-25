@@ -1,3 +1,4 @@
+# backend/billing/apps.py
 from django.apps import AppConfig
 from django.db.utils import OperationalError, ProgrammingError
 
@@ -8,13 +9,21 @@ class BillingConfig(AppConfig):
 
     def ready(self):
         """
-        Automatically ensure default pricing plans exist after migrations.
+        Automatically ensure default pricing plans exist after migrations,
+        and register billing signals safely.
         Runs once when Django starts up and silently skips if DB not ready.
         """
         from billing.models import Plan
 
+        # ✅ 1. Import signals (for auto free-trial creation)
         try:
-            # Avoid running before migrations or during flush/reset
+            import billing.signals  # noqa
+            print("🔔 Billing signals loaded successfully.")
+        except Exception as e:
+            print(f"⚠️ Could not load billing signals: {e}")
+
+        # ✅ 2. Seed default plans if none exist
+        try:
             if not Plan.objects.exists():
                 plans = [
                     Plan(
@@ -46,8 +55,10 @@ class BillingConfig(AppConfig):
                 print("✅ Default plans created successfully.")
             else:
                 print("ℹ️ Plans already exist — skipping auto-creation.")
-
         except (OperationalError, ProgrammingError):
             # Happens when DB isn't fully migrated yet
             pass
+
+
+
 
