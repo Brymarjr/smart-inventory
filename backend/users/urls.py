@@ -4,7 +4,7 @@ from .views import UserViewSet, UserRoleViewSet, TenantAwareAuthViewSet, UserRol
 router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'user-roles', UserRoleViewSet, basename='user-role')
-router.register(r'login', TenantAwareAuthViewSet, basename='tenant-login')
+router.register(r'', TenantAwareAuthViewSet, basename='tenant-login')
 router.register(r'users', UserRoleAssignViewSet, basename='user-role-assign')
 
 urlpatterns = router.urls
