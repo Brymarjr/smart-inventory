@@ -6,6 +6,8 @@ import { saveTokens } from "@/lib/auth";
 
 export default function TenantLoginPage() {
   const router = useRouter();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+
   const [tenant, setTenant] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +20,7 @@ export default function TenantLoginPage() {
     setError("");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/login/", {
+      const response = await fetch(`${API_BASE_URL}/login/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tenant, username, password }),
@@ -107,4 +109,5 @@ export default function TenantLoginPage() {
     </div>
   );
 }
+
 

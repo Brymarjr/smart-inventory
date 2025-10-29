@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { saveTokens, getAccessToken } from "@/lib/auth";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -23,7 +25,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/auth/token/", {
+      const res = await fetch(`${API_BASE_URL}/auth/token/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -97,6 +99,7 @@ export default function LoginPage() {
     </div>
   );
 }
+
 
 
 

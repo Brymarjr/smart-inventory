@@ -1,4 +1,3 @@
-// frontend/app/tenant-register/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -6,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 export default function TenantRegisterPage() {
   const router = useRouter();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000/api";
+
   const [formData, setFormData] = useState({
     tenant_name: "",
     username: "",
@@ -27,7 +28,7 @@ export default function TenantRegisterPage() {
     setMessage(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/tenants/register/", {
+      const response = await fetch(`${API_BASE_URL}/tenants/register/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -143,4 +144,5 @@ export default function TenantRegisterPage() {
     </div>
   );
 }
+
 
