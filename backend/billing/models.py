@@ -32,8 +32,8 @@ class Subscription(models.Model):
         ("expired", "Expired"),
     ]
 
-    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="subscriptions")
-    plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True, blank=True, related_name="subscriptions")
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE, related_name="subscription")
+    plan = models.ForeignKey(Plan, on_delete=models.SET_NULL, null=True, blank=True, related_name="subscription")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     started_at = models.DateTimeField(null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)

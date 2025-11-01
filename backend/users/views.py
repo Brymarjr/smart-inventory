@@ -4,14 +4,13 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model, authenticate
 from django.shortcuts import get_object_or_404
-from rest_framework_simplejwt.tokens import RefreshToken
 from tenants.models import Tenant
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema
 from core.mixins import TenantFilteredViewSet
-
 from .models import UserRole
 from .serializers import UserSerializer, UserRoleSerializer, TenantAwareTokenObtainPairSerializer, AssignRoleSerializer
 from .permissions import IsTenantAdmin
+from billing.utils import check_plan_limit
 
 User = get_user_model()
 
@@ -52,6 +51,16 @@ class UserViewSet(TenantFilteredViewSet):
             from .serializers import UserCreateSerializer
             return UserCreateSerializer
         return UserSerializer
+    
+    def perform_create(self, serializer):
+        """
+        Enforce plan limits before creating new users.
+        """
+        tenant = getattr(self.request.user, "tenant", None)
+        if tenant:
+            current_user_count = tenant.users.count()
+            check_plan_limit(tenant, "max_users", current_user_count)
+        serializer.save(tenant=tenant)
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def me(self, request):

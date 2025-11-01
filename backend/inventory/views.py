@@ -1,14 +1,14 @@
+# inventory/views.py
 from rest_framework import viewsets, permissions
+from rest_framework.exceptions import ValidationError, PermissionDenied
 from .models import Category, Supplier, Product
 from .serializers import CategorySerializer, SupplierSerializer, ProductSerializer
 from users.permissions import (
-    IsTenantAdmin,
-    IsManager,
-    IsStaff,
-    IsFinanceOfficer,
     IsTenantAdminOrManager,
     IsTenantAdminManagerOrFinance,
 )
+from billing.utils import require_feature, check_plan_limit
+
 
 # ============================================================
 # BASE TENANT VIEWSET
@@ -50,15 +50,28 @@ class CategoryViewSet(BaseTenantViewSet):
     """
     - TenantAdmin & Manager: full CRUD
     - Staff & FinanceOfficer: read-only
+    - Restricted by tenant plan (requires 'inventory_view' feature)
     """
     serializer_class = CategorySerializer
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
-            # Everyone in tenant can view categories
             return [permissions.IsAuthenticated()]
-        # Only admins and managers can create/update/delete
         return [IsTenantAdminOrManager()]
+
+    def list(self, request, *args, **kwargs):
+        require_feature(request.user.tenant, "inventory_view")
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        tenant = request.user.tenant
+        require_feature(tenant, "inventory_view")
+        
+        # Enforce category creation limit (as defined in PLAN_LIMITS)
+        current_count = Category.objects.filter(tenant=tenant).count()
+        check_plan_limit(tenant, "max_categories", current_count)
+        
+        return super().create(request, *args, **kwargs)
 
 
 # ============================================================
@@ -69,13 +82,28 @@ class SupplierViewSet(BaseTenantViewSet):
     - TenantAdmin & Manager: full CRUD
     - FinanceOfficer: read-only (can view supplier details)
     - Staff: no access
+    - Restricted by tenant plan (requires 'inventory_view')
     """
     serializer_class = SupplierSerializer
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
-            return [IsTenantAdminManagerOrFinance()]
-        return [IsTenantAdminOrManager()]
+            return [permissions.IsAuthenticated()]
+        return [IsTenantAdminManagerOrFinance()]
+
+    def list(self, request, *args, **kwargs):
+        require_feature(request.user.tenant, "inventory_view")
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        tenant = request.user.tenant
+        require_feature(tenant, "inventory_view")
+
+        # Enforce supplier creation limit (as defined in PLAN_LIMITS)
+        current_count = Supplier.objects.filter(tenant=tenant).count()
+        check_plan_limit(tenant, "max_suppliers", current_count)
+
+        return super().create(request, *args, **kwargs)
 
 
 # ============================================================
@@ -86,15 +114,29 @@ class ProductViewSet(BaseTenantViewSet):
     - TenantAdmin & Manager: full CRUD
     - FinanceOfficer: read-only
     - Staff: read-only (for viewing product catalog)
+    - Restricted by tenant plan (requires 'inventory_view')
     """
     serializer_class = ProductSerializer
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
-            # Everyone in tenant (including staff) can view product catalog
             return [permissions.IsAuthenticated()]
-        # Only TenantAdmin or Manager can modify product details
         return [IsTenantAdminOrManager()]
+
+    def list(self, request, *args, **kwargs):
+        require_feature(request.user.tenant, "inventory_view")
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        tenant = request.user.tenant
+        require_feature(tenant, "inventory_view")
+
+        # Enforce product creation limit
+        current_count = Product.objects.filter(tenant=tenant).count()
+        check_plan_limit(tenant, "max_products", current_count)
+
+        return super().create(request, *args, **kwargs)
+
 
 
 

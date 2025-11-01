@@ -58,11 +58,34 @@ def send_billing_alert_email(subject, message, recipients):
     )
 
 def get_tenant_plan(tenant):
-    """Return the tenant's plan name (fallback to 'free')."""
-    subscription = getattr(tenant, 'subscription', None)
-    if not subscription or not subscription.plan:
-        return 'free'
-    return subscription.plan.name.lower()
+    """
+    Return the tenant's plan name (fallback to 'free').
+    Superusers (without a tenant) should always get 'enterprise' privileges.
+    """
+    from billing.models import Subscription  # avoid circular import
+
+    # Handle None or global superuser access
+    if tenant is None:
+        return 'enterprise'
+
+    try:
+        # Fetch the latest active subscription safely
+        active_sub = (
+            Subscription.objects
+            .filter(tenant=tenant, status="active")
+            .order_by("-created_at")
+            .first()
+        )
+        if active_sub and active_sub.plan:
+            return active_sub.plan.name.lower()
+    except Exception as e:
+        # Optional: you can log this
+        print(f"[get_tenant_plan error] {e}")
+
+    return 'free'
+
+
+
 
 
 def has_feature(tenant, feature: str) -> bool:
@@ -84,6 +107,10 @@ def check_plan_limit(tenant, limit_key: str, current_count: int):
 
 def require_feature(tenant, feature: str):
     """Raise PermissionDenied if tenant does not have the feature."""
+    # Superusers or global access bypass restriction
+    if tenant is None:
+        return
+
     if not has_feature(tenant, feature):
         raise PermissionDenied(f"Your current plan does not include '{feature}'. Upgrade to access this feature.")
 
