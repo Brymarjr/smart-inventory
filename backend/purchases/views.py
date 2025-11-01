@@ -10,6 +10,7 @@ from users.permissions import IsFinanceOfficer, IsTenantAdminManagerOrFinance, I
 from inventory.models import Supplier, Product
 from core.mixins import TenantFilteredViewSet
 from decimal import Decimal
+from billing.utils import require_feature
 
 
 class PurchaseOrderViewSet(TenantFilteredViewSet):
@@ -40,7 +41,19 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
 
     def perform_create(self, serializer):
         """Attach tenant and creator on purchase creation."""
+        require_feature(self.request.user.tenant, "purchases")
         serializer.save(tenant=self.request.user.tenant, created_by=self.request.user)
+        
+    def list(self, request, *args, **kwargs):
+        """List purchase orders, restricted by plan and tenant."""
+        require_feature(request.user.tenant, "purchases")
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs): 
+        """Retrieve a single purchase order."""
+        require_feature(request.user.tenant, "purchases")
+        return super().retrieve(request, *args, **kwargs)
+
 
     # ----------------------
     # Custom Actions
@@ -52,6 +65,7 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
         Approve a purchase order (Finance/Admin only).
         Finance can select or change supplier before approving.
         """
+        require_feature(self.request.user.tenant, "purchases")
         purchase = self.get_object()
 
         if purchase.status != PurchaseOrder.STATUS_PENDING:
@@ -78,6 +92,7 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsFinanceOfficer])
     def reject(self, request, pk=None):
         """Reject a purchase order (Finance/Admin only)."""
+        require_feature(self.request.user.tenant, "purchases")
         purchase = self.get_object()
         if purchase.status not in [
             PurchaseOrder.STATUS_PENDING,
@@ -108,6 +123,7 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
           ]
         }
         """
+        require_feature(self.request.user.tenant, "purchases")
         purchase = self.get_object()
 
         if purchase.status != PurchaseOrder.STATUS_APPROVED_PENDING_PAYMENT:
@@ -213,6 +229,16 @@ class PurchaseItemViewSet(TenantFilteredViewSet):
         if user.is_superuser:
             return base_qs
         return base_qs.filter(purchase__tenant=user.tenant)
+    
+    def list(self, request, *args, **kwargs):
+        """List purchase items — blocked for tenants without 'purchases' feature."""
+        require_feature(request.user.tenant, "purchases")
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve single purchase item — blocked for tenants without 'purchases' feature."""
+        require_feature(request.user.tenant, "purchases")
+        return super().retrieve(request, *args, **kwargs)
 
 
 

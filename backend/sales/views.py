@@ -5,7 +5,7 @@ from core.mixins import TenantFilteredViewSet
 from users.permissions import IsStaff, IsTenantAdminManagerOrFinance
 from .models import Sale
 from .serializers import SaleCreateSerializer, SaleReadSerializer
-
+from billing.utils import require_feature
 
 class SaleViewSet(TenantFilteredViewSet):
     """
@@ -34,6 +34,7 @@ class SaleViewSet(TenantFilteredViewSet):
 
     def list(self, request, *args, **kwargs):
         """List all sales for the tenant."""
+        require_feature(request.user.tenant, "sales_view")
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page or queryset, many=True)
@@ -43,6 +44,7 @@ class SaleViewSet(TenantFilteredViewSet):
 
     def retrieve(self, request, pk=None):
         """Retrieve details of a single sale."""
+        require_feature(request.user.tenant, "sales_view")
         sale = self.get_queryset().filter(pk=pk).first()
         if not sale:
             return Response({"detail": "Sale not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -51,6 +53,7 @@ class SaleViewSet(TenantFilteredViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new sale transaction."""
+        require_feature(request.user.tenant, "sales_view")
         serializer = SaleCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
