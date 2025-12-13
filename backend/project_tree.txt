@@ -1,0 +1,110 @@
+.
+├── billing
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── constants.py
+│   ├── management
+│   │   └── commands
+│   ├── models.py
+│   ├── permissions.py
+│   ├── serializers.py
+│   ├── services
+│   │   └── paystack.py
+│   ├── signals.py
+│   ├── tasks.py
+│   ├── tests.py
+│   ├── urls.py
+│   ├── utils.py
+│   └── views.py
+├── celerybeat-schedule
+├── core
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── managers.py
+│   ├── mixins.py
+│   ├── models.py
+│   ├── openapi.py
+│   ├── tenant_context.py
+│   ├── tests.py
+│   └── views.py
+├── inventory
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── models.py
+│   ├── serializers.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── logs
+│   └── tenant.log
+├── manage.py
+├── project_tree.txt
+├── purchases
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── models.py
+│   ├── permissions.py
+│   ├── serializers.py
+│   ├── signals.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── requirements.txt
+├── sales
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── models.py
+│   ├── serializers.py
+│   ├── tasks.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── smart_inventory
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── celery.py
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+├── sync
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── models.py
+│   ├── serializers.py
+│   ├── tasks.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+├── tenants
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── auth_middleware.py
+│   ├── middleware.py
+│   ├── models.py
+│   ├── permissions.py
+│   ├── serializers.py
+│   ├── signals.py
+│   ├── tests.py
+│   ├── urls.py
+│   └── views.py
+└── users
+    ├── __init__.py
+    ├── admin.py
+    ├── apps.py
+    ├── models.py
+    ├── permissions.py
+    ├── serializers.py
+    ├── tests.py
+    ├── tokens.py
+    ├── urls.py
+    ├── utils.py
+    └── views.py
+
+14 directories, 94 files

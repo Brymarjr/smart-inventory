@@ -55,8 +55,28 @@ INSTALLED_APPS = [
     'billing',
     'purchases',
     'sales',
+    'sync',
+    'django_celery_results',
+    'django_celery_beat',
     
 ]
+
+# Sync feature toggles & defaults
+SYNC_ENABLED = True
+
+# Whitelisted models that can be synced by clients (app_label.ModelName strings)
+SYNCED_MODELS = [
+    "inventory.Category",
+    "inventory.Product",
+    "purchases.PurchaseOrder",
+    "purchases.PurchaseItem",
+    "sales.Sale",
+    "sales.SaleItem",
+]
+SYNC_MODELS = SYNCED_MODELS
+
+# Max operations per upload request (configurable)
+MAX_OPS_PER_UPLOAD = 500
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -77,11 +97,8 @@ MIDDLEWARE = [
 
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'sync.middleware.SyncActivityLoggerMiddleware',
 ]
-
-
-
-
 
 
 
@@ -187,7 +204,7 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-# Simple JWT configuration (adjust lifetimes as desired)
+# Simple JWT configuration 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -224,6 +241,12 @@ LOGGING = {
             "filename": os.path.join(BASE_DIR, "logs", "tenant.log"),
             "formatter": "verbose",
         },
+        "sync_file": {  
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "logs", "sync.log"),
+            "formatter": "verbose",
+        },
         "console": {
             "level": "INFO",
             "class": "logging.StreamHandler",
@@ -236,8 +259,14 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        "sync": {  # NEW
+            "handlers": ["sync_file", "console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
+
 
 
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "")
@@ -253,7 +282,11 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Africa/Lagos"
-
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # Email Settings for Gmail SMTP
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
