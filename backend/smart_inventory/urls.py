@@ -20,15 +20,16 @@ urlpatterns = [
     # API schema and docs
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path('api/redoc/', SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 
     # your app APIs 
     path('api/', include('users.urls')),       
     path('api/', include('inventory.urls')),
     path('api/', include('tenants.urls')),
     path('api/billing/', include('billing.urls')),
-    path("api/", include("purchases.urls")),
+    path('api/', include("purchases.urls")),
     path('api/', include('sales.urls')),
-    path("api/sync/", include('sync.urls')),
+    path('api/sync/', include('sync.urls')),
+    path('api/', include('forecast.urls')),
  
 ]

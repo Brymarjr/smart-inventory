@@ -52,24 +52,36 @@ class PurchaseOrder(TenantAwareModel):
         ]
 
     def save(self, *args, **kwargs):
-        """Auto-generate tenant-specific reference if not set."""
+        """Auto-generate tenant-specific reference safely, avoiding duplicates."""
         if not self.reference:
             year = timezone.now().year
-            tenant_code = (
-                self.tenant.name[:4].upper() if self.tenant and self.tenant.name else "GEN"
+            tenant_code = (self.tenant.name[:4].upper() if self.tenant and self.tenant.name else "GEN")
+            
+            # Determine next available count for this tenant/year
+            last_po = (
+                PurchaseOrder.objects.filter(tenant=self.tenant, created_at__year=year)
+                .order_by('-id')
+                .first()
             )
-            count = (
-                PurchaseOrder.objects.filter(
-                    tenant=self.tenant, created_at__year=year
-                ).count() + 1
-            )
-            self.reference = f"PO-{tenant_code}-{year}-{count:04d}"
+            last_count = 0
+            if last_po and last_po.reference:
+                try:
+                    last_count = int(last_po.reference.split('-')[-1])
+                except ValueError:
+                    last_count = 0
+
+            # Increment until we find an unused reference
+            count = last_count + 1
+            while True:
+                candidate = f"PO-{tenant_code}-{year}-{count:04d}"
+                if not PurchaseOrder.objects.filter(reference=candidate).exists():
+                    self.reference = candidate
+                    break
+                count += 1
 
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        supplier_name = self.supplier.name if self.supplier else "No Supplier"
-        return f"{self.reference} - {supplier_name} ({self.status})"
+
 
 
 class PurchaseItem(models.Model):
