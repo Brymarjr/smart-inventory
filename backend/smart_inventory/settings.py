@@ -199,8 +199,9 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
+        'users.permissions.MustChangePasswordPermission',
         'rest_framework.permissions.IsAuthenticated',  # safe default; you can override per-view
-        'tenants.permissions.IsTenantActiveOrReadOnly',
+        'tenants.permissions.IsTenantActiveOrReadOnly', 
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }

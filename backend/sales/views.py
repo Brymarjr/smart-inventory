@@ -2,7 +2,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from core.mixins import TenantFilteredViewSet
-from users.permissions import IsStaff, IsTenantAdminManagerOrFinance
+from users.permissions import IsStaff, IsTenantAdminManagerOrFinance, MustChangePasswordPermission
 from .models import Sale
 from .serializers import SaleCreateSerializer, SaleReadSerializer
 from billing.utils import require_feature
@@ -18,14 +18,14 @@ class SaleViewSet(TenantFilteredViewSet):
         .select_related("created_by", "tenant")
         .prefetch_related("items__product")
     )
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, MustChangePasswordPermission]
 
     def get_permissions(self):
         """Assign permissions based on action."""
         if self.action == "create":
-            permission_classes = [IsAuthenticated, IsStaff]
+            permission_classes = [IsAuthenticated, IsStaff, MustChangePasswordPermission]
         else:
-            permission_classes = [IsAuthenticated, IsTenantAdminManagerOrFinance]
+            permission_classes = [IsAuthenticated, IsTenantAdminManagerOrFinance, MustChangePasswordPermission]
         return [perm() for perm in permission_classes]
 
     def get_serializer_class(self):

@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from rest_framework.permissions import BasePermission
 
 
 class IsTenantAdmin(permissions.BasePermission):
@@ -77,3 +78,32 @@ class IsStaffOrTenantAdminManagerOrFinance(permissions.BasePermission):
         return getattr(user.role, "name", None) in [
             "tenant_admin", "manager", "finance_officer", "staff"
         ]
+
+
+
+
+class MustChangePasswordPermission(permissions.BasePermission):
+    """
+    Deny access to any endpoint for users who must change password,
+    except for endpoints that allow password change/reset/login.
+    """
+
+    def has_permission(self, request, view):
+        # Allow password-related endpoints
+        allowed_views = [
+            'TenantAwareAuthViewSet',
+            'PasswordResetViewSet',
+        ]
+        allowed_actions = ['login', 'forgot_password', 'change_password', 'admin_reset_password']
+
+        if view.__class__.__name__ in allowed_views or getattr(view, 'action', None) in allowed_actions:
+            return True
+
+        # Block all other endpoints if user must change password
+        user = getattr(request, 'user', None)
+        if user and user.is_authenticated and getattr(user, 'must_change_password', False):
+            return False
+
+        return True
+
+
