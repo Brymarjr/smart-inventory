@@ -1,77 +1,180 @@
 Smart Inventory
 
-Smart Inventory is a multi-tenant, AI-powered inventory management system designed for retail stores. It provides automated inventory tracking, predictive demand forecasting, and actionable insights for store staff and managers, helping organizations optimize stock levels, reduce waste, and streamline purchase workflows.
+Smart Inventory is a multi-tenant, enterprise-grade inventory management system designed to help retail businesses efficiently manage products, sales, purchases, stock levels, and operational decisions across multiple stores.
 
+The system combines robust backend architecture, role-based workflows, offline-first synchronization, and machine learning–driven demand forecasting to provide actionable insights and operational reliability, even in constrained environments.
 
-Features
-Core Features
+Overview
 
-Multi-tenancy: Each tenant (store) operates independently with isolated data.
+Retail businesses often struggle with fragmented inventory records, poor stock visibility, delayed replenishment decisions, and unreliable forecasting. Smart Inventory addresses these challenges by providing:
 
-Role-Based Access Control (RBAC):
+Centralized, tenant-isolated inventory management
 
-Tenant Admin
+Structured approval workflows for purchases and payments
 
-Manager
+Accurate sales and stock tracking
 
-Staff
+Offline-capable data synchronization
 
-Finance Officer
+Predictive analytics for demand planning
 
-Product & Inventory Management:
+Scalable architecture suitable for small to large retailers
 
-Track products, categories, and suppliers.
+The system is designed to be monolith-first, extensible, and production-ready.
 
-Automatic stock adjustments on sales and purchases.
+Key Capabilities
+Multi-Tenancy
 
-Alerts for low stock and replenishment needs.
+Each organization operates within its own isolated tenant.
 
-Purchase Workflow:
+Data is automatically filtered per tenant at the application layer.
 
-Staff can create purchase orders.
+Designed to scale across multiple stores and businesses.
 
-Finance/Administrators approve and mark payments.
+User Roles & Permissions
 
-Stock updates automatically after payment confirmation.
+Fine-grained role-based access control (RBAC).
 
-Sales Management:
+Clear separation of responsibilities between staff, managers, and finance roles.
 
-Record sales transactions with multiple products.
+Permission enforcement at both API and workflow levels.
 
-Maintain accurate historical sales data.
+Inventory Management
 
-Advanced Features
+Product, category, and supplier management.
 
-AI & ML Demand Forecasting:
+Accurate stock tracking driven by real sales and purchase events.
 
-Predicts future product demand based on historical sales.
+Controlled stock updates to prevent inconsistencies.
 
-Includes confidence intervals for better planning.
+Sales Management
 
-Provides actionable recommendations (e.g., reorder suggestions).
+Structured sales recording with line items.
 
-Forecast Dashboard:
+Historical sales data retained for analytics and forecasting.
 
-Shows predicted quantity, last sale date, and recommended actions.
+Designed to work both online and offline.
 
-Helps store staff make informed purchasing decisions.
+Purchase Workflow
 
-Offline Sync:
+Staff-initiated purchase requests.
 
-Works even when internet is unavailable.
+Finance-only approval and payment confirmation.
 
-Syncs changes when the connection is restored.
+Stock updates occur strictly after confirmed payment.
 
-Notifications & Alerts:
+Full audit trail for approvals and payments.
 
-Automatic alerts for low stock, expiring subscriptions, or pending approvals.
+Offline Synchronization
 
-Tenant Billing:
+Offline-first design for environments with unstable connectivity.
 
-Integrated Paystack subscription handling.
+Device-based sync jobs and conflict handling.
 
-Multi-layered Analytics:
+Reliable reconciliation once connectivity is restored.
 
-Track sales trends, stock levels, and purchase efficiency.
+Demand Forecasting & Intelligence
 
-Supports reporting for multiple tenants.
+Machine learning–driven demand forecasting per tenant.
+
+Forecasts generated from historical sales patterns.
+
+Confidence intervals included for better decision-making.
+
+Action-oriented insights to support replenishment planning.
+
+Notifications & Background Processing
+
+Asynchronous background tasks using Celery.
+
+Reliable processing of long-running jobs such as forecasting and sync.
+
+Designed to support notifications and alerts.
+
+Billing & Subscriptions
+
+Tenant-level subscription handling.
+
+Payment integration designed for Nigerian payment infrastructure.
+
+Supports feature gating and usage-based limits.
+
+Architecture
+
+Smart Inventory follows a clean, modular backend architecture:
+
+Backend: Django + Django REST Framework
+
+Database: PostgreSQL
+
+Asynchronous Processing: Celery with Redis
+
+Authentication: JWT-based authentication
+
+API Design: RESTful, ViewSet-based structure
+
+Tenant Isolation: Enforced at query and application layers
+
+Deployment Model: Production-ready, container-friendly
+
+The system is intentionally designed as a monolith-first application, allowing faster iteration, simpler reasoning, and safer scaling.
+
+Machine Learning Strategy
+
+Smart Inventory integrates demand forecasting as a decision-support tool, not a black box.
+
+Key principles:
+
+One trained model per tenant
+
+Forecasts generated from real historical sales data
+
+Predictive outputs remain explainable and auditable
+
+Forecast results translated into practical recommendations for staff
+
+This ensures that forecasts are useful, trustworthy, and actionable, rather than theoretical.
+
+Data Integrity & Safety
+
+All stock updates are event-driven and controlled.
+
+Purchase and payment workflows prevent premature stock changes.
+
+Transactions are atomic where consistency is required.
+
+Tenant data isolation is strictly enforced.
+
+Background jobs are idempotent and safe to retry.
+
+Development Philosophy
+
+Smart Inventory is built with the following principles:
+
+Correctness over cleverness
+
+Explicit workflows instead of implicit side effects
+
+Scalability through clarity
+
+Real-world constraints considered from day one
+
+Extensibility without premature complexity
+
+Every major subsystem is designed to evolve independently without breaking core guarantees.
+
+Project Status
+
+The system has completed:
+
+Core inventory and sales management
+
+Purchase and finance workflows
+
+Offline synchronization
+
+Tenant billing foundation
+
+Machine learning forecasting
+
+Forecast validation and operational dashboards
