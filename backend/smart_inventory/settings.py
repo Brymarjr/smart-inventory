@@ -208,8 +208,10 @@ CORS_ALLOW_CREDENTIALS = True
 # Allow local dev frontend to be trusted for CSRF if you use cookies
 CSRF_TRUSTED_ORIGINS = config(
     'CSRF_TRUSTED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000',
-).split(',')
+    default='',
+    cast=lambda v: [s.strip() for s in v.split(',') if v]
+)
+
 
 
 # REST Framework config
