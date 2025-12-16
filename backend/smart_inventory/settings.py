@@ -31,8 +31,6 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
-print("DB_HOST =", config('DB_HOST'))
-
 
 # SECURITY WARNING: keep the secret key used in production secret!
 
@@ -150,7 +148,7 @@ DATABASES = {
         'NAME': config('DB_NAME', default='render_build_db'),
         'USER': config('DB_USER', default='render_build_user'),
         'PASSWORD': config('DB_PASSWORD', default='render_build_password'),
-        'HOST': config('DB_HOST', default='localhost'),
+        'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT', default='5432'),
     }
 }
