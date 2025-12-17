@@ -8,45 +8,14 @@ from users.permissions import (
     IsTenantAdminManagerOrFinance,
 )
 from billing.utils import require_feature, check_plan_limit
+from core.mixins import TenantFilteredViewSet
 
-
-# ============================================================
-# BASE TENANT VIEWSET
-# ============================================================
-class BaseTenantViewSet(viewsets.ModelViewSet):
-    """
-    Reusable base viewset for tenant-aware filtering.
-    Ensures that all data is scoped to the authenticated user's tenant.
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        model = self.get_serializer().Meta.model
-
-        # Global superuser view (system-wide)
-        if user.is_superuser and not getattr(user, "tenant", None):
-            return model.objects.all()
-
-        # Tenant-level filtering
-        if getattr(user, "tenant", None):
-            return model.objects.filter(tenant=user.tenant)
-
-        # No tenant assigned (block access)
-        return model.objects.none()
-
-    def perform_create(self, serializer):
-        """
-        Automatically assign tenant when creating new records.
-        """
-        tenant = getattr(self.request.user, "tenant", None)
-        serializer.save(tenant=tenant)
 
 
 # ============================================================
 # CATEGORY VIEWSET
 # ============================================================
-class CategoryViewSet(BaseTenantViewSet):
+class CategoryViewSet(TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
     - Staff & FinanceOfficer: read-only
@@ -84,7 +53,7 @@ class CategoryViewSet(BaseTenantViewSet):
 # ============================================================
 # SUPPLIER VIEWSET
 # ============================================================
-class SupplierViewSet(BaseTenantViewSet):
+class SupplierViewSet(TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
     - FinanceOfficer: read-only (can view supplier details)
@@ -124,7 +93,7 @@ class SupplierViewSet(BaseTenantViewSet):
 # ============================================================
 # PRODUCT VIEWSET
 # ============================================================
-class ProductViewSet(BaseTenantViewSet):
+class ProductViewSet(TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
     - FinanceOfficer: read-only
@@ -158,9 +127,4 @@ class ProductViewSet(BaseTenantViewSet):
         check_plan_limit(tenant, "max_products", current_count)
 
         return super().create(request, *args, **kwargs)
-
-
-
-
-
 
