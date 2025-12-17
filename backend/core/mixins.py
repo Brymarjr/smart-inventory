@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from rest_framework.exceptions import NotAuthenticated
 
 class TenantFilteredViewSet(viewsets.ModelViewSet):
     """Base ViewSet that automatically filters by tenant,
@@ -30,5 +31,10 @@ class TenantFilteredViewSet(viewsets.ModelViewSet):
             serializer.save(tenant=user.tenant)
         else:
             serializer.save()
+            
+    def initial(self, request, *args, **kwargs):
+        if not request.user or not request.user.is_authenticated:
+            raise NotAuthenticated("Authentication required")
+        super().initial(request, *args, **kwargs)
 
 

@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from django.utils import timezone
 from django.db import transaction
 from .models import PurchaseOrder, PurchaseItem
@@ -11,6 +12,8 @@ from inventory.models import Supplier, Product
 from core.mixins import TenantFilteredViewSet
 from decimal import Decimal
 from billing.utils import require_feature
+
+
 
 
 class PurchaseOrderViewSet(TenantFilteredViewSet):
@@ -41,17 +44,36 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
 
     def perform_create(self, serializer):
         """Attach tenant and creator on purchase creation."""
-        require_feature(self.request.user.tenant, "purchases")
-        serializer.save(tenant=self.request.user.tenant, created_by=self.request.user)
+        tenant = getattr(self.request.user, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Tenant context not found.")
+
+        require_feature(tenant, "purchases")
+        serializer.save(tenant=tenant, created_by=self.request.user)
+
         
     def list(self, request, *args, **kwargs):
         """List purchase orders, restricted by plan and tenant."""
-        require_feature(request.user.tenant, "purchases")
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant context not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        require_feature(tenant, "purchases")
         return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs): 
         """Retrieve a single purchase order."""
-        require_feature(request.user.tenant, "purchases")
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant context not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        require_feature(tenant, "purchases")
         return super().retrieve(request, *args, **kwargs)
 
 
@@ -65,7 +87,14 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
         Approve a purchase order (Finance/Admin only).
         Finance can select or change supplier before approving.
         """
-        require_feature(self.request.user.tenant, "purchases")
+        tenant = getattr(self.request.user, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant context not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        require_feature(tenant, "purchases")
         purchase = self.get_object()
 
         if purchase.status != PurchaseOrder.STATUS_PENDING:
@@ -92,7 +121,14 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsFinanceOfficer])
     def reject(self, request, pk=None):
         """Reject a purchase order (Finance/Admin only)."""
-        require_feature(self.request.user.tenant, "purchases")
+        tenant = getattr(self.request.user, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant context not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        require_feature(tenant, "purchases")
         purchase = self.get_object()
         if purchase.status not in [
             PurchaseOrder.STATUS_PENDING,
@@ -123,7 +159,14 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
           ]
         }
         """
-        require_feature(self.request.user.tenant, "purchases")
+        tenant = getattr(self.request.user, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant context not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        require_feature(tenant, "purchases")
         purchase = self.get_object()
 
         if purchase.status != PurchaseOrder.STATUS_APPROVED_PENDING_PAYMENT:
@@ -232,12 +275,26 @@ class PurchaseItemViewSet(TenantFilteredViewSet):
     
     def list(self, request, *args, **kwargs):
         """List purchase items — blocked for tenants without 'purchases' feature."""
-        require_feature(request.user.tenant, "purchases")
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant context not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        require_feature(tenant, "purchases")
         return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
         """Retrieve single purchase item — blocked for tenants without 'purchases' feature."""
-        require_feature(request.user.tenant, "purchases")
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            return Response(
+                {"detail": "Tenant context not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        require_feature(tenant, "purchases")
         return super().retrieve(request, *args, **kwargs)
 
 
