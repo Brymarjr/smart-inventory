@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'sales',
     'sync',
     'forecast',
+    'notifications',
     'django_celery_results',
     'django_celery_beat',
     
