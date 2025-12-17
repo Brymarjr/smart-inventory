@@ -60,18 +60,25 @@ class CategoryViewSet(BaseTenantViewSet):
         return [IsTenantAdminOrManager()]
 
     def list(self, request, *args, **kwargs):
-        require_feature(request.user.tenant, "inventory_view")
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Tenant context not found.")
+
+        require_feature(tenant, "inventory_view")
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        tenant = request.user.tenant
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Tenant context not found.")
+
         require_feature(tenant, "inventory_view")
-        
-        # Enforce category creation limit (as defined in PLAN_LIMITS)
+
         current_count = Category.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_categories", current_count)
-        
+
         return super().create(request, *args, **kwargs)
+
 
 
 # ============================================================
@@ -92,18 +99,26 @@ class SupplierViewSet(BaseTenantViewSet):
         return [IsTenantAdminManagerOrFinance()]
 
     def list(self, request, *args, **kwargs):
-        require_feature(request.user.tenant, "inventory_view")
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Tenant context not found.")
+
+        require_feature(tenant, "inventory_view")
         return super().list(request, *args, **kwargs)
 
+
     def create(self, request, *args, **kwargs):
-        tenant = request.user.tenant
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Tenant context not found.")
+
         require_feature(tenant, "inventory_view")
 
-        # Enforce supplier creation limit (as defined in PLAN_LIMITS)
         current_count = Supplier.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_suppliers", current_count)
 
         return super().create(request, *args, **kwargs)
+
 
 
 # ============================================================
@@ -124,18 +139,26 @@ class ProductViewSet(BaseTenantViewSet):
         return [IsTenantAdminOrManager()]
 
     def list(self, request, *args, **kwargs):
-        require_feature(request.user.tenant, "inventory_view")
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Tenant context not found.")
+
+        require_feature(tenant, "inventory_view")
         return super().list(request, *args, **kwargs)
 
+
     def create(self, request, *args, **kwargs):
-        tenant = request.user.tenant
+        tenant = getattr(request.user, "tenant", None)
+        if tenant is None:
+            raise PermissionDenied("Tenant context not found.")
+
         require_feature(tenant, "inventory_view")
 
-        # Enforce product creation limit
         current_count = Product.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_products", current_count)
 
         return super().create(request, *args, **kwargs)
+
 
 
 
