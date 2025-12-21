@@ -1,4 +1,4 @@
-#!/home/brymar/projects/smart-inventory/backend/venv/bin/python3
+#!/home/brymarjr/smart-inventory/backend/venv/bin/python3.12
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-from decouple import config
 import os
 from datetime import timedelta
 import environ
@@ -28,26 +27,26 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
+
 env = environ.Env()
-environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+
+# Load local env file if it exists (for local testing)
+local_env_file = os.path.join(BASE_DIR, ".env.local")
+if os.path.exists(local_env_file):
+    env.read_env(local_env_file)
+
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
 
-SECRET_KEY = config(
-    'SECRET_KEY',
-    default='unsafe-build-key-only-for-render'
-)
+SECRET_KEY = env('SECRET_KEY', default='unsafe-build-key-only-for-render')
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=False, cast=bool)
+DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = config(
-    'ALLOWED_HOSTS',
-    default='localhost,127.0.0.1',
-    cast=lambda v: [s.strip() for s in v.split(',')]
-)
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost','127.0.0.1'])
+
 
 
 
@@ -147,11 +146,11 @@ WSGI_APPLICATION = 'smart_inventory.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='render_build_db'),
-        'USER': config('DB_USER', default='render_build_user'),
-        'PASSWORD': config('DB_PASSWORD', default='render_build_password'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT', default='5432'),
+        'NAME': env('DB_NAME', default='render_build_db'),
+        'USER': env('DB_USER', default='render_build_user'),
+        'PASSWORD': env('DB_PASSWORD', default='render_build_password'),
+        'HOST': env('DB_HOST', default='localhost'),
+        'PORT': env('DB_PORT', default='5432'),
     }
 }
 
@@ -207,11 +206,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 # Allow local dev frontend to be trusted for CSRF if you use cookies
-CSRF_TRUSTED_ORIGINS = config(
-    'CSRF_TRUSTED_ORIGINS',
-    default='',
-    cast=lambda v: [s.strip() for s in v.split(',') if v]
-)
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[])
 
 
 
@@ -294,18 +289,16 @@ LOGGING = {
 
 
 
-PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "")
-PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY", "")
-PAYSTACK_BASE_URL = os.getenv("PAYSTACK_BASE_URL", "https://api.paystack.co")
-PAYSTACK_WEBHOOK_SECRET = os.getenv("PAYSTACK_WEBHOOK_SECRET", PAYSTACK_SECRET_KEY)
+# Paystack configuration using django-environ for consistency
+PAYSTACK_SECRET_KEY = env('PAYSTACK_SECRET_KEY', default='')
+PAYSTACK_PUBLIC_KEY = env('PAYSTACK_PUBLIC_KEY', default='')
+PAYSTACK_BASE_URL = env('PAYSTACK_BASE_URL', default='https://api.paystack.co')
+PAYSTACK_WEBHOOK_SECRET = env('PAYSTACK_WEBHOOK_SECRET', default=PAYSTACK_SECRET_KEY)
+
 
 
 # Celery Configuration
-CELERY_BROKER_URL = config(
-    'CELERY_BROKER_URL',
-    default='redis://localhost:6379/0'
-)
-
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
@@ -318,14 +311,12 @@ CELERY_TASK_DEFAULT_QUEUE = "default"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 # Email Settings for Gmail SMTP
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-EMAIL_HOST = config('EMAIL_HOST', default='localhost')
-EMAIL_PORT = config('EMAIL_PORT', default=25, cast=int)
-EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
-EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
-EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-        
-
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = env('EMAIL_HOST', default='localhost')
+EMAIL_PORT = env('EMAIL_PORT', default=25, cast=int)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=False)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 SUPPORT_EMAIL = "braimaholatilewa@gmail.com"
 
