@@ -97,6 +97,69 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         subscription.expires_at = timezone.now()
         subscription.save()
         return Response({"detail": "Subscription cancelled."}, status=status.HTTP_200_OK)
+    
+    
+class SubscriptionRenewView(APIView):
+    """
+    Generate a fresh Paystack payment link for a subscription.
+    Only accessible to tenant admins/managers.
+    """
+    permission_classes = [IsAuthenticated, IsTenantAdminOrManager]
+
+    def post(self, request, subscription_id):
+        user = request.user
+        tenant = getattr(user, "tenant", None)
+        if not tenant:
+            return Response(
+                {"detail": "User does not belong to a tenant."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        subscription = get_object_or_404(Subscription, id=subscription_id, tenant=tenant)
+
+        if subscription.plan.name.lower() == "free":
+            return Response(
+                {"detail": "Free subscriptions cannot be renewed manually."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Generate a fresh unique reference
+        reference = f"RENEW-{tenant.slug}-{subscription.id}-{uuid.uuid4().hex[:6]}"
+
+        try:
+            payment_resp = PaystackService.create_payment_link(
+                email=user.email,
+                amount=subscription.plan.amount,
+                reference=reference,
+                metadata={
+                    "tenant_id": tenant.id,
+                    "subscription_id": subscription.id,
+                    "plan_id": subscription.plan.id
+                }
+            )
+            pay_url = payment_resp.get("data", {}).get("authorization_url")
+            if not pay_url:
+                logger.error(f"Failed to get authorization URL from Paystack for subscription {subscription.id}")
+                return Response(
+                    {"detail": "Failed to generate payment link."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            logger.info(f"✅ Generated new Paystack link for subscription {subscription.id} (tenant {tenant.slug})")
+            return Response({
+                "subscription_id": subscription.id,
+                "plan": subscription.plan.name,
+                "amount": subscription.plan.amount,
+                "payment_url": pay_url,
+                "reference": reference
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception(f"❌ Error generating renewal link for subscription {subscription.id}: {e}")
+            return Response(
+                {"detail": "Error generating payment link."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 # -------------------------------------------------------------------

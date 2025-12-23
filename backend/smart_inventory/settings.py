@@ -47,6 +47,7 @@ DEBUG = env.bool('DEBUG', default=False)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost','127.0.0.1'])
 
+FRONTEND_BASE_URL = env('FRONTEND_BASE_URL', default='http://localhost:8000')
 
 
 

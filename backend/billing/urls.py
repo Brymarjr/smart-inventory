@@ -7,11 +7,14 @@ from .views import (
     paystack_webhook,
     PaystackVerifyView,
     GlobalSubscriptionViewSet,
-    GlobalTransactionViewSet
+    GlobalTransactionViewSet,
+    SubscriptionRenewView,
+    
 )
+app_name = "billing"
 
 # -------------------------------------------------------------
-# Routers for DRF ViewSets (ensures automatic Swagger visibility)
+# Routers for DRF ViewSets
 # -------------------------------------------------------------
 router = DefaultRouter()
 router.register(r'plans', PlanViewSet, basename='plan')
@@ -31,6 +34,9 @@ urlpatterns = [
 
     # Manual verification endpoint — for Swagger/testing
     path('paystack/verify/', PaystackVerifyView.as_view(), name='paystack-verify'),
+    
+    # Renewal endpoint — generates fresh Paystack link
+    path('subscriptions/<int:subscription_id>/renew/', SubscriptionRenewView.as_view(), name='subscription-renew'),
     
 ]
 
