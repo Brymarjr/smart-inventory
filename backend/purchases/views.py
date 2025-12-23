@@ -12,6 +12,8 @@ from inventory.models import Supplier, Product
 from core.mixins import TenantFilteredViewSet
 from decimal import Decimal
 from billing.utils import require_feature
+from notifications.utils import notify_user
+
 
 
 
@@ -114,6 +116,15 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
         purchase.approved_by = request.user
         purchase.approved_at = timezone.now()
         purchase.save()
+        
+        # Notify purchase creator
+        notify_user(
+            tenant=purchase.tenant,
+            recipient=purchase.created_by,
+            title="Purchase Approved",
+            message=f"Your purchase order #{purchase.id} has been approved and is pending payment.",
+            notification_type="purchase_approved",
+        )
 
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -141,6 +152,15 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
 
         purchase.status = PurchaseOrder.STATUS_CANCELLED
         purchase.save()
+        
+        # Notify purchase creator
+        notify_user(
+            tenant=purchase.tenant,
+            recipient=purchase.created_by,
+            title="Purchase Rejected",
+            message=f"Your purchase order #{purchase.id} has been rejected.",
+            notification_type="purchase_rejected",
+        )
 
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -250,10 +270,18 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
                 product.price = final_price
                 product.quantity += item.quantity
                 product.save(update_fields=["price", "quantity"])
+                
+        # Notify purchase creator
+        notify_user(
+            tenant=purchase.tenant,
+            recipient=purchase.created_by,
+            title="Purchase Paid",
+            message=f"Your purchase order #{purchase.id} has been paid and inventory has been updated.",
+            notification_type="purchase_paid",
+        )
 
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
 
 
 class PurchaseItemViewSet(TenantFilteredViewSet):

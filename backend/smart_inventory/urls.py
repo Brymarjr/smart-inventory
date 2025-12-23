@@ -31,5 +31,6 @@ urlpatterns = [
     path('api/', include('sales.urls')),
     path('api/sync/', include('sync.urls')),
     path('api/', include('forecast.urls')),
+    path('api/', include('notifications.urls')),
  
 ]
