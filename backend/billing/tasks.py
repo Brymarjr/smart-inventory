@@ -74,6 +74,97 @@ def notify_expiring_subscriptions_task(days_before_expiry=7):
                     logger.exception(f"❌ Failed to add renewal link for tenant {tenant.slug}: {e}")
 
             logger.info(f"✅ Notified tenant '{tenant.slug}' user {user.id} for subscription {sub.id}")
+            
+            
+# -------------------------------------------------------------------
+# Notify tenant admins about payment result (success/failure)
+# -------------------------------------------------------------------
+@shared_task
+def notify_payment_status_task(subscription_id, status):
+    """
+    Notify tenant admins/managers about the payment status of a subscription.
+    `status` should be "success" or "failed".
+    """
+    try:
+        sub = Subscription.objects.select_related("tenant", "plan").get(id=subscription_id)
+    except Subscription.DoesNotExist:
+        logger.warning(f"❌ Subscription {subscription_id} not found for payment notification")
+        return
+
+    tenant = sub.tenant
+    recipients = User.objects.filter(
+        tenant=tenant,
+        role__name__in=["tenant_admin", "manager"],
+        is_active=True,
+    )
+
+    if not recipients.exists():
+        return
+
+    for user in recipients:
+        title = f"Payment {status} for subscription"
+        if status == "success":
+            message = (
+                f"Dear {user.get_full_name()}, your tenant's subscription for plan "
+                f"'{sub.plan.name}' has been successfully paid."
+            )
+        else:
+            message = (
+                f"Dear {user.get_full_name()}, the payment for your tenant's subscription "
+                f"plan '{sub.plan.name}' has failed. Please check and retry."
+            )
+
+        notification = Notification.objects.create(
+            tenant=tenant,
+            recipient=user,
+            title=title,
+            message=message,
+            notification_type="billing",
+        )
+        send_notification_email.delay(notification.id)
+        logger.info(f"🔔 Payment '{status}' notification sent to tenant '{tenant.slug}' user {user.id}")
+
+
+# -------------------------------------------------------------------
+# Notify tenant admins about subscription cancellation
+# -------------------------------------------------------------------
+@shared_task
+def notify_subscription_cancellation_task(subscription_id):
+    """
+    Notify tenant admins/managers when a subscription is cancelled.
+    """
+    try:
+        sub = Subscription.objects.select_related("tenant", "plan").get(id=subscription_id)
+    except Subscription.DoesNotExist:
+        logger.warning(f"❌ Subscription {subscription_id} not found for cancellation notification")
+        return
+
+    tenant = sub.tenant
+    recipients = User.objects.filter(
+        tenant=tenant,
+        role__name__in=["tenant_admin", "manager"],
+        is_active=True,
+    )
+
+    if not recipients.exists():
+        return
+
+    for user in recipients:
+        title = "Subscription Cancelled"
+        message = (
+            f"Dear {user.get_full_name()}, your tenant's subscription for plan "
+            f"'{sub.plan.name}' has been cancelled."
+        )
+        notification = Notification.objects.create(
+            tenant=tenant,
+            recipient=user,
+            title=title,
+            message=message,
+            notification_type="billing",
+        )
+        send_notification_email.delay(notification.id)
+        logger.info(f"🔔 Cancellation notification sent to tenant '{tenant.slug}' user {user.id}")
+
 
 
 

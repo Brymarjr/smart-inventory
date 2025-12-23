@@ -12,7 +12,7 @@ from .models import Plan, Subscription, Transaction
 from .serializers import PlanSerializer, SubscriptionSerializer, TransactionSerializer
 from .services.paystack import PaystackService
 from tenants.models import Tenant
-from .tasks import verify_paystack_transaction_task
+from .tasks import verify_paystack_transaction_task, notify_subscription_cancellation_task, notify_payment_status_task
 from django.core.mail import send_mail
 from .permissions import IsCompanySuperUser
 from users.permissions import IsTenantAdmin, IsFinanceOfficer, IsTenantAdminOrManager, IsFinanceOrAdmin
@@ -95,7 +95,11 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
         subscription.status = "cancelled"
         subscription.auto_renew = False
         subscription.expires_at = timezone.now()
-        subscription.save()
+        subscription.save(update_fields=["status", "auto_renew", "expires_at"])
+        
+        # Trigger cancellation notification to tenant admins/managers
+        notify_subscription_cancellation_task.delay(subscription.id)
+        
         return Response({"detail": "Subscription cancelled."}, status=status.HTTP_200_OK)
     
     
@@ -242,11 +246,19 @@ def paystack_webhook(request):
         days = getattr(plan, "duration_days", 30)
         subscription.expires_at = subscription.started_at + timezone.timedelta(days=days)
         subscription.save(update_fields=["status", "started_at", "expires_at", "paystack_reference"])
+        
+        # Notify tenant admins/managers
+        notify_payment_status_task.delay(subscription.id, "success")
 
         logger.info(f"✅ Subscription {subscription_id} reactivated for tenant {tenant_id}.")
+        
     elif status_data == "failed":
         subscription.status = "pending"
         subscription.save(update_fields=["status"])
+        
+        # Notify tenant admins/managers
+        notify_payment_status_task.delay(subscription.id, "failed")
+        
         logger.warning(f"⚠️ Payment failed for {subscription_id}.")
 
     return Response({"status": True, "message": "Webhook processed successfully"}, status=200)
