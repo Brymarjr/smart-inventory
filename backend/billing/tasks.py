@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.conf import settings
 import logging
 import uuid
+from tenants.models import Tenant
 
 logger = logging.getLogger(__name__)
 
@@ -197,3 +198,47 @@ def verify_paystack_transaction_task(self, reference):
     except Exception as exc:
         logger.exception(f"❌ Error verifying Paystack transaction {reference}: {exc}")
         raise self.retry(exc=exc)
+
+
+@shared_task
+def notify_manual_billing_alert(
+    tenant_id: int,
+    title: str,
+    message: str,
+):
+    """
+    Send a manual billing alert to tenant admins/managers.
+    Intended for admin-triggered billing events.
+    """
+
+    try:
+        tenant = Tenant.objects.get(id=tenant_id)
+    except Tenant.DoesNotExist:
+        logger.error(f"❌ Tenant {tenant_id} does not exist")
+        return
+
+    recipients = User.objects.filter(
+        tenant=tenant,
+        role__name__in=["tenant_admin", "manager"],
+        is_active=True,
+    )
+
+    if not recipients.exists():
+        logger.warning(f"⚠️ No recipients for tenant {tenant.slug}")
+        return
+
+    for user in recipients:
+        notification = Notification.objects.create(
+            tenant=tenant,
+            recipient=user,
+            title=title,
+            message=message,
+            notification_type="billing",
+        )
+
+        send_notification_email.delay(notification.id)
+
+    logger.info(
+        f"✅ Manual billing alert sent to tenant '{tenant.slug}' "
+        f"({recipients.count()} users)"
+    )
