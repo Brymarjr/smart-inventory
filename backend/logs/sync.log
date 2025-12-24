@@ -5032,3 +5032,11 @@ AttributeError: module 'inventory.models' has no attribute 'CharField'
 [2025-12-13 00:23:23,760] INFO sync: [SYNC] POST /api/sync/upload/ by 'Admin' device=test-device-001 ip=127.0.0.1 status=202 duration=0.80s
 [2025-12-13 00:23:25,154] INFO sync.tasks: Processed SyncJob 51: {'processed': 2, 'succeeded': 0, 'failed': 2, 'conflicts': 0, 'errors': [{'op_id': 156, 'error': 'IntegrityError: duplicate key value violates unique constraint "inventory_category_tenant_id_name_85eea810_uniq"\nDETAIL:  Key (tenant_id, name)=(9, Electronics) already exists.\n'}, {'op_id': 157, 'error': 'IntegrityError: duplicate key value violates unique constraint "inventory_product_tenant_id_sku_547f9936_uniq"\nDETAIL:  Key (tenant_id, sku)=(9, ) already exists.\n'}]}
 [2025-12-13 00:23:30,923] INFO sync: [SYNC] GET /api/sync/jobs/ by 'Admin' device=N/A ip=127.0.0.1 status=200 duration=0.26s
+[2025-12-24 17:04:36,454] INFO sync.tasks: 🔔 Sync failure notification sent for job 2
+[2025-12-24 17:04:36,457] INFO sync.tasks: Processed SyncJob 2: {'processed': 1, 'succeeded': 0, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 2, 'error': "Product() got unexpected keyword arguments: 'unit_cost'"}]}
+[2025-12-24 17:17:05,455] INFO sync.tasks: Processed SyncJob 2: {'processed': 1, 'succeeded': 1, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2025-12-24 17:41:23,924] INFO sync.tasks: 🔔 Sync failure notification sent for job 3
+[2025-12-24 17:41:23,925] INFO sync.tasks: Processed SyncJob 3: {'processed': 1, 'succeeded': 0, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 4, 'error': 'IntegrityError: duplicate key value violates unique constraint "inventory_product_tenant_id_sku_547f9936_uniq"\nDETAIL:  Key (tenant_id, sku)=(1, CONFLICT-001) already exists.\n'}]}
+[2025-12-24 18:26:09,464] INFO sync.tasks: 🔔 Sync failure notification sent for job 4
+[2025-12-24 18:26:09,471] INFO sync.tasks: 🔔 Sync conflict notification sent for job 4 (1 conflicts)
+[2025-12-24 18:26:09,471] INFO sync.tasks: Processed SyncJob 4: {'processed': 1, 'succeeded': 0, 'failed': 1, 'conflicts': 1, 'errors': [{'op_id': 5, 'error': 'duplicate key value violates unique constraint "inventory_product_tenant_id_sku_547f9936_uniq"\nDETAIL:  Key (tenant_id, sku)=(1, CONFLICT-001) already exists.\n'}]}

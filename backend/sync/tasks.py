@@ -11,6 +11,9 @@ from . import models as sync_models
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.fields.related import ForeignKey as DjangoFK
 from django.utils.dateparse import parse_datetime
+from notifications.models import Notification
+from notifications.tasks import send_notification_email
+from users.models import User
 import logging
 
 
@@ -73,6 +76,15 @@ def process_sync_job(self, job_id: int):
 
     # Save job summary
     job.mark_completed(summary)
+    
+    # Notify admins if there were failures
+    if summary["failed"] > 0:
+        notify_sync_job_failed(job, summary)
+        
+    # Notify admins if there are unresolved conflicts
+    if summary["conflicts"] > 0:
+        notify_sync_conflicts(job, summary)
+    
     logger.info("Processed SyncJob %s: %s", job.id, summary)
     return summary
 
@@ -321,10 +333,19 @@ def _apply_sync_operation(job: sync_models.SyncJob, op: sync_models.SyncOperatio
                 return {"success": False, "error": f"Unknown action {op.action}", "conflict": False}
 
     except IntegrityError as exc:
-        return {"success": False, "error": f"IntegrityError: {exc}", "conflict": False}
+        # Treat unique constraint violations as conflicts for CREATE operations
+        error_str = str(exc)
+        is_unique_violation = "unique constraint" in error_str.lower() or "unique violation" in error_str.lower()
+    
+        conflict_flag = False
+        if op.action == sync_models.SyncOperation.ACTION_CREATE and is_unique_violation:
+            conflict_flag = True  # mark as conflict
+
+        return {"success": False, "error": error_str, "conflict": conflict_flag}
 
     except Exception as exc:
         return {"success": False, "error": str(exc), "conflict": False}
+
 
 
 
@@ -504,3 +525,78 @@ def _update_cursor_for_device(device, server_version):
         cursor.last_server_version = server_version
         cursor.save(update_fields=["last_server_version", "updated_at"])
 
+
+def notify_sync_job_failed(sync_job, reason=None):
+    """
+    Notify tenant admins and managers when a sync job fails.
+    """
+    tenant = sync_job.tenant
+
+    recipients = User.objects.filter(
+        tenant=tenant,
+        role__name__in=["tenant_admin", "manager"],
+        is_active=True,
+    )
+
+    if not recipients.exists():
+        logger.warning(f"No recipients for failed sync job {sync_job.id}")
+        return
+
+    for user in recipients:
+        message = (
+            f"A device sync has failed.\n\n"
+            f"Device: {sync_job.device.name if sync_job.device else 'Unknown'}\n"
+            f"Job ID: {sync_job.id}\n"
+        )
+
+        if reason:
+            message += f"\nReason: {reason}"
+
+        notification = Notification.objects.create(
+            tenant=tenant,
+            recipient=user,
+            title="Sync Failed",
+            message=message,
+            notification_type="sync",
+        )
+
+        send_notification_email.delay(notification.id)
+
+    logger.info(f"🔔 Sync failure notification sent for job {sync_job.id}")
+
+
+def notify_sync_conflicts(job, summary):
+    """
+    Notify tenant admins/managers that sync conflicts require manual resolution.
+    """
+    tenant = job.tenant
+
+    recipients = User.objects.filter(
+        tenant=tenant,
+        role__name__in=["tenant_admin", "manager"],
+        is_active=True,
+    )
+
+    if not recipients.exists():
+        return
+
+    for user in recipients:
+        notification = Notification.objects.create(
+            tenant=tenant,
+            recipient=user,
+            title="Sync conflict requires attention",
+            message=(
+                f"A sync operation from device '{job.device.name}' "
+                f"completed with {summary['conflicts']} unresolved conflict(s).\n\n"
+                f"These conflicts require manual resolution in the admin dashboard."
+            ),
+            notification_type="sync",
+        )
+
+        send_notification_email.delay(notification.id)
+
+    logger.info(
+        "🔔 Sync conflict notification sent for job %s (%s conflicts)",
+        job.id,
+        summary["conflicts"],
+    )
