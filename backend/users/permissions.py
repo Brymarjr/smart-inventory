@@ -38,7 +38,7 @@ class IsFinanceOfficer(permissions.BasePermission):
         return getattr(user.role, "name", None) == "finance_officer"
 
 
-# 🔹 Composite permissions for common scenarios
+# Composite permissions for common scenarios
 class IsTenantAdminOrManager(permissions.BasePermission):
     """Allow access to both TenantAdmin and Manager roles."""
     def has_permission(self, request, view):

@@ -11,11 +11,8 @@ from . import models as sync_models
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.fields.related import ForeignKey as DjangoFK
 from django.utils.dateparse import parse_datetime
-from notifications.models import Notification
-from notifications.tasks import send_notification_email
-from users.models import User
+from .notifications import notify_sync_job_failed, notify_sync_conflicts, notify_device_blocked
 import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +73,22 @@ def process_sync_job(self, job_id: int):
 
     # Save job summary
     job.mark_completed(summary)
+    
+    device = job.device
+    if summary["failed"] > 0:
+        device.consecutive_failures += 1
+    else:
+        device.consecutive_failures = 0
+
+    # block device if threshold reached
+    if device.consecutive_failures >= 3:
+        device.is_blocked = True
+
+    device.save(update_fields=["consecutive_failures", "is_blocked"])
+    
+    if device.is_blocked:
+        notify_device_blocked(device)
+
     
     # Notify admins if there were failures
     if summary["failed"] > 0:
@@ -524,79 +537,3 @@ def _update_cursor_for_device(device, server_version):
     if server_version > (cursor.last_server_version or 0):
         cursor.last_server_version = server_version
         cursor.save(update_fields=["last_server_version", "updated_at"])
-
-
-def notify_sync_job_failed(sync_job, reason=None):
-    """
-    Notify tenant admins and managers when a sync job fails.
-    """
-    tenant = sync_job.tenant
-
-    recipients = User.objects.filter(
-        tenant=tenant,
-        role__name__in=["tenant_admin", "manager"],
-        is_active=True,
-    )
-
-    if not recipients.exists():
-        logger.warning(f"No recipients for failed sync job {sync_job.id}")
-        return
-
-    for user in recipients:
-        message = (
-            f"A device sync has failed.\n\n"
-            f"Device: {sync_job.device.name if sync_job.device else 'Unknown'}\n"
-            f"Job ID: {sync_job.id}\n"
-        )
-
-        if reason:
-            message += f"\nReason: {reason}"
-
-        notification = Notification.objects.create(
-            tenant=tenant,
-            recipient=user,
-            title="Sync Failed",
-            message=message,
-            notification_type="sync",
-        )
-
-        send_notification_email.delay(notification.id)
-
-    logger.info(f"🔔 Sync failure notification sent for job {sync_job.id}")
-
-
-def notify_sync_conflicts(job, summary):
-    """
-    Notify tenant admins/managers that sync conflicts require manual resolution.
-    """
-    tenant = job.tenant
-
-    recipients = User.objects.filter(
-        tenant=tenant,
-        role__name__in=["tenant_admin", "manager"],
-        is_active=True,
-    )
-
-    if not recipients.exists():
-        return
-
-    for user in recipients:
-        notification = Notification.objects.create(
-            tenant=tenant,
-            recipient=user,
-            title="Sync conflict requires attention",
-            message=(
-                f"A sync operation from device '{job.device.name}' "
-                f"completed with {summary['conflicts']} unresolved conflict(s).\n\n"
-                f"These conflicts require manual resolution in the admin dashboard."
-            ),
-            notification_type="sync",
-        )
-
-        send_notification_email.delay(notification.id)
-
-    logger.info(
-        "🔔 Sync conflict notification sent for job %s (%s conflicts)",
-        job.id,
-        summary["conflicts"],
-    )

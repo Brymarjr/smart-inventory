@@ -12,17 +12,64 @@ from django.apps import apps
 from . import models as sync_models
 from . import serializers as sync_serializers
 from core.mixins import TenantFilteredViewSet
-from .tasks import _apply_sync_operation_preflight, process_sync_job  # Celery task
+from users.permissions import IsTenantAdmin
+from .tasks import _apply_sync_operation_preflight, process_sync_job
 from rest_framework.generics import GenericAPIView
+from .notifications import notify_device_unblocked
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceViewSet(TenantFilteredViewSet, viewsets.ModelViewSet):
     """
-    Register and manage client devices.
+    Device management:
+    - List devices
+    - View device status
+    - Unblock a blocked device (admin only)
     """
     queryset = sync_models.Device.objects.all()
     serializer_class = sync_serializers.DeviceSerializer
     permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        if self.action in ["unblock"]:
+            return [IsAuthenticated(), IsTenantAdmin()]
+        return super().get_permissions()
+
+    @action(detail=True, methods=["post"])
+    def unblock(self, request, pk=None):
+        """
+        Manually unblock a device after repeated sync failures.
+        """
+        device = self.get_object()
+
+        if not device.is_blocked:
+            return Response(
+                {"detail": "Device is not blocked."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        device.is_blocked = False
+        device.consecutive_failures = 0
+        device.save(update_fields=["is_blocked", "consecutive_failures"])
+
+        notify_device_unblocked(device)
+
+        logger.info(
+            "🔓 Device %s unblocked by %s",
+            device.name,
+            request.user.email,
+        )
+
+        return Response(
+            {
+                "detail": "Device successfully unblocked.",
+                "device_id": device.id,
+                "device_name": device.name,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class SyncJobViewSet(TenantFilteredViewSet, viewsets.ReadOnlyModelViewSet):
@@ -32,17 +79,43 @@ class SyncJobViewSet(TenantFilteredViewSet, viewsets.ReadOnlyModelViewSet):
     queryset = sync_models.SyncJob.objects.all().select_related("submitted_by", "device")
     serializer_class = sync_serializers.SyncJobSerializer
     permission_classes = [IsAuthenticated]
+    
+    
+class BlockedDeviceGuardMixin:
+    """
+    Prevent blocked devices from accessing sync endpoints.
+    """
+
+    def _reject_if_blocked(self, request):
+        device = getattr(request, "device", None)
+
+        if device and device.is_blocked:
+            return Response(
+                {
+                    "detail": (
+                        "This device has been blocked due to repeated sync failures. "
+                        "Please contact your administrator."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return None
 
 
-class SyncUploadView(GenericAPIView):
+class SyncUploadView(BlockedDeviceGuardMixin, GenericAPIView):
     """
     Accepts an upload of client operations, creates a SyncJob and SyncOperation rows,
     and enqueues a Celery task to process the job.
     """
     permission_classes = [IsAuthenticated]
     serializer_class = sync_serializers.SyncUploadSerializer
-
+    
     def post(self, request, *args, **kwargs):
+        blocked = self._reject_if_blocked(request)
+        if blocked:
+            return blocked
+
         serializer = sync_serializers.SyncUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -142,7 +215,7 @@ class SyncUploadView(GenericAPIView):
 
 
 
-class SyncDownloadView(APIView):
+class SyncDownloadView(BlockedDeviceGuardMixin, APIView):
     """
     Returns all records from selected models updated since last_sync timestamp.
     """
@@ -150,6 +223,10 @@ class SyncDownloadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+        blocked = self._reject_if_blocked(request)
+        if blocked:
+            return blocked
+        
         device_id = request.query_params.get("device_id")
         last_sync = request.query_params.get("last_sync")
 

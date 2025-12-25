@@ -26,6 +26,8 @@ class Device(models.Model):
     name = models.CharField(max_length=150, blank=True)
     last_seen = models.DateTimeField(default=timezone.now)
     metadata = models.JSONField(default=dict, blank=True)
+    consecutive_failures = models.PositiveIntegerField(default=0)
+    is_blocked = models.BooleanField(default=False)
 
     class Meta:
         indexes = [
