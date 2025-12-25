@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from drf_spectacular.utils import extend_schema
 from .tasks import send_password_reset_email
+from .notifications import notify_password_changed, notify_role_changed
 from tenants.models import Tenant
 from core.mixins import TenantFilteredViewSet
 from billing.utils import check_plan_limit
@@ -22,7 +23,6 @@ from .serializers import (
     TenantAwareTokenObtainPairSerializer,
     AssignRoleSerializer,
     ForgotPasswordRequestSerializer,
-    ResetPasswordConfirmSerializer,
     AdminInitiatePasswordResetSerializer,
     ChangePasswordSerializer,
 )
@@ -143,6 +143,9 @@ class PasswordResetViewSet(viewsets.ViewSet):
         target_user.must_change_password = True
         target_user.password_reset_sent_at = timezone.now()
         target_user.save()
+        
+        # Notify target user and tenant admins
+        notify_password_changed(target_user)
 
         self._send_password_email(target_user, temp_password)
 
@@ -175,6 +178,9 @@ class PasswordResetViewSet(viewsets.ViewSet):
         user.must_change_password = False
         user.password_reset_sent_at = None
         user.save()
+        
+        # Notify user and tenant admins
+        notify_password_changed(user)
 
         return Response(
             {"detail": "Password changed successfully."},
@@ -228,7 +234,8 @@ class UserRoleAssignViewSet(TenantFilteredViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        role = serializer.validated_data["role"]
+        new_role = serializer.validated_data["role"]
+        old_role = user.role.name if user.role else None
 
         if user.tenant != request.user.tenant:
             return Response(
@@ -236,13 +243,30 @@ class UserRoleAssignViewSet(TenantFilteredViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        user.role = role
+        # Prevent removing last tenant admin
+        if old_role == "tenant_admin" and new_role.name != "tenant_admin":
+            tenant_admin_count = User.objects.filter(
+                tenant=user.tenant,
+                role__name="tenant_admin",
+                is_active=True
+            ).count()
+            if tenant_admin_count <= 1:
+                return Response(
+                    {"error": "Cannot remove the last tenant admin."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        user.role = new_role
         user.save()
+
+        # Notify affected user and tenant admins
+        notify_role_changed(user, old_role=old_role, new_role=new_role.name)
 
         return Response(
             {
-                "message": f"Role '{role.name}' assigned successfully.",
+                "message": f"Role '{new_role.name}' assigned successfully.",
                 "user_id": user.id,
             },
             status=status.HTTP_200_OK,
         )
+
