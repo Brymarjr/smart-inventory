@@ -1,7 +1,8 @@
 # backend/billing/apps.py
 from django.apps import AppConfig
-from django.db.utils import OperationalError, ProgrammingError
+import logging
 
+logger = logging.getLogger(__name__)
 
 class BillingConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
@@ -9,56 +10,11 @@ class BillingConfig(AppConfig):
 
     def ready(self):
         """
-        Automatically ensure default pricing plans exist after migrations,
-        and register billing signals safely.
-        Runs once when Django starts up and silently skips if DB not ready.
+        Register signals safely.
+        Avoids database access at AppConfig import time.
         """
-        from billing.models import Plan
-
-        # ✅ 1. Import signals (for auto free-trial creation)
         try:
             import billing.signals  # noqa
-            print("🔔 Billing signals loaded successfully.")
+            logger.info("🔔 Billing signals registered successfully.")
         except Exception as e:
-            print(f"⚠️ Could not load billing signals: {e}")
-
-        # ✅ 2. Seed default plans if none exist
-        try:
-            if not Plan.objects.exists():
-                plans = [
-                    Plan(
-                        name="Free",
-                        amount=0,
-                        currency="NGN",
-                        duration_days=30,
-                        description="Basic free tier with limited users and features.",
-                        is_active=True,
-                    ),
-                    Plan(
-                        name="Pro",
-                        amount=5000,
-                        currency="NGN",
-                        duration_days=30,
-                        description="Pro plan with advanced features and up to 50 users.",
-                        is_active=True,
-                    ),
-                    Plan(
-                        name="Enterprise",
-                        amount=15000,
-                        currency="NGN",
-                        duration_days=30,
-                        description="Enterprise tier with unlimited users, reports, and premium support.",
-                        is_active=True,
-                    ),
-                ]
-                Plan.objects.bulk_create(plans)
-                print("✅ Default plans created successfully.")
-            else:
-                print("ℹ️ Plans already exist — skipping auto-creation.")
-        except (OperationalError, ProgrammingError):
-            # Happens when DB isn't fully migrated yet
-            pass
-
-
-
-
+            logger.exception("⚠️ Could not load billing signals: %s", e)
