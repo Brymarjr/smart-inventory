@@ -204,6 +204,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-tenant",  # Whitelist our custom tenant header
+]
+
 CORS_ALLOW_CREDENTIALS = True
 
 # Allow local dev frontend to be trusted for CSRF if you use cookies
@@ -223,6 +229,9 @@ REST_FRAMEWORK = {
         'tenants.permissions.IsTenantActiveOrReadOnly', 
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # --- ADD PAGINATION SETTINGS ---
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10,  # Limits list to 10 items per page
 }
 
 # Simple JWT configuration 

@@ -1,5 +1,5 @@
 # inventory/views.py
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, filters
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from .models import Category, Supplier, Product
 from .serializers import CategorySerializer, SupplierSerializer, ProductSerializer
@@ -21,7 +21,11 @@ class CategoryViewSet(TenantFilteredViewSet):
     - Staff & FinanceOfficer: read-only
     - Restricted by tenant plan (requires 'inventory_view' feature)
     """
+    queryset = Category.objects.all()
     serializer_class = CategorySerializer
+    
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name']
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
@@ -60,7 +64,11 @@ class SupplierViewSet(TenantFilteredViewSet):
     - Staff: no access
     - Restricted by tenant plan (requires 'inventory_view')
     """
+    queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
+    
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'email']
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
@@ -100,7 +108,11 @@ class ProductViewSet(TenantFilteredViewSet):
     - Staff: read-only (for viewing product catalog)
     - Restricted by tenant plan (requires 'inventory_view')
     """
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'sku', 'description']
 
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
