@@ -12,6 +12,7 @@ User = get_user_model()
 # ===========================
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(source='role.name', read_only=True, allow_null=True)
     class Meta:
         model = User
         fields = [
@@ -20,10 +21,11 @@ class UserSerializer(serializers.ModelSerializer):
             'email',
             'first_name',
             'last_name',
+            'role',
             'is_active',
             'is_staff',
         ]
-        read_only_fields = ['id', 'is_staff']
+        read_only_fields = ['id', 'is_staff', 'role',]
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -212,6 +214,7 @@ class TenantAwareTokenObtainPairSerializer(serializers.Serializer):
                 "id": user.id,
                 "username": username,  # clean username
                 "tenant": tenant.name,
+                "role": user.role.name if user.role else None,
                 "is_superuser": user.is_superuser,
                 "must_change_password": getattr(user, "must_change_password", False),
             },
