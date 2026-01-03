@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/lib/auth-context';
+import Link from 'next/link'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -60,7 +61,6 @@ export default function LoginPage() {
       await loginTenant(values.tenant, values.username, values.password);
     } catch (err: any) {
       console.error(err);
-      // Try to extract the specific error message from DRF response
       const serverMsg = err.response?.data?.detail || err.response?.data?.tenant || 'Invalid Organization ID or credentials.';
       setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
     } finally {
@@ -151,12 +151,23 @@ export default function LoginPage() {
                       </FormItem>
                     )}
                   />
+                  
+                  {/* --- UPDATED PASSWORD FIELD WITH LINK --- */}
                   <FormField
                     control={tenantForm.control}
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Password</FormLabel>
+                        <div className="flex items-center justify-between">
+                            <FormLabel>Password</FormLabel>
+                            <Link 
+                                href="/forgot-password" 
+                                className="text-sm font-medium text-primary hover:underline"
+                                tabIndex={-1}
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
                         <FormControl>
                           <Input type="password" {...field} disabled={isLoading} />
                         </FormControl>
@@ -164,6 +175,8 @@ export default function LoginPage() {
                       </FormItem>
                     )}
                   />
+                  {/* ---------------------------------------- */}
+
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Authenticating...' : 'Sign In'}
                   </Button>

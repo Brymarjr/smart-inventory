@@ -10,7 +10,8 @@ export interface User {
   is_staff: boolean;
   is_superuser?: boolean;
   tenant?: string | null;
-  role?: string | null;
+  role: string;
+  must_change_password?: boolean;
 }
 
 export interface AuthResponse {
