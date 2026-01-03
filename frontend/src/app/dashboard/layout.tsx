@@ -14,7 +14,7 @@ import {
   Users, 
   LogOut, 
   Menu,
-  Bell
+  // Bell <--- Removed Bell import as it's now inside the component
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -27,6 +27,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+
+// ✅ IMPORT THE NEW NOTIFICATION COMPONENT
+import { NotificationsBell } from '@/components/layout/notifications-bell';
 
 // Navigation Items Configuration
 const NAV_ITEMS = [
@@ -59,8 +62,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // 3. Enforcer: Trap users who must change password
     if (user.must_change_password) {
-      // If they are NOT already on the change-password page, send them there.
-      // We use router.replace() to prevent "Back Button" loops.
       if (pathname !== '/dashboard/change-password') {
         router.replace('/dashboard/change-password');
       }
@@ -97,9 +98,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             
-            // Optional: Hide navigation items if locked out
-            // if (user.must_change_password) return null;
-
             return (
               <Link
                 key={item.href}
@@ -174,10 +172,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           {/* Header Right Side */}
           <div className="flex items-center gap-4 ml-auto">
-              <Button variant="ghost" size="icon" className="relative text-gray-500 hover:text-gray-700">
-                 <Bell className="h-5 w-5" />
-                 <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
-              </Button>
+              {/* REPLACED HARDCODED BUTTON WITH COMPONENT */}
+              <NotificationsBell />
 
               <DropdownMenu>
                <DropdownMenuTrigger asChild>
@@ -205,7 +201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Page Content Injection */}
         <main className="flex-1 overflow-auto p-4 md:p-8">
            <div className="max-w-7xl mx-auto">
-              {children}
+             {children}
            </div>
         </main>
       </div>
