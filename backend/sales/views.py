@@ -1,4 +1,4 @@
-from rest_framework import status
+from rest_framework import status, filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
@@ -25,6 +25,9 @@ class SaleViewSet(TenantFilteredViewSet):
         .prefetch_related("items__product")
     )
     permission_classes = [IsAuthenticated, MustChangePasswordPermission]
+    
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['reference', 'customer_name', 'notes', 'created_by__username']
 
     def get_permissions(self):
         if self.action == "create":
@@ -54,7 +57,7 @@ class SaleViewSet(TenantFilteredViewSet):
         tenant = self._get_tenant_or_403(request)
         require_feature(tenant, "sales_view")
 
-        queryset = self.get_queryset()
+        queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page or queryset, many=True)
 
@@ -99,7 +102,3 @@ class SaleViewSet(TenantFilteredViewSet):
             read_serializer.data,
             status=status.HTTP_201_CREATED,
         )
-
-
-
-

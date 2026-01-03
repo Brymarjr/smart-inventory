@@ -86,3 +86,22 @@ export interface Transaction {
   tenant?: number; 
   subscription?: number;
 }
+
+// Add these for Sales/POS
+export interface CartItem {
+  productId: number;
+  name: string;
+  price: number;
+  quantity: number;
+  maxStock: number; // To prevent adding more than available
+}
+
+export interface SalePayload {
+  customer_name?: string;
+  payment_method: 'cash' | 'card' | 'transfer' | 'pos' | 'other';
+  notes?: string;
+  items: {
+    product: number; // ID
+    quantity: number;
+  }[];
+}

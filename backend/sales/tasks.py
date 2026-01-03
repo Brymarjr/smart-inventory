@@ -2,7 +2,7 @@ from celery import shared_task
 from django.contrib.auth import get_user_model
 from inventory.models import Product
 from notifications.models import Notification
-from notifications.tasks import send_notification_email  # your working email task
+from notifications.tasks import send_notification_email  # working email task
 
 User = get_user_model()
 

@@ -23,10 +23,11 @@ class SaleItemInputSerializer(serializers.Serializer):
 
 class SaleItemSerializer(serializers.ModelSerializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    product_name = serializers.CharField(source='product.name', read_only=True)
 
     class Meta:
         model = SaleItem
-        fields = ('id', 'product', 'quantity', 'unit_price', 'subtotal')
+        fields = ('id', 'product', 'product_name', 'quantity', 'unit_price', 'subtotal')
 
 class SaleCreateSerializer(serializers.Serializer):
     tenant = serializers.PrimaryKeyRelatedField(read_only=True)
