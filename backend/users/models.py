@@ -61,7 +61,7 @@ class UserRole(models.Model):
         ('tenant_admin', 'TenantAdmin'),
         ('manager', 'Manager'),
         ('staff', 'Staff'),
-        ('finance_officer', 'FinanceOfficer'),
+        ('finance_officer', 'FinanceOfficer'), # Remove before doing final migrations as role is deprecated
     ]
 
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True, default='staff',)

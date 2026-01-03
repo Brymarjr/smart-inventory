@@ -5,7 +5,7 @@ from rest_framework.exceptions import PermissionDenied
 from core.mixins import TenantFilteredViewSet
 from users.permissions import (
     IsStaff,
-    IsTenantAdminManagerOrFinance,
+    IsStaffOrTenantAdminManager,
     MustChangePasswordPermission,
 )
 from .models import Sale
@@ -39,7 +39,7 @@ class SaleViewSet(TenantFilteredViewSet):
         else:
             permission_classes = [
                 IsAuthenticated,
-                IsTenantAdminManagerOrFinance,
+                IsStaffOrTenantAdminManager,
                 MustChangePasswordPermission,
             ]
         return [perm() for perm in permission_classes]

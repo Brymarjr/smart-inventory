@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -7,15 +7,12 @@ from django.utils import timezone
 from django.db import transaction
 from .models import PurchaseOrder, PurchaseItem
 from .serializers import PurchaseOrderSerializer, PurchaseItemSerializer, PurchaseMarkPaidSerializer
-from users.permissions import IsFinanceOfficer, IsTenantAdminManagerOrFinance, IsStaffOrTenantAdminManagerOrFinance
+from users.permissions import IsStaffOrTenantAdminManager, IsManager, IsTenantAdminOrManager
 from inventory.models import Supplier, Product
 from core.mixins import TenantFilteredViewSet
 from decimal import Decimal
 from billing.utils import require_feature
 from notifications.utils import notify_user
-
-
-
 
 
 class PurchaseOrderViewSet(TenantFilteredViewSet):
@@ -29,7 +26,9 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     # Safe default to avoid TenantNotSetError during import
     queryset = PurchaseOrder.objects.all().select_related("supplier", "created_by", "approved_by", "paid_by")
     serializer_class = PurchaseOrderSerializer
-    permission_classes = [IsAuthenticated, IsStaffOrTenantAdminManagerOrFinance]
+    permission_classes = [IsAuthenticated, IsStaffOrTenantAdminManager]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['reference', 'supplier__name', 'status', 'notes']
 
     def get_queryset(self):
         """
@@ -83,11 +82,10 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     # Custom Actions
     # ----------------------
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsFinanceOfficer])
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsManager])
     def approve(self, request, pk=None):
         """
-        Approve a purchase order (Finance/Admin only).
-        Finance can select or change supplier before approving.
+        Approve a purchase order (Manager only).
         """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
@@ -129,9 +127,9 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsFinanceOfficer])
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsManager])
     def reject(self, request, pk=None):
-        """Reject a purchase order (Finance/Admin only)."""
+        """Reject a purchase order (Manager only)."""
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
             return Response(
@@ -165,19 +163,10 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
         serializer = self.get_serializer(purchase)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsFinanceOfficer], serializer_class=PurchaseMarkPaidSerializer,)
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsManager], serializer_class=PurchaseMarkPaidSerializer,)
     def mark_paid(self, request, pk=None):
         """
-        Mark a purchase as paid (Finance/Admin only).
-        REQUIREMENT: request must include 'items' array where each item object
-        contains the purchase item 'id' and a valid 'new_price' value.
-        Example:
-        {
-          "items": [
-            {"id": 5, "new_price": "120.00"},
-            {"id": 6, "new_price": "80.50"}
-          ]
-        }
+        Mark a purchase as paid (Manager only).
         """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
@@ -291,7 +280,7 @@ class PurchaseItemViewSet(TenantFilteredViewSet):
     """
     queryset = PurchaseItem.objects.none()
     serializer_class = PurchaseItemSerializer
-    permission_classes = [IsAuthenticated, IsTenantAdminManagerOrFinance]
+    permission_classes = [IsAuthenticated, IsTenantAdminOrManager]
 
     def get_queryset(self):
         """Limit items to purchases under the user's tenant."""
@@ -324,11 +313,3 @@ class PurchaseItemViewSet(TenantFilteredViewSet):
 
         require_feature(tenant, "purchases")
         return super().retrieve(request, *args, **kwargs)
-
-
-
-
-
-
-
-

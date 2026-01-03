@@ -5,7 +5,6 @@ from .models import Category, Supplier, Product
 from .serializers import CategorySerializer, SupplierSerializer, ProductSerializer
 from users.permissions import (
     IsTenantAdminOrManager,
-    IsTenantAdminManagerOrFinance,
 )
 from billing.utils import require_feature, check_plan_limit
 from core.mixins import TenantFilteredViewSet
@@ -18,7 +17,7 @@ from core.mixins import TenantFilteredViewSet
 class CategoryViewSet(TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
-    - Staff & FinanceOfficer: read-only
+    - Staff: read-only
     - Restricted by tenant plan (requires 'inventory_view' feature)
     """
     queryset = Category.objects.all()
@@ -60,7 +59,6 @@ class CategoryViewSet(TenantFilteredViewSet):
 class SupplierViewSet(TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
-    - FinanceOfficer: read-only (can view supplier details)
     - Staff: no access
     - Restricted by tenant plan (requires 'inventory_view')
     """
@@ -73,7 +71,7 @@ class SupplierViewSet(TenantFilteredViewSet):
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
             return [permissions.IsAuthenticated()]
-        return [IsTenantAdminManagerOrFinance()]
+        return [IsTenantAdminOrManager()]
 
     def list(self, request, *args, **kwargs):
         tenant = getattr(request.user, "tenant", None)
@@ -97,14 +95,12 @@ class SupplierViewSet(TenantFilteredViewSet):
         return super().create(request, *args, **kwargs)
 
 
-
 # ============================================================
 # PRODUCT VIEWSET
 # ============================================================
 class ProductViewSet(TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
-    - FinanceOfficer: read-only
     - Staff: read-only (for viewing product catalog)
     - Restricted by tenant plan (requires 'inventory_view')
     """
@@ -139,4 +135,3 @@ class ProductViewSet(TenantFilteredViewSet):
         check_plan_limit(tenant, "max_products", current_count)
 
         return super().create(request, *args, **kwargs)
-

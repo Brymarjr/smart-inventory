@@ -8,7 +8,7 @@ def notify_user(*, tenant, recipient, title, message, notification_type, send_em
     """
     Create in-app notification and optionally send email
     """
-
+    # 1. Create the notification record in the database
     notification = Notification.objects.create(
         tenant=tenant,
         recipient=recipient,
@@ -17,11 +17,9 @@ def notify_user(*, tenant, recipient, title, message, notification_type, send_em
         notification_type=notification_type,
     )
 
+    # 2. Trigger the async task using the ID
     if send_email and recipient.email:
-        send_notification_email.delay(
-            to_email=recipient.email,
-            subject=title,
-            message=message,
-        )
+        # The task will fetch the object using this ID.
+        send_notification_email.delay(notification.id)
 
     return notification

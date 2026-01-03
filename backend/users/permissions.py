@@ -7,7 +7,7 @@ class IsTenantAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
-            return True  # ✅ Always allow superusers
+            return True  # Always allow superusers
         return getattr(user.role, "name", None) == "tenant_admin"
 
 
@@ -16,7 +16,7 @@ class IsManager(permissions.BasePermission):
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
-            return True  # ✅ Always allow superusers
+            return True  # Always allow superusers
         return getattr(user.role, "name", None) == "manager"
 
 
@@ -25,17 +25,8 @@ class IsStaff(permissions.BasePermission):
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
-            return True  # ✅ Always allow superusers
+            return True  # Always allow superusers
         return getattr(user.role, "name", None) == "staff"
-
-
-class IsFinanceOfficer(permissions.BasePermission):
-    """Allow access only to users with the FinanceOfficer role."""
-    def has_permission(self, request, view):
-        user = request.user
-        if user and user.is_authenticated and user.is_superuser:
-            return True  # ✅ Always allow superusers
-        return getattr(user.role, "name", None) == "finance_officer"
 
 
 # Composite permissions for common scenarios
@@ -48,38 +39,18 @@ class IsTenantAdminOrManager(permissions.BasePermission):
         return getattr(user.role, "name", None) in ["tenant_admin", "manager"]
 
 
-class IsFinanceOrAdmin(permissions.BasePermission):
-    """Allow access to FinanceOfficer and TenantAdmin roles."""
-    def has_permission(self, request, view):
-        user = request.user
-        if user and user.is_authenticated and user.is_superuser:
-            return True  # ✅ Always allow superusers
-        return getattr(user.role, "name", None) in ["finance_officer", "tenant_admin"]
-
-
-class IsTenantAdminManagerOrFinance(permissions.BasePermission):
-    """Allow access to TenantAdmin, Manager, or FinanceOfficer roles."""
-    def has_permission(self, request, view):
-        user = request.user
-        if user and user.is_authenticated and user.is_superuser:
-            return True  # ✅ Always allow superusers
-        return getattr(user.role, "name", None) in ["tenant_admin", "manager", "finance_officer"]
-
-
-class IsStaffOrTenantAdminManagerOrFinance(permissions.BasePermission):
+class IsStaffOrTenantAdminManager(permissions.BasePermission):
     """
-    Staff can create purchase orders.
-    Tenant Admins, Managers, and Finance can view and manage them.
+    Staff can create sales and purchase orders.
+    Tenant Admins, Managers can view and manage them.
     """
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
             return True  # ✅ Always allow superusers
         return getattr(user.role, "name", None) in [
-            "tenant_admin", "manager", "finance_officer", "staff"
+            "tenant_admin", "manager", "staff"
         ]
-
-
 
 
 class MustChangePasswordPermission(permissions.BasePermission):
@@ -105,5 +76,3 @@ class MustChangePasswordPermission(permissions.BasePermission):
             return False
 
         return True
-
-

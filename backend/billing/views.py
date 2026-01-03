@@ -15,13 +15,13 @@ from tenants.models import Tenant
 from .tasks import verify_paystack_transaction_task, notify_subscription_cancellation_task, notify_payment_status_task
 from django.core.mail import send_mail
 from .permissions import IsCompanySuperUser
-from users.permissions import IsTenantAdmin, IsFinanceOfficer, IsTenantAdminOrManager, IsFinanceOrAdmin
+from users.permissions import IsTenantAdmin, IsTenantAdminOrManager
 
 logger = logging.getLogger("billing.webhook")
 
 
 # -------------------------------------------------------------------
-# 1️⃣ Plans ViewSet (Public Read-Only)
+# 1 Plans ViewSet (Public Read-Only)
 # -------------------------------------------------------------------
 class PlanViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Plan.objects.filter(is_active=True).order_by('amount')
@@ -30,7 +30,7 @@ class PlanViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # -------------------------------------------------------------------
-# 2️⃣ Subscriptions ViewSet (Tenant Scoped)
+# 2 Subscriptions ViewSet (Tenant Scoped)
 # -------------------------------------------------------------------
 class SubscriptionViewSet(viewsets.ModelViewSet):
     serializer_class = SubscriptionSerializer
@@ -208,11 +208,11 @@ class SubscriptionRenewView(APIView):
 
 
 # -------------------------------------------------------------------
-# 3️⃣ Transactions ViewSet (Tenant Scoped)
+# 3 Transactions ViewSet (Tenant Scoped)
 # -------------------------------------------------------------------
 class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TransactionSerializer
-    permission_classes = [IsAuthenticated & IsFinanceOrAdmin]
+    permission_classes = [IsAuthenticated & IsTenantAdmin]
     # --- ADD SEARCH CAPABILITY ---
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['reference', 'status', 'amount']
@@ -230,7 +230,7 @@ class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # -------------------------------------------------------------------
-# 4️⃣ Paystack Webhook (Public)
+# 4 Paystack Webhook (Public)
 # -------------------------------------------------------------------
 @csrf_exempt
 @api_view(["POST"])
@@ -326,10 +326,10 @@ def paystack_webhook(request):
     return Response({"status": True, "message": "Webhook processed successfully"}, status=200)
 
 # -------------------------------------------------------------------
-# 5️⃣ Manual Verification Endpoint (for testing via Swagger)
+# 5 Manual Verification Endpoint (for testing via Swagger)
 # -------------------------------------------------------------------
 class PaystackVerifyView(APIView):
-    permission_classes = [IsAuthenticated & IsFinanceOrAdmin]
+    permission_classes = [IsAuthenticated & IsTenantAdmin]
 
     def get(self, request, *args, **kwargs):
         reference = request.query_params.get("reference")
