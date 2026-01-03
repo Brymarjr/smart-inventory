@@ -102,12 +102,28 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
       form.reset();
       onClose();
     },
+    // NEW CODE
     onError: (error: any) => {
-      console.error(error);
-      const msg = error.response?.data?.sku 
-        ? `SKU Error: ${error.response.data.sku[0]}`
-        : 'Failed to create product. Check inputs.';
-      toast.error(msg);
+      console.error("API Error:", error); // Keep this for debugging
+      const data = error.response?.data;
+
+      // 1. Check for specific Plan Limit message (Backend usually sends this as a list or detail)
+      // We check if the error message contains the word "limit"
+      const generalError = data?.detail || data?.non_field_errors?.[0] || (Array.isArray(data) ? data[0] : null);
+
+      if (generalError && typeof generalError === 'string' && generalError.toLowerCase().includes('limit')) {
+          toast.error("Plan Limit Reached! Please upgrade your subscription.");
+          return;
+      }
+
+      // 2. Check for specific Field errors (like Duplicate SKU)
+      if (data?.sku) {
+          toast.error(`SKU Error: ${data.sku[0]}`);
+          return;
+      }
+
+      // 3. Fallback
+      toast.error("Failed to create product. Please try again.");
     },
   });
 

@@ -38,6 +38,7 @@ export interface Supplier {
   name: string;
   email?: string;
   phone?: string;
+  address?: string;
 }
 
 export interface Product {
@@ -49,7 +50,6 @@ export interface Product {
   category?: Category | null; 
   quantity: number;
   reorder_level: number;
-  // Backend sends 'price', NOT 'unit_price'
   price: string; 
   // We calculated 'low_stock_threshold' logic in frontend, 
   // but let's just use reorder_level as the threshold.
