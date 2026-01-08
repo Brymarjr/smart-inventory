@@ -39,6 +39,10 @@ class Product(TenantAwareModel):
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True)
     description = models.TextField(blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Field for Profit Calculation
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    
     quantity = models.PositiveIntegerField(default=0)
     reorder_level = models.PositiveIntegerField(default=10)
     created_at = models.DateTimeField(auto_now_add=True)
