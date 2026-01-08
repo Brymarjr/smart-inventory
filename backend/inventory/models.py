@@ -1,6 +1,8 @@
 from django.db import models
 from core.models import TenantAwareModel   #  Import tenant base
 from core.managers import TenantManager
+from django.conf import settings # To get the User model
+from tenants.models import Tenant
 
 class Category(TenantAwareModel):
     name = models.CharField(max_length=100)
@@ -42,6 +44,7 @@ class Product(TenantAwareModel):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     objects = TenantManager()
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ("tenant", "sku")
@@ -50,3 +53,24 @@ class Product(TenantAwareModel):
         return self.name
 
 
+class InventoryLog(models.Model):
+    REASON_CHOICES = [
+        ('restock', 'Restock / Purchase'),
+        ('damage', 'Damaged / Expired'),
+        ('theft', 'Theft / Shrinkage'),
+        ('correction', 'Inventory Count Correction'),
+        ('return', 'Customer Return'),
+    ]
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='logs')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    
+    change_amount = models.IntegerField(help_text="Positive for addition, Negative for deduction")
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+    note = models.TextField(blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.product.name}: {self.change_amount} ({self.reason})"
