@@ -14,7 +14,7 @@ import {
   Users, 
   LogOut, 
   Menu,
-  // Bell <--- Removed Bell import as it's now inside the component
+  TrendingUp, 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -28,12 +28,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-// ✅ IMPORT THE NEW NOTIFICATION COMPONENT
+//  IMPORT THE NEW NOTIFICATION COMPONENT
 import { NotificationsBell } from '@/components/layout/notifications-bell';
 
 // Navigation Items Configuration
 const NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Analytics', href: '/dashboard/analytics', icon: TrendingUp }, 
   { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
   { name: 'Sales', href: '/dashboard/sales', icon: ShoppingCart },
   { name: 'Purchases', href: '/dashboard/purchases', icon: Truck },
@@ -48,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   // =========================================================
-  // 🛡️ SECURITY & ENFORCER LOGIC
+  //  SECURITY & ENFORCER LOGIC
   // =========================================================
   useEffect(() => {
     // 1. Wait for auth to initialize
@@ -194,7 +195,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                    Logout
                  </DropdownMenuItem>
                </DropdownMenuContent>
-             </DropdownMenu>
+              </DropdownMenu>
           </div>
         </header>
 

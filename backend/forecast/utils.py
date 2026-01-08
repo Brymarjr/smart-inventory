@@ -1,106 +1,56 @@
-from inventory.models import Product
-from sales.models import SaleItem
-import pandas as pd
 import numpy as np
+import pandas as pd
 from datetime import date, timedelta
-from django.db.models import Sum, Avg
+from django.db.models import Sum
+from sales.models import SaleItem
 
-
-def generate_features_for_tenant(tenant):
+def get_clean_sales_data(tenant, product, days=90):
     """
-    Generate features for all products of a tenant.
-    Features include lagged sales, rolling averages, volatility, stock levels, seasonal info, and anomalies.
-    Returns:
-        features: dict keyed by product.id, each containing a pandas DataFrame with features
+    Fetch sales data and IMPUTE missing demand.
+    Crucial Fix: Forces the timeline to end TODAY, so recent drop-offs (theft) are visible.
     """
-    features = {}
-    products = Product.objects.filter(tenant=tenant)
+    # 1. Fetch Sales
+    sales_qs = SaleItem.objects.filter(
+        product=product, 
+        sale__tenant=tenant,
+        sale__created_at__gte=date.today() - timedelta(days=days)
+    ).values('sale__created_at__date').annotate(qty=Sum('quantity'))
 
-    for product in products:
-        # Fetch last 90 days of sales
-        sales_qs = SaleItem.objects.filter(
-            product=product,
-            sale__tenant=tenant
-        ).select_related("sale").order_by("sale__created_at")
+    # 2. Convert to DataFrame
+    df = pd.DataFrame(list(sales_qs))
+    
+    # ✅ FIX: Create a strict date range ending TODAY
+    # This ensures that if sales stopped 10 days ago, we see 10 rows of "0" at the end.
+    end_date = pd.to_datetime(date.today())
+    start_date = end_date - timedelta(days=days-1)
+    full_index = pd.date_range(start=start_date, end=end_date, freq='D')
 
-        df = pd.DataFrame(list(
-            sales_qs.values('sale__created_at', 'quantity')
-        ))
+    if df.empty:
+        # Return an empty DF with the correct index/columns to prevent crashes
+        return pd.DataFrame({'qty': 0, 'adjusted_qty': 0}, index=full_index)
 
-        df.rename(
-            columns={
-                'sale__created_at': 'date',
-                'quantity': 'quantity_sold',
-            },
-            inplace=True,
-        )
+    # Map database results to the full date range
+    df['date'] = pd.to_datetime(df['sale__created_at__date'])
+    df = df.set_index('date').reindex(full_index, fill_value=0)
+    
+    # 3. STOCKOUT INTELLIGENCE
+    # If sales are 0, we check if it was a stockout or just low demand.
+    # For simplicity here, we assume 0 means 0 demand unless defined otherwise.
+    # We add a rolling average for smoothing.
+    df['rolling_avg'] = df['qty'].rolling(window=7, min_periods=1).mean()
+    df['adjusted_qty'] = np.where(df['qty'] == 0, df['rolling_avg'], df['qty'])
+    
+    return df
 
-        # If no sales exist, fallback to category average
-        if df.empty:
-            category_avg = Product.objects.filter(
-                category=product.category, tenant=tenant
-            ).annotate(total_sales=Sum('sales__quantity')).aggregate(
-                avg_sales=Avg('total_sales')
-            )['avg_sales'] or 0
-
-            df = pd.DataFrame(
-                {'quantity_sold': [category_avg]*30},
-                index=pd.date_range(end=date.today(), periods=30)
-            )
-            df.index.name = 'date'
-        else:
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.sort_values('date')
-            df = df.set_index('date').resample('D').sum().fillna(0)
-
-        # Lag features
-        df['lag_1'] = df['quantity_sold'].shift(1).fillna(0)
-        df['lag_7'] = df['quantity_sold'].shift(7).fillna(0)
-        df['lag_30'] = df['quantity_sold'].shift(30).fillna(0)
-
-        # Rolling features
-        df['rolling_7'] = df['quantity_sold'].rolling(window=7).mean().fillna(0)
-        df['rolling_30'] = df['quantity_sold'].rolling(window=30).mean().fillna(0)
-        df['volatility_7'] = df['quantity_sold'].rolling(window=7).std().fillna(0)
-
-        # Seasonal features
-        df['day_of_week'] = df.index.dayofweek
-        df['month'] = df.index.month
-        df['week_of_year'] = df.index.isocalendar().week
-
-        # Confidence intervals
-        df['ci_min'] = (df['rolling_30'] - df['volatility_7']).clip(lower=0)
-        df['ci_max'] = df['rolling_30'] + df['volatility_7']
-
-        # Anomaly detection
-        mean = df['quantity_sold'].mean()
-        std = df['quantity_sold'].std()
-        df['anomaly'] = ((df['quantity_sold'] - mean).abs() > 2*std)
-
-        features[product.id] = df
-
-    return features
-
-
-def compute_reorder_quantity(predicted_quantity, safety_stock=0, ci_min=None):
-    """
-    Calculate reorder quantity based on predicted quantity and optional safety stock.
-    Uses the lower bound of confidence interval if provided for conservative planning.
-    """
-    if ci_min is None:
-        ci_min = predicted_quantity
-
-    reorder_qty = max(ci_min + safety_stock, 0)
-    return reorder_qty
-
-
-def detect_anomalies(sales_series):
-    """
-    Simple anomaly detection using z-score.
-    Flags points where sales deviate significantly from mean.
-    """
-    mean = sales_series.mean()
-    std = sales_series.std()
-    z_scores = (sales_series - mean) / std
-    anomalies = sales_series[np.abs(z_scores) > 2]
-    return anomalies.index.tolist()
+def calculate_dynamic_reorder_point(df, lead_time_days=3):
+    if df.empty:
+        return 0, 0
+    avg_daily_sales = df['adjusted_qty'].mean()
+    sales_std_dev = df['adjusted_qty'].std()
+    
+    # Service Level 95% (Z=1.65)
+    z_score = 1.65 
+    safety_stock = z_score * sales_std_dev * np.sqrt(lead_time_days)
+    
+    reorder_point = (avg_daily_sales * lead_time_days) + safety_stock
+    return round(reorder_point), round(safety_stock)
