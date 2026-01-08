@@ -18,12 +18,14 @@ export function UserNav() {
   // ✅ Use the same auth logic as your current layout
   const { user, logout } = useAuth(); 
 
-  // Generate Initials (e.g., "JD")
-  const initials = user?.email 
-     ? user.email.substring(0, 2).toUpperCase() 
-     : "U";
+  // INITIALS LOGIC
+  const initials = (user?.first_name && user?.last_name)
+    ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
+    : user?.email?.substring(0, 2).toUpperCase() || "U";
      
-  const displayName = user?.first_name || user?.username || 'User';
+  const displayName = (user?.first_name && user?.last_name)
+    ? `${user.first_name} ${user.last_name}`
+    : user?.username || 'User';
 
   return (
     <DropdownMenu>
