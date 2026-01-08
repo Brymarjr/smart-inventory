@@ -12,24 +12,22 @@ import {
   Truck, 
   CreditCard, 
   Users, 
-  LogOut, 
   Menu,
   TrendingUp, 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetTrigger, 
+  SheetTitle,       // ✅ Added
+  SheetDescription  // ✅ Added
+} from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
-//  IMPORT THE NEW NOTIFICATION COMPONENT
+// ✅ IMPORT THE NEW COMPONENTS
 import { NotificationsBell } from '@/components/layout/notifications-bell';
+import { UserNav } from '@/components/layout/user-nav';
 
 // Navigation Items Configuration
 const NAV_ITEMS = [
@@ -43,7 +41,7 @@ const NAV_ITEMS = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, logout, isLoading } = useAuth();
+  const { user, isLoading } = useAuth(); 
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -52,22 +50,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   //  SECURITY & ENFORCER LOGIC
   // =========================================================
   useEffect(() => {
-    // 1. Wait for auth to initialize
     if (isLoading) return;
-
-    // 2. Protection: Kick out unauthenticated users
     if (!user) {
       router.push('/login');
       return;
     }
-
-    // 3. Enforcer: Trap users who must change password
     if (user.must_change_password) {
       if (pathname !== '/dashboard/change-password') {
         router.replace('/dashboard/change-password');
       }
     }
-
   }, [user, isLoading, router, pathname]);
 
   // Loading State
@@ -98,7 +90,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
-            
             return (
               <Link
                 key={item.href}
@@ -149,53 +140,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-64 p-0">
-                   <div className="h-16 flex items-center px-6 border-b">
-                     <span className="text-lg font-bold">Smart Inventory</span>
-                   </div>
-                   <div className="py-4 px-3 space-y-1">
-                     {NAV_ITEMS.map((item) => (
-                       <Link
-                         key={item.href}
-                         href={item.href}
-                         onClick={() => setIsMobileOpen(false)}
-                         className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                           pathname === item.href ? 'bg-secondary' : 'hover:bg-secondary/50'
-                         }`}
-                       >
-                         <item.icon className="mr-3 h-5 w-5" />
-                         {item.name}
-                       </Link>
-                     ))}
-                   </div>
+                    {/* ✅ FIX: Added accessible Title & Description */}
+                    <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                    <SheetDescription className="sr-only">
+                      Navigation links for mobile users
+                    </SheetDescription>
+
+                    <div className="h-16 flex items-center px-6 border-b">
+                      <span className="text-lg font-bold">Smart Inventory</span>
+                    </div>
+                    <div className="py-4 px-3 space-y-1">
+                      {NAV_ITEMS.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setIsMobileOpen(false)}
+                          className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                            pathname === item.href ? 'bg-secondary' : 'hover:bg-secondary/50'
+                          }`}
+                        >
+                          <item.icon className="mr-3 h-5 w-5" />
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
                 </SheetContent>
               </Sheet>
           </div>
           
           {/* Header Right Side */}
           <div className="flex items-center gap-4 ml-auto">
-              {/* REPLACED HARDCODED BUTTON WITH COMPONENT */}
               <NotificationsBell />
-
-              <DropdownMenu>
-               <DropdownMenuTrigger asChild>
-                 <Button variant="ghost" size="icon" className="rounded-full">
-                   <Avatar className="h-8 w-8">
-                     <AvatarFallback>U</AvatarFallback>
-                   </Avatar>
-                 </Button>
-               </DropdownMenuTrigger>
-               <DropdownMenuContent align="end">
-                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                 <DropdownMenuSeparator />
-                 <DropdownMenuItem>Profile</DropdownMenuItem>
-                 <DropdownMenuItem>Settings</DropdownMenuItem>
-                 <DropdownMenuSeparator />
-                 <DropdownMenuItem onClick={logout} className="text-red-600 cursor-pointer">
-                   <LogOut className="mr-2 h-4 w-4" />
-                   Logout
-                 </DropdownMenuItem>
-               </DropdownMenuContent>
-              </DropdownMenu>
+              <UserNav />
           </div>
         </header>
 
