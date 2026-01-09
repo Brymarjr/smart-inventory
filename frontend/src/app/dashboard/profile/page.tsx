@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Save } from 'lucide-react';
 
-// ✅ Added 'id' to the interface
 interface ProfileData {
   id: number; 
   first_name: string;
@@ -24,25 +23,25 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const { register, handleSubmit, reset } = useForm<ProfileData>();
 
-  // 1. Fetch Current User Data (This gets us the ID)
+  // 1. Fetch Current User Data (Using the new 'me' endpoint)
   const { data: user, isLoading } = useQuery({
     queryKey: ['me'],
     queryFn: async () => {
-      // We still GET from 'me' (or wherever your user info lives) to find out WHO we are
+      // ✅ Use 'me' here too, it's safer and cleaner
       const res = await api.get('/api/users/me/');
       return res.data;
     },
   });
 
-  // 2. Populate form when data loads
+  // 2. Populate form
   useEffect(() => {
     if (user) {
       reset({
-        id: user.id, // Store ID internally
+        id: user.id,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || '',
-        phone_number: user.phone_number || '',
+        phone_number: user.phone_number || '', // Backend field usually snake_case
       });
     }
   }, [user, reset]);
@@ -56,17 +55,18 @@ export default function ProfilePage() {
           phone_number: data.phone_number
       };
       
-      // ⚠️ CORRECTED: Using the specific User ID in the URL
-      if (!user?.id) throw new Error("User ID not found");
-      await api.patch(`/api/users/${user.id}/`, payload);
+      // ✅ FIXED: Use '/api/users/me/' instead of ID
+      // This bypasses the admin-only check on the main list view
+      await api.patch('/api/users/me/', payload);
     },
     onSuccess: () => {
       toast.success("Profile updated!");
-      // Refresh the data so the UI updates immediately
       queryClient.invalidateQueries({ queryKey: ['me'] });
+      // Also refresh global auth user if you are using one
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to update profile.");
+      console.error(error);
     }
   });
 

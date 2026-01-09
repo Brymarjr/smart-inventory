@@ -24,10 +24,11 @@ class UserSerializer(serializers.ModelSerializer):
             'email',
             'first_name',
             'last_name',
+            'phone_number',
             'role',
             'is_active',
             'is_staff',
-            'must_change_password', # Ensure this is sent to frontend
+            'must_change_password', 
         ]
         read_only_fields = ['id', 'is_staff', 'role', 'must_change_password']
 

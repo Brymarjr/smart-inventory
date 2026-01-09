@@ -33,7 +33,7 @@ User = get_user_model()
 # ----------------------------------------------------------
 class UserViewSet(TenantFilteredViewSet):
     serializer_class = UserSerializer
-    # Base permissions: Must be logged in, Admin, and not have a temp password pending
+    # Base permissions
     permission_classes = [IsAuthenticated, IsTenantAdmin, MustChangePasswordPermission]
 
     def get_queryset(self):
@@ -46,11 +46,13 @@ class UserViewSet(TenantFilteredViewSet):
         return User.objects.filter(tenant=tenant)
 
     def get_permissions(self):
-        # Allow any authenticated user to see "me", but enforce Admin for list/create/delete
+        # Allows 'me' for any logged-in user (Staff/Manager/Admin)
         if self.action == "me":
             return [IsAuthenticated()]
+        
         if self.action in ["create", "update", "partial_update", "destroy", "list"]:
             return [IsAuthenticated(), IsTenantAdmin()]
+            
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -65,10 +67,31 @@ class UserViewSet(TenantFilteredViewSet):
             check_plan_limit(tenant, "max_users", current_user_count)
         serializer.save(tenant=tenant)
 
-    @action(detail=False, methods=["get"])
+    # Added "patch" method and update logic
+    @action(detail=False, methods=["get", "patch"])
     def me(self, request):
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
+        user = request.user
+
+        if request.method == 'GET':
+            serializer = self.get_serializer(user)
+            return Response(serializer.data)
+        
+        elif request.method == 'PATCH':
+            # Security: Prevent staff from escalating privileges
+            # We copy the data and remove sensitive fields
+            data = request.data.copy()
+            restricted_fields = ['role', 'tenant', 'is_active', 'is_superuser', 'is_staff', 'groups', 'user_permissions']
+            
+            for field in restricted_fields:
+                if field in data:
+                    del data[field]
+
+            serializer = self.get_serializer(user, data=data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ----------------------------------------------------------

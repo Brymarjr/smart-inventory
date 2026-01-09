@@ -19,6 +19,7 @@ class User(AbstractUser):
         blank=True,
         related_name="users",
     )
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
 
     #  Password reset & security controls
     must_change_password = models.BooleanField(default=False)
