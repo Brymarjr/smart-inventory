@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Tenant, TenantSettings
+from .models import Tenant, TenantSettings, AuditLog
 from users.models import UserRole
 
 
@@ -65,3 +65,11 @@ class TenantSettingsSerializer(serializers.ModelSerializer):
             'low_stock_alerts', 'weekly_reports'
         ]
 
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.username', read_only=True)
+    actor_email = serializers.CharField(source='actor.email', read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = ['id', 'actor_name', 'actor_email', 'action', 'target_model', 'target_name', 'reason', 'timestamp']
