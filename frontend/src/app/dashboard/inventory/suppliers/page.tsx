@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { useAuth } from '@/lib/auth-context';
 import { Supplier, PaginatedResponse } from '@/lib/types';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -13,33 +14,54 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Search, Loader2, Truck } from 'lucide-react';
+import { 
+    Plus, Search, Loader2, Truck, Pencil, Trash2, MoreHorizontal, Mail, Phone,
+    ChevronLeft, ChevronRight // ✅ Added Arrows
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SuppliersPage() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [page, setPage] = useState(1); // ✅ Added Page State
+  
   const queryClient = useQueryClient();
 
-  // Form State
+  // --- MODAL STATES ---
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
+
+  // --- FORM DATA ---
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [reason, setReason] = useState(''); 
 
-  // Fetch Suppliers
+  const canModify = user?.role === 'tenant_admin' || user?.role === 'manager';
+
+  // 1. Fetch Suppliers (Paginated)
   const { data, isLoading } = useQuery({
-    queryKey: ['suppliers', search],
+    queryKey: ['suppliers', search, page], // ✅ Update Key
     queryFn: async () => {
-      const params = search ? { search } : {};
+      const params = { 
+          search, 
+          page, 
+          page_size: 20 
+      };
       const { data } = await api.get<PaginatedResponse<Supplier>>('/api/suppliers/', { params });
       return data;
     },
+    placeholderData: (prev) => prev,
   });
 
-  // Create Supplier Mutation
+  // 2. CREATE Mutation
   const createMutation = useMutation({
     mutationFn: async () => {
       await api.post('/api/suppliers/', { name, email, phone, address });
@@ -47,28 +69,68 @@ export default function SuppliersPage() {
     onSuccess: () => {
       toast.success('Supplier added successfully');
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
-      setIsDialogOpen(false);
-      setName('');
-      setEmail('');
-      setPhone('');
-      setAddress('');
+      setIsCreateOpen(false);
+      resetForm();
     },
-    onError: (error: any) => {
-      const data = error.response?.data;
-      const detail = data?.detail || (Array.isArray(data) ? data[0] : null);
-    
-      // Check for the keyword "limit" which your backend sends
-      if (detail && typeof detail === 'string' && detail.toLowerCase().includes("limit")) {
-          toast.error("Plan Limit Reached: Upgrade to add more.");
-      } else {
-          toast.error("Failed to create item.");
-      }
-    },
+    onError: (error: any) => handleApiError(error),
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate();
+  // 3. UPDATE Mutation
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+        if (!editingSupplier) return;
+        await api.patch(`/api/suppliers/${editingSupplier.id}/`, { name, email, phone, address, reason });
+    },
+    onSuccess: () => {
+      toast.success('Supplier updated');
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      setEditingSupplier(null);
+      resetForm();
+    },
+    onError: (error: any) => handleApiError(error),
+  });
+
+  // 4. DELETE Mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+        if (!deletingSupplier) return;
+        await api.delete(`/api/suppliers/${deletingSupplier.id}/`, { data: { reason } });
+    },
+    onSuccess: () => {
+      toast.success('Supplier deleted');
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      setDeletingSupplier(null);
+      resetForm();
+    },
+    onError: (error: any) => handleApiError(error),
+  });
+
+  const resetForm = () => {
+      setName(''); setEmail(''); setPhone(''); setAddress(''); setReason('');
+  };
+
+  const handleApiError = (error: any) => {
+      const data = error.response?.data;
+      const detail = data?.detail || data?.reason || "Operation failed";
+      if (typeof detail === 'string' && detail.toLowerCase().includes("limit")) {
+          toast.error("Plan Limit Reached: Upgrade to add more.");
+      } else {
+          toast.error(typeof detail === 'string' ? detail : "An error occurred.");
+      }
+  };
+
+  const openEdit = (sup: Supplier) => {
+      setEditingSupplier(sup);
+      setName(sup.name);
+      setEmail(sup.email || '');
+      setPhone(sup.phone || '');
+      setAddress(sup.address || '');
+      setReason('');
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(e.target.value);
+      setPage(1); // ✅ Reset Page
   };
 
   return (
@@ -79,9 +141,9 @@ export default function SuppliersPage() {
            <p className="text-muted-foreground text-sm">Manage your vendors and sources.</p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={resetForm}>
               <Plus className="mr-2 h-4 w-4" /> Add Supplier
             </Button>
           </DialogTrigger>
@@ -90,54 +152,19 @@ export default function SuppliersPage() {
               <DialogTitle>Add New Supplier</DialogTitle>
               <DialogDescription>Enter contact details for your vendor.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Company Name *</Label>
-                <Input 
-                    id="name" 
-                    value={name} 
-                    onChange={(e) => setName(e.target.value)} 
-                    placeholder="e.g. Acme Corp" 
-                    required 
-                />
-              </div>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2"><Label>Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input 
-                        id="email" 
-                        type="email"
-                        value={email} 
-                        onChange={(e) => setEmail(e.target.value)} 
-                        placeholder="contact@acme.com" 
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input 
-                        id="phone" 
-                        value={phone} 
-                        onChange={(e) => setPhone(e.target.value)} 
-                        placeholder="+1 234..." 
-                    />
-                </div>
+                <div className="space-y-2"><Label>Email</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea 
-                    id="address" 
-                    value={address} 
-                    onChange={(e) => setAddress(e.target.value)} 
-                    placeholder="Physical address..." 
-                />
-              </div>
+              <div className="space-y-2"><Label>Address</Label><Textarea value={address} onChange={(e) => setAddress(e.target.value)} /></div>
               <DialogFooter>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Supplier
+                <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
                 </Button>
               </DialogFooter>
-            </form>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -152,7 +179,7 @@ export default function SuppliersPage() {
                         placeholder="Search..." 
                         className="pl-8 h-9" 
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={handleSearch} // ✅ Use updated handler
                     />
                 </div>
             </div>
@@ -166,29 +193,132 @@ export default function SuppliersPage() {
                 <p>No suppliers found.</p>
              </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Address</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.results.map((sup) => (
-                  <TableRow key={sup.id}>
-                    <TableCell className="font-medium">{sup.name}</TableCell>
-                    <TableCell>{sup.email || '-'}</TableCell>
-                    <TableCell>{sup.phone || '-'}</TableCell>
-                    <TableCell className="text-muted-foreground truncate max-w-[200px]">{sup.address || '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+            <div className="rounded-md border">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {data?.results.map((sup) => (
+                    <TableRow key={sup.id}>
+                        <TableCell className="font-medium">{sup.name}</TableCell>
+                        <TableCell>
+                            <div className="text-sm flex flex-col gap-1">
+                                {sup.email && <div className="flex items-center gap-2"><Mail className="h-3 w-3 text-muted-foreground" /> {sup.email}</div>}
+                                {sup.phone && <div className="flex items-center gap-2"><Phone className="h-3 w-3 text-muted-foreground" /> {sup.phone}</div>}
+                            </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground truncate max-w-[200px]">{sup.address || '-'}</TableCell>
+                        <TableCell className="text-right">
+                            {canModify && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => openEdit(sup)}>
+                                            <Pencil className="mr-2 h-4 w-4" /> Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setDeletingSupplier(sup)} className="text-red-600">
+                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+            </div>
+
+            {/* ✅ PAGINATION FOOTER */}
+            <div className="flex items-center justify-between space-x-2 py-4">
+                <div className="text-sm text-muted-foreground">
+                    {data?.count ? (
+                        <span>
+                            Showing <strong>{(page - 1) * 20 + 1}</strong> to <strong>{Math.min(page * 20, data.count)}</strong> of <strong>{data.count}</strong> results
+                        </span>
+                    ) : "0 results"}
+                </div>
+                <div className="space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(old => Math.max(old - 1, 1))}
+                        disabled={page === 1 || isLoading}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(old => old + 1)}
+                        disabled={!data?.next || isLoading}
+                    >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                </div>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
+
+      {/* --- EDIT DIALOG --- */}
+      <Dialog open={!!editingSupplier} onOpenChange={(open) => !open && setEditingSupplier(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Supplier</DialogTitle>
+                <DialogDescription>Reason required for audit log.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+                <Input placeholder="Name" value={name} onChange={e => setName(e.target.value)} />
+                <Input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+                <Input placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} />
+                <Input placeholder="Address" value={address} onChange={e => setAddress(e.target.value)} />
+                
+                <div className="pt-2 border-t">
+                    <Label className="text-amber-600">Reason for Update (Required)</Label>
+                    <Textarea placeholder="Why are you changing this?" value={reason} onChange={e => setReason(e.target.value)} />
+                </div>
+                <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending || !reason.trim()}>
+                    {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Update
+                </Button>
+            </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- DELETE DIALOG --- */}
+      <Dialog open={!!deletingSupplier} onOpenChange={(open) => !open && setDeletingSupplier(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle className="text-red-600">Delete Supplier: {deletingSupplier?.name}</DialogTitle>
+                <DialogDescription>Reason required for audit log.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+                <Label>Reason for Deletion</Label>
+                <Textarea placeholder="Why is this being deleted?" value={reason} onChange={e => setReason(e.target.value)} />
+                <DialogFooter>
+                     <Button variant="outline" onClick={() => setDeletingSupplier(null)}>Cancel</Button>
+                     <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending || !reason.trim()}>
+                        {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete
+                    </Button>
+                </DialogFooter>
+            </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

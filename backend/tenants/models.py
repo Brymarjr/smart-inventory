@@ -55,3 +55,28 @@ class TenantSettings(models.Model):
 
     def __str__(self):
         return f"Settings for {self.tenant.name}"
+    
+    
+class AuditLog(models.Model):
+    ACTION_CHOICES = [
+        ('UPDATE', 'Update'),
+        ('DELETE', 'Delete'),
+    ]
+
+    tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True) 
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES)
+    
+    # What was changed? (e.g., "Category", "Supplier")
+    target_model = models.CharField(max_length=50) 
+    
+    # What was it called? (e.g., "Beverages")
+    target_name = models.CharField(max_length=255) 
+    
+    # The required reason for the change
+    reason = models.TextField() 
+    
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.actor} {self.action} {self.target_name}"

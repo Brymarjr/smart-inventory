@@ -13,11 +13,52 @@ from users.permissions import (
 )
 from billing.utils import require_feature, check_plan_limit
 from core.mixins import TenantFilteredViewSet
+from tenants.models import AuditLog
+
+class AuditLogMixin:
+    def perform_update(self, serializer):
+        # 1. Get the reason from the request
+        reason = self.request.data.get('reason', '').strip()
+        if not reason:
+            raise ValidationError({"reason": "A reason is required for updates."})
+
+        # 2. Save the update
+        instance = serializer.save()
+
+        # 3. Create Audit Log
+        AuditLog.objects.create(
+            tenant=self.request.tenant,
+            actor=self.request.user,
+            action='UPDATE',
+            target_model=instance.__class__.__name__,
+            target_name=str(instance),
+            reason=reason
+        )
+
+    def perform_destroy(self, instance):
+        # 1. Get reason (For DELETE, data might be in query params or body)
+        reason = self.request.data.get('reason', self.request.query_params.get('reason', '')).strip()
+        
+        if not reason:
+            raise ValidationError({"reason": "A reason is required for deletion."})
+
+        # 2. Create Audit Log BEFORE deleting (so we have the name)
+        AuditLog.objects.create(
+            tenant=self.request.tenant,
+            actor=self.request.user,
+            action='DELETE',
+            target_model=instance.__class__.__name__,
+            target_name=str(instance),
+            reason=reason
+        )
+
+        # 3. Delete
+        instance.delete()
 
 # ============================================================
 # CATEGORY VIEWSET
 # ============================================================
-class CategoryViewSet(TenantFilteredViewSet):
+class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
     - Staff: read-only
@@ -58,7 +99,7 @@ class CategoryViewSet(TenantFilteredViewSet):
 # ============================================================
 # SUPPLIER VIEWSET
 # ============================================================
-class SupplierViewSet(TenantFilteredViewSet):
+class SupplierViewSet(AuditLogMixin,TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
     - Staff: no access
@@ -100,7 +141,7 @@ class SupplierViewSet(TenantFilteredViewSet):
 # ============================================================
 # PRODUCT VIEWSET
 # ============================================================
-class ProductViewSet(TenantFilteredViewSet):
+class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
     """
     - TenantAdmin & Manager: full CRUD
     - Staff: read-only (for viewing product catalog)
