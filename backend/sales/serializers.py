@@ -120,9 +120,20 @@ class SaleCreateSerializer(serializers.Serializer):
 
 class SaleReadSerializer(serializers.ModelSerializer):
     items = SaleItemSerializer(many=True, read_only=True)
-    created_by = serializers.StringRelatedField()
+    cashier_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Sale
-        fields = ('id', 'tenant', 'reference', 'customer_name', 'total_amount',
-                  'payment_method', 'created_by', 'created_at', 'notes', 'items')
+        fields = (
+            'id', 'tenant', 'reference', 'customer_name', 'total_amount',
+            'payment_method', 'created_by', 'cashier_name', 'created_at', 'notes', 'items'
+        )
+
+    # Logic to get real name
+    def get_cashier_name(self, obj):
+        user = obj.created_by
+        if user:
+            full_name = f"{user.first_name} {user.last_name}".strip()
+            # If name is empty (e.g. newly created admin), fallback to username
+            return full_name if full_name else user.username
+        return "Unknown"

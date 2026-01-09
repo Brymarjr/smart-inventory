@@ -35,7 +35,9 @@ class SaleViewSet(TenantFilteredViewSet):
     pagination_class = StandardResultsSetPagination
     
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['reference', 'customer_name', 'notes', 'created_by__username']
+    search_fields = ['reference', 'customer_name', 'notes', 'created_by__username', 'created_by__first_name',  # Search by cashier First Name
+        'created_by__last_name',   # Search by cashier Last Name
+        'items__product__name']  # Search by product name in sale items
 
     def get_permissions(self):
         if self.action == "create":

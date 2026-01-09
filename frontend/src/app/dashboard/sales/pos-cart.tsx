@@ -16,9 +16,11 @@ interface PosCartProps {
   onRemove: (id: number) => void;
   onUpdateQty: (id: number, delta: number) => void;
   onClear: () => void;
+  // ✅ NEW: Callback to trigger the parent's print dialog
+  onSaleSuccess: (data: any) => void; 
 }
 
-export function PosCart({ cart, onRemove, onUpdateQty, onClear }: PosCartProps) {
+export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }: PosCartProps) {
   const queryClient = useQueryClient();
   
   // Checkout Form State
@@ -26,7 +28,6 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear }: PosCartProps) 
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'pos' | 'other'>('cash');
   const [notes, setNotes] = useState('');
 
-  // Calculate Totals
   const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   // Checkout Mutation
@@ -37,26 +38,32 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear }: PosCartProps) 
         payment_method: paymentMethod,
         notes: notes,
         items: cart.map(item => ({
-          product: item.productId,
+          product: item.productId, // Ensure your backend expects 'product_id' or 'product'
           quantity: item.quantity
         }))
       };
-      await api.post('/api/sales/', payload);
+      // ✅ RETURN the data so we can use it in onSuccess
+      const res = await api.post('/api/sales/', payload);
+      return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success('Sale completed successfully!');
-      onClear(); // Clear cart
+      
+      // ✅ TRIGGER THE PRINT DIALOG IN PARENT
+      onSaleSuccess(data);
+
+      onClear(); 
       setCustomerName('');
       setNotes('');
       setPaymentMethod('cash');
-      queryClient.invalidateQueries({ queryKey: ['products'] }); // Refresh stock levels on the left
-      queryClient.invalidateQueries({ queryKey: ['sales'] });    // Refresh sales history if visible
+      queryClient.invalidateQueries({ queryKey: ['products'] }); 
+      queryClient.invalidateQueries({ queryKey: ['sales'] });    
     },
     onError: (error: any) => {
       console.error(error);
       const msg = error.response?.data?.items 
         ? (Array.isArray(error.response.data.items) ? error.response.data.items[0] : error.response.data.items)
-        : 'Checkout failed. Please try again.';
+        : error.response?.data?.message || 'Checkout failed. Please try again.';
       toast.error(typeof msg === 'object' ? JSON.stringify(msg) : msg);
     }
   });
@@ -83,7 +90,7 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear }: PosCartProps) 
         </Button>
       </div>
 
-      {/* ITEMS LIST (Scrollable) */}
+      {/* ITEMS LIST */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {cart.map((item) => (
           <div key={item.productId} className="flex items-center justify-between group">
@@ -123,9 +130,8 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear }: PosCartProps) 
         ))}
       </div>
 
-      {/* CHECKOUT SECTION (Fixed at bottom) */}
+      {/* CHECKOUT SECTION */}
       <div className="p-4 bg-gray-50 border-t space-y-4 rounded-b-lg">
-        {/* Customer & Payment Details */}
         <div className="grid grid-cols-2 gap-3">
             <Input 
                 placeholder="Customer Name (Optional)" 
