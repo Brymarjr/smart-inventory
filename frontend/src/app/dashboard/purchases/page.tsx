@@ -16,7 +16,16 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search, Loader2, CheckCircle, CreditCard, Eye, XCircle } from 'lucide-react';
+import { 
+    Search, 
+    Loader2, 
+    CheckCircle, 
+    CreditCard, 
+    Eye, 
+    XCircle,
+    ChevronLeft, // ✅ Added
+    ChevronRight // ✅ Added
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/lib/auth-context';
@@ -27,7 +36,7 @@ interface PurchaseItem {
   quantity: number;
   unit_cost: string;
   subtotal: string;
-  new_price?: string; // This comes from backend if set
+  new_price?: string; 
 }
 
 interface PurchaseOrder {
@@ -43,26 +52,33 @@ interface PurchaseOrder {
 export default function PurchasesPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1); // ✅ ADDED: Page State
+  
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [selectedSupplier, setSelectedSupplier] = useState<string>('');
   const [priceUpdates, setPriceUpdates] = useState<Record<number, string>>({});
   
   const queryClient = useQueryClient();
 
-  // RBAC: Check if user is Finance/Admin
+  // RBAC
   const isFinance = user?.role === 'tenant_admin' || user?.role === 'manager';
 
-  // Fetch Purchases
+  // Fetch Purchases (Paginated)
   const { data, isLoading } = useQuery({
-    queryKey: ['purchases', search],
+    queryKey: ['purchases', search, page], // ✅ UPDATED: Refetch on page change
     queryFn: async () => {
-      const params = search ? { search } : {};
+      const params = { 
+          search, 
+          page, 
+          page_size: 20 
+      };
       const { data } = await api.get<PaginatedResponse<PurchaseOrder>>('/api/purchases/', { params });
       return data;
     },
+    placeholderData: (previousData) => previousData, // Keep data while loading
   });
 
-  // Fetch Suppliers (Only needed for Approval)
+  // Fetch Suppliers
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers'],
     queryFn: async () => {
@@ -126,12 +142,16 @@ export default function PurchasesPage() {
     }
   };
 
-  // Determine if we should show the "New Price" column
-  // Show if: (Status is PAID) OR (Status is APPROVED AND User is Finance)
   const showNewPriceColumn = selectedPO && (
     selectedPO.status === 'paid' || 
     (selectedPO.status === 'approved_pending_payment' && isFinance)
   );
+
+  // ✅ Search Handler: Reset page
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(e.target.value);
+      setPage(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -145,7 +165,7 @@ export default function PurchasesPage() {
                         placeholder="Search PO or Supplier..." 
                         className="pl-8 h-9" 
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={handleSearch} // ✅ Updated Handler
                     />
                 </div>
             </div>
@@ -158,40 +178,75 @@ export default function PurchasesPage() {
                 <p>No purchase orders found.</p>
              </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>PO Ref</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.results.map((po) => (
-                  <TableRow key={po.id}>
-                    <TableCell className="font-mono font-medium">{po.reference}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                        {format(new Date(po.created_at), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>{po.supplier_name || '-'}</TableCell>
-                    <TableCell>
-                        <Badge variant="outline" className={`border ${getStatusColor(po.status)}`}>
-                            {po.status.replace(/_/g, ' ')}
-                        </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-bold">₦{parseFloat(po.total_amount).toLocaleString()}</TableCell>
-                    <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => setSelectedPO(po)}>
-                            <Eye className="h-4 w-4" />
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+            <div className="rounded-md border">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>PO Ref</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {data?.results.map((po) => (
+                    <TableRow key={po.id}>
+                        <TableCell className="font-mono font-medium">{po.reference}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(po.created_at), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell>{po.supplier_name || '-'}</TableCell>
+                        <TableCell>
+                            <Badge variant="outline" className={`border ${getStatusColor(po.status)}`}>
+                                {po.status.replace(/_/g, ' ')}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-bold">₦{parseFloat(po.total_amount).toLocaleString()}</TableCell>
+                        <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => setSelectedPO(po)}>
+                                <Eye className="h-4 w-4" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+            </div>
+
+            {/* ✅ PAGINATION FOOTER */}
+            <div className="flex items-center justify-between space-x-2 py-4">
+                <div className="text-sm text-muted-foreground">
+                    {data?.count ? (
+                        <span>
+                            Showing <strong>{(page - 1) * 20 + 1}</strong> to <strong>{Math.min(page * 20, data.count)}</strong> of <strong>{data.count}</strong> results
+                        </span>
+                    ) : "0 results"}
+                </div>
+                <div className="space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(old => Math.max(old - 1, 1))}
+                        disabled={page === 1 || isLoading}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(old => old + 1)}
+                        disabled={!data?.next || isLoading}
+                    >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                </div>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -216,8 +271,6 @@ export default function PurchasesPage() {
                                     <TableHead>Product</TableHead>
                                     <TableHead className="text-right">Qty</TableHead>
                                     <TableHead className="text-right">Unit Cost</TableHead>
-                                    
-                                    {/* Dynamic Column: New Sell Price */}
                                     {showNewPriceColumn && (
                                         <TableHead className="text-right w-[140px]">New Sell Price</TableHead>
                                     )}
@@ -230,14 +283,14 @@ export default function PurchasesPage() {
                                         <TableCell className="text-right">{item.quantity}</TableCell>
                                         <TableCell className="text-right">₦{parseFloat(item.unit_cost).toLocaleString()}</TableCell>
                                         
-                                        {/* CASE 1: PAID - Show confirmed new price */}
+                                        {/* CASE 1: PAID */}
                                         {selectedPO.status === 'paid' && (
                                             <TableCell className="text-right font-medium text-blue-700">
                                                 {item.new_price ? `₦${parseFloat(item.new_price).toLocaleString()}` : '-'}
                                             </TableCell>
                                         )}
 
-                                        {/* CASE 2: PAYMENT PHASE - Show Input */}
+                                        {/* CASE 2: PAYMENT PHASE */}
                                         {selectedPO.status === 'approved_pending_payment' && isFinance && (
                                             <TableCell>
                                                 <Input 
@@ -283,7 +336,6 @@ export default function PurchasesPage() {
                                     {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Approve
                                 </Button>
-                                {/* REJECT BUTTON ADDED */}
                                 <Button 
                                     variant="destructive"
                                     onClick={() => rejectMutation.mutate()}
@@ -314,7 +366,6 @@ export default function PurchasesPage() {
                                     {payMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Confirm Payment
                                 </Button>
-                                {/* REJECT BUTTON ADDED */}
                                 <Button 
                                     variant="destructive"
                                     onClick={() => rejectMutation.mutate()}

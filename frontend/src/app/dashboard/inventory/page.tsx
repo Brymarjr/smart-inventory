@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Product, PaginatedResponse } from '@/lib/types';
@@ -11,37 +12,69 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
-import { Plus, Search, AlertTriangle, PackageOpen, Settings2, Trash2, ArchiveRestore, RotateCcw } from 'lucide-react';
-import { useState } from 'react';
+import { 
+  Plus, 
+  Search, 
+  AlertTriangle, 
+  PackageOpen, 
+  Settings2, 
+  Trash2, 
+  ArchiveRestore, 
+  RotateCcw,
+  ChevronLeft,  // ✅ Added
+  ChevronRight  // ✅ Added
+} from 'lucide-react';
 import { ProductForm } from './product-form';
 import { StockAdjustmentDialog } from '@/components/inventory/stock-adjustment-dialog';
 import { ArchiveProductDialog } from '@/components/inventory/archive-product-dialog'; 
-import { RestoreProductDialog } from '@/components/inventory/restore-product-dialog'; // ✅ Import New Dialog
+import { RestoreProductDialog } from '@/components/inventory/restore-product-dialog';
 
 export default function InventoryPage() {
+  // ✅ Pagination & Search State
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1); // Start at page 1
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState("active");
 
   // Modal States
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [archiveProduct, setArchiveProduct] = useState<Product | null>(null);
-  const [restoreProduct, setRestoreProduct] = useState<Product | null>(null); // ✅ New State
+  const [restoreProduct, setRestoreProduct] = useState<Product | null>(null);
 
   const queryClient = useQueryClient();
 
-  // Fetch Products
+  // ✅ Updated Fetch Logic
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['products', search, currentTab],
+    queryKey: ['products', search, currentTab, page], // Refetch on page change
     queryFn: async () => {
-      const params: any = search ? { search } : {};
+      const params: any = { 
+          page, 
+          page_size: 20 // Optional: enforce size
+      };
+      
+      if (search) params.search = search;
+      
       if (currentTab === 'archived') {
         params.deleted = 'true';
       }
+      
       const response = await api.get<PaginatedResponse<Product>>('/api/products/', { params });
       return response.data;
     },
   });
+
+  // ✅ Handle Search (Reset page to 1)
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(e.target.value);
+      setPage(1);
+  };
+
+  // ✅ Handle Tabs (Reset page to 1)
+  const handleTabChange = (val: string) => {
+      setCurrentTab(val);
+      setPage(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -58,7 +91,7 @@ export default function InventoryPage() {
         )}
       </div>
 
-      <Tabs defaultValue="active" onValueChange={setCurrentTab} className="w-full">
+      <Tabs defaultValue="active" onValueChange={handleTabChange} className="w-full">
         <div className="flex items-center justify-between mb-4">
             <TabsList>
                 <TabsTrigger value="active">Active Inventory</TabsTrigger>
@@ -78,7 +111,7 @@ export default function InventoryPage() {
                     placeholder="Search products..."
                     className="pl-8"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={handleSearch} // ✅ Use new handler
                 />
                 </div>
             </div>
@@ -95,9 +128,10 @@ export default function InventoryPage() {
             ) : data?.results?.length === 0 ? (
                 <div className="h-48 flex flex-col items-center justify-center text-muted-foreground">
                 <PackageOpen className="h-10 w-10 mb-2 opacity-20" />
-                <p>No products found in {currentTab} list.</p>
+                <p>No products found.</p>
                 </div>
             ) : (
+                <>
                 <div className="rounded-md border">
                 <Table>
                     <TableHeader>
@@ -162,10 +196,8 @@ export default function InventoryPage() {
                                     </Button>
                                 </>
                             ) : (
-                                // ✅ OPEN RESTORE DIALOG
                                 <Button 
-                                    variant="ghost" 
-                                    size="sm" 
+                                    variant="ghost" size="sm" 
                                     onClick={() => setRestoreProduct(product)}
                                     className="text-green-600 hover:text-green-700 hover:bg-green-50"
                                 >
@@ -180,6 +212,38 @@ export default function InventoryPage() {
                     </TableBody>
                 </Table>
                 </div>
+
+                {/* ✅ PAGINATION CONTROLS */}
+                <div className="flex items-center justify-between space-x-2 py-4">
+                    <div className="text-sm text-muted-foreground">
+                        {data?.count ? (
+                            <span>
+                                Showing <strong>{(page - 1) * 20 + 1}</strong> to <strong>{Math.min(page * 20, data.count)}</strong> of <strong>{data.count}</strong> results
+                            </span>
+                        ) : "0 results"}
+                    </div>
+                    <div className="space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(old => Math.max(old - 1, 1))}
+                            disabled={page === 1 || isLoading}
+                        >
+                            <ChevronLeft className="h-4 w-4 mr-2" />
+                            Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPage(old => old + 1)}
+                            disabled={!data?.next || isLoading}
+                        >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-2" />
+                        </Button>
+                    </div>
+                </div>
+                </>
             )}
             </CardContent>
         </Card>
@@ -201,7 +265,6 @@ export default function InventoryPage() {
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products'] })}
       />
 
-      {/* ✅ ADD THE RESTORE MODAL */}
       <RestoreProductDialog
         product={restoreProduct}
         isOpen={!!restoreProduct}

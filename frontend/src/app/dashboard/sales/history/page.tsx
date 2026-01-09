@@ -22,14 +22,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Search, Loader2, Eye, Calendar, User, CreditCard } from 'lucide-react';
+import { Search, Loader2, Eye, User, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
-// 1. UPDATE INTERFACE to include product_name
 interface SaleItem {
   id: number;
-  product_name?: string; // <--- ADDED (Matches the backend update)
+  product_name?: string;
   product: number;
   quantity: number;
   unit_price: string;
@@ -42,7 +41,8 @@ interface Sale {
   customer_name: string | null;
   total_amount: string;
   payment_method: string;
-  created_by: string; 
+  created_by: string | number;
+  cashier_name?: string;
   created_at: string;
   notes: string | null;
   items: SaleItem[];
@@ -50,12 +50,18 @@ interface Sale {
 
 export default function SalesHistoryPage() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1); // ✅ ADDED: Page state
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['sales', search],
+    queryKey: ['sales', search, page], // ✅ UPDATED: Refetch on page change
     queryFn: async () => {
-      const params = search ? { search } : {};
+      // ✅ UPDATED: Pass page param
+      const params = { 
+        search, 
+        page, 
+        page_size: 20 // Ensure consistent page size
+      };
       const { data } = await api.get<PaginatedResponse<Sale>>('/api/sales/', { params });
       return data;
     },
@@ -73,12 +79,20 @@ export default function SalesHistoryPage() {
     }
   };
 
-  // 2. NEW HELPER: Remove the "1__" prefix from usernames
-  const formatCashier = (rawName: string) => {
+  const formatCashier = (rawName: string | number | undefined) => {
     if (!rawName) return 'Unknown';
-    // If name is "1__john", split by "__" and take the last part
-    const parts = rawName.split('__');
-    return parts.length > 1 ? parts[parts.length - 1] : rawName;
+    const nameStr = String(rawName);
+    if (nameStr.includes('__')) {
+        const parts = nameStr.split('__');
+        return parts.length > 1 ? parts[parts.length - 1] : nameStr;
+    }
+    return nameStr;
+  };
+
+  // ✅ UPDATED: Search handler resets page to 1
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1); 
   };
 
   return (
@@ -100,7 +114,7 @@ export default function SalesHistoryPage() {
                         placeholder="Search Reference ID..." 
                         className="pl-8 h-9" 
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={handleSearch} // ✅ Use updated handler
                     />
                 </div>
             </div>
@@ -113,6 +127,7 @@ export default function SalesHistoryPage() {
                 <p>No sales records found.</p>
              </div>
           ) : (
+            <>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -139,12 +154,9 @@ export default function SalesHistoryPage() {
                             {sale.payment_method}
                         </Badge>
                       </TableCell>
-                      
-                      {/* 3. APPLY HELPER HERE */}
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatCashier(sale.created_by)}
+                        {sale.cashier_name || formatCashier(sale.created_by)}
                       </TableCell>
-                      
                       <TableCell className="text-right font-bold">{fmtMoney(sale.total_amount)}</TableCell>
                       <TableCell>
                         <Button 
@@ -161,6 +173,38 @@ export default function SalesHistoryPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* ✅ ADDED: PAGINATION CONTROLS */}
+            <div className="flex items-center justify-between space-x-2 py-4">
+                <div className="text-sm text-muted-foreground">
+                    {data?.count ? (
+                        <span>
+                            Showing <strong>{(page - 1) * 20 + 1}</strong> to <strong>{Math.min(page * 20, data.count)}</strong> of <strong>{data.count}</strong> results
+                        </span>
+                    ) : "0 results"}
+                </div>
+                <div className="space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(old => Math.max(old - 1, 1))}
+                        disabled={page === 1 || isLoading}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage(old => old + 1)}
+                        disabled={!data?.next || isLoading}
+                    >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                    </Button>
+                </div>
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -185,7 +229,6 @@ export default function SalesHistoryPage() {
                         {selectedSale.items?.map((item, idx) => (
                             <div key={idx} className="flex justify-between text-sm">
                                 <div>
-                                    {/* 4. USE product_name IF AVAILABLE, ELSE FALLBACK */}
                                     <span className="font-medium text-slate-700">
                                       {item.product_name || `Product #${item.product}`}
                                     </span>
@@ -204,8 +247,7 @@ export default function SalesHistoryPage() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <User className="h-4 w-4" />
-                            {/* 5. APPLY HELPER HERE TOO */}
-                            <span>{formatCashier(selectedSale.created_by)}</span>
+                            <span>{selectedSale.cashier_name || formatCashier(selectedSale.created_by)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                             <CreditCard className="h-4 w-4" />

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-
+from core.pagination import StandardResultsSetPagination
 from .models import Category, Supplier, Product, InventoryLog
 from .serializers import CategorySerializer, SupplierSerializer, ProductSerializer
 from users.permissions import (
@@ -25,7 +25,7 @@ class CategoryViewSet(TenantFilteredViewSet):
     """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    
+    pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['name']
 
@@ -66,7 +66,7 @@ class SupplierViewSet(TenantFilteredViewSet):
     """
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
-    
+    pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'email']
 
@@ -108,7 +108,7 @@ class ProductViewSet(TenantFilteredViewSet):
     """
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
-    
+    pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'sku', 'description']
 

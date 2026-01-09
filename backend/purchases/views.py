@@ -13,7 +13,7 @@ from core.mixins import TenantFilteredViewSet
 from decimal import Decimal
 from billing.utils import require_feature
 from notifications.utils import notify_user
-
+from core.pagination import StandardResultsSetPagination
 
 class PurchaseOrderViewSet(TenantFilteredViewSet):
     """
@@ -27,6 +27,7 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     queryset = PurchaseOrder.objects.all().select_related("supplier", "created_by", "approved_by", "paid_by")
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated, IsStaffOrTenantAdminManager]
+    pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['reference', 'supplier__name', 'status', 'notes']
 
@@ -280,6 +281,7 @@ class PurchaseItemViewSet(TenantFilteredViewSet):
     """
     queryset = PurchaseItem.objects.none()
     serializer_class = PurchaseItemSerializer
+    pagination_class = StandardResultsSetPagination
     permission_classes = [IsAuthenticated, IsTenantAdminOrManager]
 
     def get_queryset(self):

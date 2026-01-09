@@ -11,19 +11,30 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, PackageOpen, LayoutGrid, List, Printer, CheckCircle2, History, ShoppingBag } from 'lucide-react';
+import { 
+    Search, 
+    PackageOpen, 
+    LayoutGrid, 
+    List, 
+    Printer, 
+    CheckCircle2, 
+    History, 
+    ShoppingBag,
+    ChevronLeft,  // ✅ Import Arrows
+    ChevronRight 
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { PosCart } from './pos-cart';
 import { ReceiptTemplate } from '@/components/sales/receipt-template';
 
 export default function SalesPage() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1); // ✅ ADDED: Track Product Page
   const [cart, setCart] = useState<CartItem[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeTab, setActiveTab] = useState<'pos' | 'history'>('pos'); // ✅ Toggle between POS and History
+  const [activeTab, setActiveTab] = useState<'pos' | 'history'>('pos');
   
   // --- PRINTING STATE ---
-  // We call it 'selectedSale' now because it could be the LAST sale or a HISTORICAL sale
   const [selectedSale, setSelectedSale] = useState<any>(null); 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -38,30 +49,36 @@ export default function SalesPage() {
       staleTime: Infinity
   });
 
-  // 2. Fetch Products (For POS Tab)
+  // 2. Fetch Products (Paginated)
   const { data: productsData, isLoading: isProductsLoading } = useQuery({
-    queryKey: ['products', search],
+    queryKey: ['products', search, page], // ✅ UPDATED: Refetch on page change
     queryFn: async () => {
-      const params = { search, page_size: 50 }; 
+      // ✅ UPDATED: Pass page_size: 24 (Divides nicely by 2, 3, and 4 for grids)
+      const params = { search, page, page_size: 24 }; 
       const { data } = await api.get<PaginatedResponse<Product>>('/api/products/', { params });
       return data;
     },
-    enabled: activeTab === 'pos' // Only fetch when in POS mode
+    enabled: activeTab === 'pos',
+    placeholderData: (previousData) => previousData, // Keep data while fetching next page (smoother)
   });
 
-  // 3. Fetch Sales History (For History Tab)
+  // 3. Fetch Sales History
   const { data: salesHistory, isLoading: isHistoryLoading } = useQuery({
     queryKey: ['sales', search], 
     queryFn: async () => {
-        // Pass the 'search' param to the backend
-        const params = { search }; 
-        const { data } = await api.get('/api/sales/', { params });
-        return data;
+       const params = { search }; 
+       const { data } = await api.get('/api/sales/', { params });
+       return data;
     },
     enabled: activeTab === 'history' 
   });
 
-  // --- CART HANDLERS ---
+  // --- HANDLERS ---
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearch(e.target.value);
+      setPage(1); // Reset to page 1 when searching
+  };
+
   const addToCart = (product: Product) => {
     if (product.quantity <= 0) return;
     setCart((prev) => {
@@ -96,11 +113,11 @@ export default function SalesPage() {
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col md:flex-row gap-4">
       
-      {/* LEFT SIDE: MAIN CONTENT (POS OR HISTORY) */}
+      {/* LEFT SIDE: MAIN CONTENT */}
       <div className="flex-1 flex flex-col min-w-0">
         
-        {/* Top Header & Toggles */}
-        <div className="flex items-center justify-between mb-4 gap-4">
+        {/* Header & Toggles */}
+        <div className="flex items-center justify-between mb-4 gap-4 shrink-0">
             <div className="flex gap-2">
                 <Button 
                     variant={activeTab === 'pos' ? "default" : "outline"} 
@@ -124,7 +141,7 @@ export default function SalesPage() {
                     placeholder={activeTab === 'pos' ? "Search products..." : "Search receipt #..."}
                     className="pl-8" 
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={handleSearch}
                 />
             </div>
             
@@ -140,102 +157,136 @@ export default function SalesPage() {
             )}
         </div>
 
-        {/* --- CONTENT AREA --- */}
-        <div className="flex-1 overflow-y-auto pr-2 bg-white rounded-lg border p-4 shadow-sm">
+        {/* --- MAIN DISPLAY AREA (Flex Column) --- */}
+        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-lg border shadow-sm overflow-hidden">
             
-            {/* VIEW 1: POS PRODUCT GRID */}
-            {activeTab === 'pos' && (
-                <>
-                {isProductsLoading ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {[1,2,3,4,5,6].map(i => <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-lg" />)}
-                    </div>
-                ) : productsData?.results.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-                        <PackageOpen className="h-12 w-12 mb-2 opacity-20" />
-                        <p>No products found</p>
-                    </div>
-                ) : (
-                    <div className={viewMode === 'grid' ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
-                        {productsData?.results.map((product) => {
-                            const inCart = cart.find(c => c.productId === product.id)?.quantity || 0;
-                            const remaining = product.quantity - inCart;
-                            const isOutOfStock = remaining <= 0;
-
-                            return (
-                               <Card 
-                                 key={product.id} 
-                                 className={`cursor-pointer transition-all hover:border-primary/50 hover:shadow-md active:scale-95 ${
-                                    isOutOfStock ? 'opacity-50 grayscale cursor-not-allowed' : ''
-                                 }`}
-                                 onClick={() => !isOutOfStock && addToCart(product)}
-                               >
-                                 <CardContent className={viewMode === 'grid' ? "p-4 flex flex-col h-full" : "p-3 flex items-center justify-between"}>
-                                    <div className={viewMode === 'grid' ? "flex-1" : ""}>
-                                        <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-1">{product.name}</h3>
-                                        <p className="text-xs text-muted-foreground mb-2">{product.sku}</p>
-                                    </div>
-                                    <div className={viewMode === 'grid' ? "flex items-center justify-between mt-auto pt-2 border-t" : "text-right flex items-center gap-6"}>
-                                        <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="text-[10px] px-1.5 h-5">
-                                            {isOutOfStock ? 'Out' : `${remaining} Left`}
-                                        </Badge>
-                                        <span className="font-bold text-primary">₦{parseFloat(product.price as any).toLocaleString()}</span>
-                                    </div>
-                                 </CardContent>
-                               </Card>
-                            );
-                        })}
-                    </div>
-                )}
-                </>
-            )}
-
-            {/* VIEW 2: SALES HISTORY TABLE */}
-            {activeTab === 'history' && (
-                <div className="h-full">
-                    {isHistoryLoading ? (
-                        <div className="space-y-2">
-                             {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 animate-pulse rounded" />)}
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
+                
+                {/* VIEW 1: POS PRODUCT GRID */}
+                {activeTab === 'pos' && (
+                    <>
+                    {isProductsLoading ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="h-32 bg-gray-200 animate-pulse rounded-lg" />)}
+                        </div>
+                    ) : productsData?.results.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                            <PackageOpen className="h-12 w-12 mb-2 opacity-20" />
+                            <p>No products found</p>
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Receipt #</TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Customer</TableHead>
-                                    <TableHead>Total</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {salesHistory?.results?.map((sale: any) => (
-                                    <TableRow key={sale.id}>
-                                        <TableCell className="font-mono text-xs">{sale.receipt_id || sale.id}</TableCell>
-                                        <TableCell>{format(new Date(sale.created_at), "MMM d, HH:mm")}</TableCell>
-                                        <TableCell>{sale.customer_name || 'Walk-in'}</TableCell>
-                                        <TableCell className="font-bold">₦{Number(sale.total_amount).toLocaleString()}</TableCell>
-                                        <TableCell className="text-right">
-                                            {/* ✅ REPRINT BUTTON */}
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                onClick={() => setSelectedSale(sale)}
-                                            >
-                                                <Printer className="w-3 h-3 mr-1" /> Print
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                        <div className={viewMode === 'grid' ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
+                            {productsData?.results.map((product) => {
+                                const inCart = cart.find(c => c.productId === product.id)?.quantity || 0;
+                                const remaining = product.quantity - inCart;
+                                const isOutOfStock = remaining <= 0;
+
+                                return (
+                                   <Card 
+                                     key={product.id} 
+                                     className={`cursor-pointer transition-all hover:border-primary/50 hover:shadow-md active:scale-95 ${
+                                        isOutOfStock ? 'opacity-50 grayscale cursor-not-allowed' : ''
+                                     }`}
+                                     onClick={() => !isOutOfStock && addToCart(product)}
+                                   >
+                                     <CardContent className={viewMode === 'grid' ? "p-4 flex flex-col h-full" : "p-3 flex items-center justify-between"}>
+                                        <div className={viewMode === 'grid' ? "flex-1" : ""}>
+                                            <h3 className="font-semibold text-sm line-clamp-2 leading-tight mb-1">{product.name}</h3>
+                                            <p className="text-xs text-muted-foreground mb-2">{product.sku}</p>
+                                        </div>
+                                        <div className={viewMode === 'grid' ? "flex items-center justify-between mt-auto pt-2 border-t" : "text-right flex items-center gap-6"}>
+                                            <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="text-[10px] px-1.5 h-5">
+                                                {isOutOfStock ? 'Out' : `${remaining} Left`}
+                                            </Badge>
+                                            <span className="font-bold text-primary">₦{parseFloat(product.price as any).toLocaleString()}</span>
+                                        </div>
+                                     </CardContent>
+                                   </Card>
+                                );
+                            })}
+                        </div>
                     )}
+                    </>
+                )}
+
+                {/* VIEW 2: SALES HISTORY TABLE */}
+                {activeTab === 'history' && (
+                    <div className="h-full">
+                        {isHistoryLoading ? (
+                            <div className="space-y-2">
+                                 {[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 animate-pulse rounded" />)}
+                            </div>
+                        ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Receipt #</TableHead>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Customer</TableHead>
+                                        <TableHead>Total</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {salesHistory?.results?.map((sale: any) => (
+                                        <TableRow key={sale.id}>
+                                            <TableCell className="font-mono text-xs">{sale.receipt_id || sale.id}</TableCell>
+                                            <TableCell>{format(new Date(sale.created_at), "MMM d, HH:mm")}</TableCell>
+                                            <TableCell>{sale.customer_name || 'Walk-in'}</TableCell>
+                                            <TableCell className="font-bold">₦{Number(sale.total_amount).toLocaleString()}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    onClick={() => setSelectedSale(sale)}
+                                                >
+                                                    <Printer className="w-3 h-3 mr-1" /> Print
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ✅ PAGINATION FOOTER (Only for POS Tab) */}
+            {activeTab === 'pos' && (
+                <div className="border-t p-3 bg-white flex items-center justify-between shrink-0">
+                     <div className="text-xs text-muted-foreground">
+                        {productsData?.count ? (
+                            <span>
+                                <strong>{(page - 1) * 24 + 1}</strong> - <strong>{Math.min(page * 24, productsData.count)}</strong> of <strong>{productsData.count}</strong> products
+                            </span>
+                        ) : '0 items'}
+                    </div>
+                    <div className="flex gap-2">
+                        <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setPage(old => Math.max(old - 1, 1))}
+                            disabled={page === 1 || isProductsLoading}
+                        >
+                            <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setPage(old => old + 1)}
+                            disabled={!productsData?.next || isProductsLoading}
+                        >
+                            Next <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>
       </div>
 
-      {/* RIGHT SIDE: CART (Only visible in POS Mode) */}
+      {/* RIGHT SIDE: CART */}
       {activeTab === 'pos' && (
           <div className="w-full md:w-[400px] shrink-0 h-[500px] md:h-auto">
             <PosCart 
@@ -243,7 +294,6 @@ export default function SalesPage() {
                 onRemove={removeFromCart}
                 onUpdateQty={updateQuantity}
                 onClear={() => setCart([])}
-                // ✅ Handle successful sale from cart
                 onSaleSuccess={(saleData) => {
                     setSelectedSale(saleData); 
                     setCart([]); 
@@ -252,7 +302,7 @@ export default function SalesPage() {
           </div>
       )}
 
-      {/* --- RECEIPT DIALOG (Used by both POS success AND History Reprint) --- */}
+      {/* --- RECEIPT DIALOG --- */}
       <Dialog open={!!selectedSale} onOpenChange={(open) => !open && setSelectedSale(null)}>
         <DialogContent className="max-w-[400px]">
              <div className="flex flex-col items-center text-center p-4">
@@ -264,7 +314,6 @@ export default function SalesPage() {
                     Receipt #{selectedSale?.receipt_id || selectedSale?.id}
                 </p>
 
-                {/* HIDDEN RECEIPT COMPONENT (Rendered for printer only) */}
                 <div className="hidden">
                     {selectedSale && settings && (
                         <ReceiptTemplate 
