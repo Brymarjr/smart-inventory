@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Tenant
-from users.models import User, UserRole
+from .models import Tenant, TenantSettings
+from users.models import UserRole
 
 
 class TenantRegistrationSerializer(serializers.Serializer):
@@ -57,5 +57,11 @@ class TenantRegistrationSerializer(serializers.Serializer):
         return {"tenant": tenant, "admin_user": user}
 
 
-
+class TenantSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TenantSettings
+        fields = [
+            'store_name', 'store_address', 'currency_symbol', 
+            'low_stock_alerts', 'weekly_reports'
+        ]
 
