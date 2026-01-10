@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { PaginatedResponse, Supplier } from '@/lib/types';
+import { PaginatedResponse } from '@/lib/types';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table';
@@ -13,9 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { 
     Search, 
     Loader2, 
@@ -23,12 +21,18 @@ import {
     CreditCard, 
     Eye, 
     XCircle,
-    ChevronLeft, // ✅ Added
-    ChevronRight // ✅ Added
+    ChevronLeft,
+    ChevronRight,
+    Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useAuth } from '@/lib/auth-context';
+import Link from 'next/link';
+
+// ✅ Import New Dialogs
+import { ApproveDialog } from '@/components/purchases/approve-dialog';
+import { MarkPaidDialog } from '@/components/purchases/mark-paid-dialog';
 
 interface PurchaseItem {
   id: number;
@@ -52,102 +56,47 @@ interface PurchaseOrder {
 export default function PurchasesPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1); // ✅ ADDED: Page State
+  const [page, setPage] = useState(1);
   
-  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
-  const [selectedSupplier, setSelectedSupplier] = useState<string>('');
-  const [priceUpdates, setPriceUpdates] = useState<Record<number, string>>({});
+  const [viewPO, setViewPO] = useState<PurchaseOrder | null>(null);
+  const [approvePO, setApprovePO] = useState<PurchaseOrder | null>(null);
+  const [paidPO, setPaidPO] = useState<PurchaseOrder | null>(null);
   
   const queryClient = useQueryClient();
 
-  // RBAC
   const isFinance = user?.role === 'tenant_admin' || user?.role === 'manager';
 
-  // Fetch Purchases (Paginated)
   const { data, isLoading } = useQuery({
-    queryKey: ['purchases', search, page], // ✅ UPDATED: Refetch on page change
+    queryKey: ['purchases', search, page],
     queryFn: async () => {
-      const params = { 
-          search, 
-          page, 
-          page_size: 20 
-      };
+      const params = { search, page, page_size: 20 };
       const { data } = await api.get<PaginatedResponse<PurchaseOrder>>('/api/purchases/', { params });
       return data;
     },
-    placeholderData: (previousData) => previousData, // Keep data while loading
-  });
-
-  // Fetch Suppliers
-  const { data: suppliers } = useQuery({
-    queryKey: ['suppliers'],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Supplier>>('/api/suppliers/');
-      return data.results;
-    },
-    enabled: !!selectedPO && selectedPO.status === 'pending' && isFinance,
-  });
-
-  // --- ACTIONS ---
-
-  const approveMutation = useMutation({
-    mutationFn: async () => {
-      await api.post(`/api/purchases/${selectedPO?.id}/approve/`, { supplier: selectedSupplier });
-    },
-    onSuccess: () => {
-      toast.success('Purchase Order Approved');
-      queryClient.invalidateQueries({ queryKey: ['purchases'] });
-      setSelectedPO(null);
-    },
-    onError: () => toast.error('Failed to approve order.')
+    placeholderData: (previousData) => previousData,
   });
 
   const rejectMutation = useMutation({
-    mutationFn: async () => {
-        if(!selectedPO) return;
-        await api.post(`/api/purchases/${selectedPO.id}/reject/`);
+    mutationFn: async (poId: number) => {
+        await api.post(`/api/purchases/${poId}/reject/`);
     },
     onSuccess: () => {
         toast.info('Purchase Order Rejected');
         queryClient.invalidateQueries({ queryKey: ['purchases'] });
-        setSelectedPO(null);
+        setViewPO(null); // Close view dialog if open
     },
     onError: () => toast.error('Failed to reject order.')
   });
 
-  const payMutation = useMutation({
-    mutationFn: async () => {
-      if(!selectedPO) return;
-      const itemsPayload = selectedPO.items.map(item => ({
-        id: item.id,
-        new_price: priceUpdates[item.id] || item.unit_cost 
-      }));
-      await api.post(`/api/purchases/${selectedPO.id}/mark_paid/`, { items: itemsPayload });
-    },
-    onSuccess: () => {
-      toast.success('Payment Recorded & Stock Updated');
-      queryClient.invalidateQueries({ queryKey: ['purchases'] });
-      queryClient.invalidateQueries({ queryKey: ['products'] }); 
-      setSelectedPO(null);
-    },
-    onError: () => toast.error('Failed to process payment.')
-  });
-
   const getStatusColor = (status: string) => {
     switch(status) {
-        case 'paid': return 'bg-green-100 text-green-800 hover:bg-green-100 border-green-200';
-        case 'approved_pending_payment': return 'bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200';
-        case 'cancelled': return 'bg-red-100 text-red-800 hover:bg-red-100 border-red-200';
-        default: return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200';
+        case 'paid': return 'bg-green-100 text-green-800 border-green-200';
+        case 'approved_pending_payment': return 'bg-blue-100 text-blue-800 border-blue-200';
+        case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+        default: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     }
   };
 
-  const showNewPriceColumn = selectedPO && (
-    selectedPO.status === 'paid' || 
-    (selectedPO.status === 'approved_pending_payment' && isFinance)
-  );
-
-  // ✅ Search Handler: Reset page
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
       setSearch(e.target.value);
       setPage(1);
@@ -155,6 +104,13 @@ export default function PurchasesPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Purchases</h1>
+        <Link href="/dashboard/purchases/create">
+            <Button><Plus className="mr-2 h-4 w-4" /> New Request</Button>
+        </Link>
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -165,7 +121,7 @@ export default function PurchasesPage() {
                         placeholder="Search PO or Supplier..." 
                         className="pl-8 h-9" 
                         value={search}
-                        onChange={handleSearch} // ✅ Updated Handler
+                        onChange={handleSearch}
                     />
                 </div>
             </div>
@@ -204,9 +160,12 @@ export default function PurchasesPage() {
                                 {po.status.replace(/_/g, ' ')}
                             </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-bold">₦{parseFloat(po.total_amount).toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-bold">
+                             {/* Only show total if approved/paid (since staff doesn't see cost) */}
+                             {po.total_amount !== "0.00" ? `₦${parseFloat(po.total_amount).toLocaleString()}` : '-'}
+                        </TableCell>
                         <TableCell>
-                            <Button variant="ghost" size="icon" onClick={() => setSelectedPO(po)}>
+                            <Button variant="ghost" size="icon" onClick={() => setViewPO(po)}>
                                 <Eye className="h-4 w-4" />
                             </Button>
                         </TableCell>
@@ -216,7 +175,7 @@ export default function PurchasesPage() {
                 </Table>
             </div>
 
-            {/* ✅ PAGINATION FOOTER */}
+            {/* Pagination Controls */}
             <div className="flex items-center justify-between space-x-2 py-4">
                 <div className="text-sm text-muted-foreground">
                     {data?.count ? (
@@ -226,23 +185,11 @@ export default function PurchasesPage() {
                     ) : "0 results"}
                 </div>
                 <div className="space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(old => Math.max(old - 1, 1))}
-                        disabled={page === 1 || isLoading}
-                    >
-                        <ChevronLeft className="h-4 w-4 mr-2" />
-                        Previous
+                    <Button variant="outline" size="sm" onClick={() => setPage(old => Math.max(old - 1, 1))} disabled={page === 1 || isLoading}>
+                        <ChevronLeft className="h-4 w-4 mr-2" /> Previous
                     </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setPage(old => old + 1)}
-                        disabled={!data?.next || isLoading}
-                    >
-                        Next
-                        <ChevronRight className="h-4 w-4 ml-2" />
+                    <Button variant="outline" size="sm" onClick={() => setPage(old => old + 1)} disabled={!data?.next || isLoading}>
+                        Next <ChevronRight className="h-4 w-4 ml-2" />
                     </Button>
                 </div>
             </div>
@@ -251,56 +198,36 @@ export default function PurchasesPage() {
         </CardContent>
       </Card>
 
-      {/* --- DETAIL & ACTION DIALOG --- */}
-      <Dialog open={!!selectedPO} onOpenChange={(open) => !open && setSelectedPO(null)}>
+      {/* --- VIEW DIALOG (READ ONLY) --- */}
+      <Dialog open={!!viewPO} onOpenChange={(open) => !open && setViewPO(null)}>
         <DialogContent className="max-w-2xl">
             <DialogHeader>
-                <DialogTitle>Purchase Order {selectedPO?.reference}</DialogTitle>
+                <DialogTitle>Purchase Order {viewPO?.reference}</DialogTitle>
                 <DialogDescription>
-                    Status: <span className="font-medium capitalize">{selectedPO?.status.replace(/_/g, ' ')}</span>
+                    Status: <span className="font-medium capitalize">{viewPO?.status.replace(/_/g, ' ')}</span>
                 </DialogDescription>
             </DialogHeader>
 
-            {selectedPO && (
+            {viewPO && (
                 <div className="space-y-6 py-2">
-                    {/* ITEMS TABLE */}
                     <div className="border rounded-md overflow-hidden">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-slate-50">
                                     <TableHead>Product</TableHead>
                                     <TableHead className="text-right">Qty</TableHead>
-                                    <TableHead className="text-right">Unit Cost</TableHead>
-                                    {showNewPriceColumn && (
-                                        <TableHead className="text-right w-[140px]">New Sell Price</TableHead>
+                                    {isFinance && viewPO.total_amount !== "0.00" && (
+                                         <TableHead className="text-right">Unit Cost</TableHead>
                                     )}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {selectedPO.items.map((item) => (
+                                {viewPO.items.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell>{item.product_name}</TableCell>
                                         <TableCell className="text-right">{item.quantity}</TableCell>
-                                        <TableCell className="text-right">₦{parseFloat(item.unit_cost).toLocaleString()}</TableCell>
-                                        
-                                        {/* CASE 1: PAID */}
-                                        {selectedPO.status === 'paid' && (
-                                            <TableCell className="text-right font-medium text-blue-700">
-                                                {item.new_price ? `₦${parseFloat(item.new_price).toLocaleString()}` : '-'}
-                                            </TableCell>
-                                        )}
-
-                                        {/* CASE 2: PAYMENT PHASE */}
-                                        {selectedPO.status === 'approved_pending_payment' && isFinance && (
-                                            <TableCell>
-                                                <Input 
-                                                    type="number" 
-                                                    className="h-8 text-right"
-                                                    placeholder={item.unit_cost} 
-                                                    value={priceUpdates[item.id] || ''}
-                                                    onChange={(e) => setPriceUpdates(prev => ({...prev, [item.id]: e.target.value}))}
-                                                />
-                                            </TableCell>
+                                        {isFinance && viewPO.total_amount !== "0.00" && (
+                                            <TableCell className="text-right">₦{parseFloat(item.unit_cost).toLocaleString()}</TableCell>
                                         )}
                                     </TableRow>
                                 ))}
@@ -308,78 +235,49 @@ export default function PurchasesPage() {
                         </Table>
                     </div>
 
-                    {/* --- ACTION AREA: APPROVE / REJECT --- */}
-                    {selectedPO.status === 'pending' && isFinance && (
-                        <div className="bg-slate-50 p-4 rounded-md border space-y-3">
-                            <h4 className="font-semibold text-slate-900 flex items-center gap-2">
-                                <CheckCircle className="h-4 w-4" /> Action Required
-                            </h4>
-                            <div className="space-y-2">
-                                <Label>Assign Supplier</Label>
-                                <Select onValueChange={setSelectedSupplier}>
-                                    <SelectTrigger className="bg-white">
-                                        <SelectValue placeholder="Select Supplier..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {suppliers?.map(s => (
-                                            <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex gap-2 pt-2">
-                                <Button 
-                                    className="flex-1" 
-                                    onClick={() => approveMutation.mutate()} 
-                                    disabled={!selectedSupplier || approveMutation.isPending}
-                                >
-                                    {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Approve
+                    {/* ACTIONS */}
+                    <div className="flex justify-end gap-2">
+                        {/* APPROVE BUTTON */}
+                        {viewPO.status === 'pending' && isFinance && (
+                            <>
+                                <Button variant="destructive" onClick={() => rejectMutation.mutate(viewPO.id)}>
+                                    <XCircle className="mr-2 h-4 w-4" /> Reject
                                 </Button>
-                                <Button 
-                                    variant="destructive"
-                                    onClick={() => rejectMutation.mutate()}
-                                    disabled={rejectMutation.isPending}
-                                >
-                                    {rejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                                <Button onClick={() => { setViewPO(null); setApprovePO(viewPO); }}>
+                                    <CheckCircle className="mr-2 h-4 w-4" /> Review & Approve
                                 </Button>
-                            </div>
-                        </div>
-                    )}
+                            </>
+                        )}
 
-                    {/* --- ACTION AREA: PAY / REJECT --- */}
-                    {selectedPO.status === 'approved_pending_payment' && isFinance && (
-                        <div className="bg-blue-50 p-4 rounded-md border border-blue-100 space-y-3">
-                             <h4 className="font-semibold text-blue-900 flex items-center gap-2">
-                                <CreditCard className="h-4 w-4" /> Action Required: Payment
-                            </h4>
-                            <p className="text-sm text-blue-800">
-                                Confirming payment will release funds and <strong>add stock</strong>. 
-                                Enter "New Sell Price" above (defaults to cost if left empty).
-                            </p>
-                            <div className="flex gap-2">
-                                <Button 
-                                    className="flex-1 bg-blue-600 hover:bg-blue-700" 
-                                    onClick={() => payMutation.mutate()}
-                                    disabled={payMutation.isPending}
-                                >
-                                    {payMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Confirm Payment
-                                </Button>
-                                <Button 
-                                    variant="destructive"
-                                    onClick={() => rejectMutation.mutate()}
-                                    disabled={rejectMutation.isPending}
-                                >
-                                    {rejectMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
+                        {/* PAY BUTTON */}
+                        {viewPO.status === 'approved_pending_payment' && isFinance && (
+                            <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => { setViewPO(null); setPaidPO(viewPO); }}>
+                                <CreditCard className="mr-2 h-4 w-4" /> Mark as Paid
+                            </Button>
+                        )}
+                    </div>
                 </div>
             )}
         </DialogContent>
       </Dialog>
+
+      {/* --- NEW ACTION DIALOGS --- */}
+      {approvePO && (
+        <ApproveDialog 
+            isOpen={!!approvePO} 
+            onClose={() => setApprovePO(null)} 
+            purchase={approvePO} 
+        />
+      )}
+
+      {paidPO && (
+        <MarkPaidDialog 
+            isOpen={!!paidPO} 
+            onClose={() => setPaidPO(null)} 
+            purchase={paidPO} 
+        />
+      )}
+
     </div>
   );
 }

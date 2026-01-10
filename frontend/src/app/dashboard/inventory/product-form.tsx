@@ -16,6 +16,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -32,6 +33,7 @@ const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   sku: z.string().min(1, 'SKU is required'),
   price: z.string().min(1, 'Price is required'),
+  cost_price: z.string().min(1, 'Cost price is required'), // ✅ Added Validation
   quantity: z.string().min(1, 'Quantity is required'),
   reorder_level: z.string().min(1, 'Reorder level is required'),
   description: z.string().optional(),
@@ -55,6 +57,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
       name: '',
       sku: '',
       price: '',
+      cost_price: '', // ✅ Added Default Value
       quantity: '0',
       reorder_level: '10',
       description: '',
@@ -63,7 +66,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
     },
   });
 
-  // 1. FIXED URL: Fetch Categories
+  // Fetch Categories
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
@@ -73,7 +76,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
     enabled: isOpen,
   });
 
-  // 2. FIXED URL: Fetch Suppliers
+  // Fetch Suppliers
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers'],
     queryFn: async () => {
@@ -88,27 +91,25 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
       const payload = {
         ...values,
         price: parseFloat(values.price),
+        cost_price: parseFloat(values.cost_price), // ✅ Send Cost Price
         quantity: parseInt(values.quantity),
         reorder_level: parseInt(values.reorder_level),
         category_id: values.category_id ? parseInt(values.category_id) : null,
         supplier_id: values.supplier_id ? parseInt(values.supplier_id) : null,
       };
-      // 3. FIXED URL: Create Product
       await api.post('/api/products/', payload);
     },
     onSuccess: () => {
       toast.success('Product created successfully');
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }); // Refresh dashboard
       form.reset();
       onClose();
     },
-    // NEW CODE
     onError: (error: any) => {
-      console.error("API Error:", error); // Keep this for debugging
+      console.error("API Error:", error);
       const data = error.response?.data;
 
-      // 1. Check for specific Plan Limit message (Backend usually sends this as a list or detail)
-      // We check if the error message contains the word "limit"
       const generalError = data?.detail || data?.non_field_errors?.[0] || (Array.isArray(data) ? data[0] : null);
 
       if (generalError && typeof generalError === 'string' && generalError.toLowerCase().includes('limit')) {
@@ -116,13 +117,11 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
           return;
       }
 
-      // 2. Check for specific Field errors (like Duplicate SKU)
       if (data?.sku) {
           toast.error(`SKU Error: ${data.sku[0]}`);
           return;
       }
 
-      // 3. Fallback
       toast.error("Failed to create product. Please try again.");
     },
   });
@@ -170,24 +169,55 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
                 />
               </div>
 
+              {/* ✅ UPDATED PRICING ROW */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="price"
+                  name="cost_price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Price (₦) *</FormLabel>
-                      <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} /></FormControl>
+                      <FormLabel>Cost Price (₦) *</FormLabel>
+                      <FormControl>
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                      </FormControl>
+                      <FormDescription className="text-[10px]">Your buying price.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Selling Price (₦) *</FormLabel>
+                      <FormControl>
+                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
                   name="quantity"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Initial Stock</FormLabel>
+                      <FormControl><Input type="number" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="reorder_level"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reorder Level</FormLabel>
                       <FormControl><Input type="number" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -241,18 +271,6 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="reorder_level"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Reorder Level</FormLabel>
-                    <FormControl><Input type="number" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}

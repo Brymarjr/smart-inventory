@@ -82,14 +82,15 @@ class PurchaseOrder(TenantAwareModel):
         super().save(*args, **kwargs)
 
 
-
-
 class PurchaseItem(models.Model):
     purchase = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey("inventory.Product", on_delete=models.PROTECT, related_name="purchase_items")
     quantity = models.PositiveIntegerField()
-    unit_cost = models.DecimalField(max_digits=12, decimal_places=2)
-    subtotal = models.DecimalField(max_digits=14, decimal_places=2, editable=False)
+    
+    # Made nullable so Staff can create items without knowing cost
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2, editable=False, default=Decimal("0.00"))
     new_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     class Meta:
@@ -107,5 +108,3 @@ class PurchaseItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
-
-

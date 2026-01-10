@@ -16,9 +16,9 @@ import { toast } from 'sonner';
 export default function CreatePurchasePage() {
   const router = useRouter();
   
-  // Cart State for the Request
-  const [items, setItems] = useState<{product: string, quantity: number, unit_cost: number}[]>([
-    { product: '', quantity: 1, unit_cost: 0 }
+  // ✅ Cart State (Removed unit_cost)
+  const [items, setItems] = useState<{product: string, quantity: number}[]>([
+    { product: '', quantity: 1 }
   ]);
 
   // Fetch Products
@@ -32,13 +32,12 @@ export default function CreatePurchasePage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-        // Backend expects: items: [{ product: id, quantity, unit_cost }]
-        // My form has product as string ID, need to convert to int if backend expects int
+        // ✅ Payload: Only Product ID and Quantity
         const payload = {
             items: items.map(i => ({
                 product: parseInt(i.product),
-                quantity: i.quantity,
-                unit_cost: i.unit_cost
+                quantity: i.quantity
+                // No unit_cost sent here. Staff doesn't decide price.
             }))
         };
         await api.post('/api/purchases/', payload);
@@ -89,8 +88,8 @@ export default function CreatePurchasePage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="w-24 space-y-2">
-                            <Label>Qty</Label>
+                        <div className="w-32 space-y-2">
+                            <Label>Quantity</Label>
                             <Input 
                                 type="number" 
                                 value={item.quantity} 
@@ -99,16 +98,9 @@ export default function CreatePurchasePage() {
                                 min={1}
                             />
                         </div>
-                        <div className="w-32 space-y-2">
-                            <Label>Est. Cost</Label>
-                            <Input 
-                                type="number" 
-                                value={item.unit_cost} 
-                                onChange={(e) => updateItem(index, 'unit_cost', parseFloat(e.target.value))}
-                                className="bg-white"
-                                min={0}
-                            />
-                        </div>
+                        
+                        {/* ✅ REMOVED: Est. Cost Input */}
+
                         <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeItem(index)}>
                             <Trash2 className="h-4 w-4" />
                         </Button>
@@ -116,7 +108,7 @@ export default function CreatePurchasePage() {
                 ))}
             </div>
 
-            <Button variant="outline" onClick={() => setItems([...items, { product: '', quantity: 1, unit_cost: 0 }])}>
+            <Button variant="outline" onClick={() => setItems([...items, { product: '', quantity: 1 }])}>
                 <Plus className="mr-2 h-4 w-4" /> Add Another Item
             </Button>
 
