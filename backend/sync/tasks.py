@@ -360,8 +360,6 @@ def _apply_sync_operation(job: sync_models.SyncJob, op: sync_models.SyncOperatio
         return {"success": False, "error": str(exc), "conflict": False}
 
 
-
-
 def _apply_sync_operation_preflight(job, op, tenant, user):
     """
     Preflight validation for a SyncOperation without making DB writes.

@@ -65,6 +65,7 @@ class SyncJob(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_PENDING)
     result = models.JSONField(null=True, blank=True)  # summary JSON: counts, examples, errors
+    tmp_id_map = models.JSONField(default=dict, blank=True, help_text="Maps client tmp_ids to server DB ids")
 
     class Meta:
         indexes = [models.Index(fields=["tenant", "status", "created_at"])]

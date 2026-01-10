@@ -5076,3 +5076,43 @@ AttributeError: module 'inventory.models' has no attribute 'CharField'
 [2025-12-25 08:53:28,460] INFO sync.notifications: 🔔 Sync failure notification sent for job 37
 [2025-12-25 08:53:28,461] INFO sync.tasks: Processed SyncJob 37: {'processed': 1, 'succeeded': 0, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 20, 'error': 'null value in column "price" of relation "inventory_product" violates not-null constraint\nDETAIL:  Failing row contains (27, , , null, null, 0, 10, 2025-12-25 08:53:28.442527+00, 2025-12-25 08:53:28.442541+00, null, null, 1).\n'}]}
 [2025-12-25 08:53:28,472] INFO sync.notifications: 🔔 Device unblocked notification sent for device Test Device (tenant Babrite)
+[2026-01-10 10:32:18,095] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.05s
+[2026-01-10 10:32:18,131] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 10:32:38,868] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.00s
+[2026-01-10 10:32:38,891] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 10:32:53,403] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 10:32:53,445] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 10:35:36,167] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 10:35:36,197] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 10:47:05,958] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.02s
+[2026-01-10 10:47:05,999] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 10:58:45,859] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.02s
+[2026-01-10 10:58:45,902] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=404 duration=0.01s
+[2026-01-10 11:08:30,281] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=500 duration=0.55s
+[2026-01-10 11:08:30,371] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=500 duration=0.03s
+[2026-01-10 11:16:01,251] WARNING sync.views: Sync skipped for PurchaseOrder: No serializer found.
+[2026-01-10 11:16:01,253] WARNING sync.views: Sync skipped for PurchaseItem: No serializer found.
+[2026-01-10 11:16:01,534] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=500 duration=0.66s
+[2026-01-10 11:16:01,618] WARNING sync.views: Sync skipped for PurchaseOrder: No serializer found.
+[2026-01-10 11:16:01,619] WARNING sync.views: Sync skipped for PurchaseItem: No serializer found.
+[2026-01-10 11:16:01,910] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=500 duration=0.36s
+[2026-01-10 11:24:15,906] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=200 duration=0.21s
+[2026-01-10 11:24:16,046] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-10 11:31:53,636] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-10 11:41:46,865] WARNING sync.views: Sync upload rejected: Preflight failed for sales.Sale: Missing required FK fields for sales.Sale: created_by_id
+[2026-01-10 11:41:46,872] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=400 duration=0.13s
+[2026-01-10 11:41:47,269] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=200 duration=0.25s
+[2026-01-10 11:48:52,331] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=202 duration=0.32s
+[2026-01-10 11:48:52,468] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 11:48:53,980] INFO sync.notifications: 🔔 Sync failure notification sent for job 39
+[2026-01-10 11:48:53,991] INFO sync.tasks: Processed SyncJob 39: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 22, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 12:25:27,954] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=200 duration=1.14s
+[2026-01-10 12:25:28,039] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=2f212df6-4dce-4fe5-9516-5da54c80dbf7 ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 12:27:35,413] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 12:27:35,467] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 12:31:02,137] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=202 duration=2.04s
+[2026-01-10 12:31:02,377] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.14s
+[2026-01-10 12:31:03,362] INFO sync.notifications: 🔔 Sync failure notification sent for job 40
+[2026-01-10 12:31:03,371] INFO sync.tasks: Processed SyncJob 40: {'processed': 3, 'succeeded': 1, 'failed': 2, 'conflicts': 0, 'errors': [{'op_id': 24, 'error': "Missing required FK: ['sale_id']"}, {'op_id': 25, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 12:33:36,426] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 12:33:36,488] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.05s

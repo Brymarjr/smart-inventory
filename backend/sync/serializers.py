@@ -7,7 +7,11 @@ from .models import (
     SyncCursor,
     ChangeLog,
 )
-
+from inventory.serializers import ProductSerializer, CategorySerializer, SupplierSerializer
+from sales.serializers import (
+        SaleReadSerializer as SaleSerializer, 
+        SaleItemSerializer
+    )
 
 class DeviceSerializer(serializers.ModelSerializer):
     class Meta:

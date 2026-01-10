@@ -1,72 +1,99 @@
 'use client';
 
 import { useState } from 'react';
-import { CartItem, SalePayload } from '@/lib/types';
+import { CartItem } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, ShoppingCart, Loader2, CreditCard } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
+import { queueOperation } from '@/lib/sync-manager'; // ✅ Import Offline Queue
 
 interface PosCartProps {
   cart: CartItem[];
   onRemove: (id: number) => void;
   onUpdateQty: (id: number, delta: number) => void;
   onClear: () => void;
-  // ✅ NEW: Callback to trigger the parent's print dialog
   onSaleSuccess: (data: any) => void; 
 }
 
 export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }: PosCartProps) {
-  const queryClient = useQueryClient();
   
   // Checkout Form State
   const [customerName, setCustomerName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'pos' | 'other'>('cash');
   const [notes, setNotes] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false); // Local loading state
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  // Checkout Mutation
-  const checkoutMutation = useMutation({
-    mutationFn: async () => {
-      const payload: SalePayload = {
-        customer_name: customerName,
-        payment_method: paymentMethod,
-        notes: notes,
-        items: cart.map(item => ({
-          product: item.productId, // Ensure your backend expects 'product_id' or 'product'
-          quantity: item.quantity
-        }))
-      };
-      // ✅ RETURN the data so we can use it in onSuccess
-      const res = await api.post('/api/sales/', payload);
-      return res.data;
-    },
-    onSuccess: (data) => {
-      toast.success('Sale completed successfully!');
-      
-      // ✅ TRIGGER THE PRINT DIALOG IN PARENT
-      onSaleSuccess(data);
+  // ✅ NEW: Offline-First Checkout Logic
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    setIsProcessing(true);
 
-      onClear(); 
-      setCustomerName('');
-      setNotes('');
-      setPaymentMethod('cash');
-      queryClient.invalidateQueries({ queryKey: ['products'] }); 
-      queryClient.invalidateQueries({ queryKey: ['sales'] });    
-    },
-    onError: (error: any) => {
-      console.error(error);
-      const msg = error.response?.data?.items 
-        ? (Array.isArray(error.response.data.items) ? error.response.data.items[0] : error.response.data.items)
-        : error.response?.data?.message || 'Checkout failed. Please try again.';
-      toast.error(typeof msg === 'object' ? JSON.stringify(msg) : msg);
+    try {
+        const saleTmpId = `sale-${uuidv4()}`; // Generate ID locally
+        const timestamp = Date.now();
+        const reference = `OFF-${timestamp}`; // Offline reference
+
+        // 1. Queue the Sale Record
+        await queueOperation('sales.Sale', 'create', {
+            tmp_id: saleTmpId,
+            reference: reference,
+            customer_name: customerName,
+            payment_method: paymentMethod,
+            total_amount: totalAmount,
+            notes: notes,
+            created_at: new Date().toISOString()
+        });
+
+        // 2. Queue the Items
+        for (const item of cart) {
+            await queueOperation('sales.SaleItem', 'create', {
+                sale_tmp_id: saleTmpId, // Link to sale
+                product_id: item.productId,
+                quantity: item.quantity,
+                unit_price: item.price,
+                subtotal: item.price * item.quantity
+            });
+        }
+
+        toast.success('Sale Recorded (Offline/Synced)!');
+
+        // Construct a "fake" sale object to pass to the receipt printer immediately
+        const receiptData = {
+            id: saleTmpId, // Use tmp ID for receipt
+            receipt_id: reference,
+            customer_name: customerName,
+            total_amount: totalAmount,
+            created_at: new Date().toISOString(),
+            items: cart.map(c => ({
+                product_name: c.name,
+                quantity: c.quantity,
+                unit_price: c.price,
+                subtotal: c.price * c.quantity
+            }))
+        };
+
+        // Trigger success callback (prints receipt)
+        onSaleSuccess(receiptData);
+
+        // Cleanup
+        onClear(); 
+        setCustomerName('');
+        setNotes('');
+        setPaymentMethod('cash');
+
+    } catch (error) {
+        console.error(error);
+        toast.error('Failed to record sale locally.');
+    } finally {
+        setIsProcessing(false);
     }
-  });
+  };
 
   if (cart.length === 0) {
     return (
@@ -162,15 +189,15 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
         <Button 
             size="lg" 
             className="w-full text-lg" 
-            onClick={() => checkoutMutation.mutate()}
-            disabled={checkoutMutation.isPending}
+            onClick={handleCheckout} // ✅ Use new handler
+            disabled={isProcessing}
         >
-            {checkoutMutation.isPending ? (
+            {isProcessing ? (
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
                 <CreditCard className="mr-2 h-5 w-5" />
             )}
-            {checkoutMutation.isPending ? 'Processing...' : 'Complete Sale'}
+            {isProcessing ? 'Processing...' : 'Complete Sale'}
         </Button>
       </div>
     </div>
