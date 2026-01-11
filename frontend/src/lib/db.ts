@@ -1,59 +1,73 @@
-// src/lib/db.ts
 import Dexie, { Table } from 'dexie';
 
-// 1. Define Interfaces (What our data looks like locally)
-export interface LocalProduct {
-  id: number; // Server ID
+// Define Interfaces
+export interface Product {
+  id: number;
   name: string;
-  sku: string;
-  price: number;
   quantity: number;
+  price: number;
+  sku?: string;
   category_id?: number;
-  updated_at: string; // Needed for conflict detection
+  updated_at?: string;
 }
 
-export interface LocalCategory {
+export interface Category {
   id: number;
   name: string;
 }
 
-export interface LocalCustomer {
-  id: number;
-  name: string;
-  email?: string;
-  phone?: string;
+export interface Sale {
+  id?: number;
+  tmp_id?: string;
+  reference?: string;
+  customer_name?: string;
+  total_amount: number;
+  payment_method: string;
+  created_at: string;
 }
 
-// 2. The "Outbox" for Offline Actions
-// When offline, we save actions here instead of calling the API directly.
+export interface SaleItem {
+  id?: number;
+  sale_tmp_id?: string;
+  product_id: number;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
+
 export interface SyncQueueItem {
-  id?: number; // Auto-increment local ID
-  client_change_id: string; // UUID to prevent duplicates
-  model_name: string; // e.g. 'sales.Sale'
+  id?: number;
+  client_change_id: string;
+  model_name: string;
   action: 'create' | 'update' | 'delete';
-  payload: any; // The JSON data (like the sale details)
-  created_at: number; // Timestamp
+  payload: any;
+  created_at: number;
+  retry_count?: number;
 }
 
-// 3. The Database Class
-class SmartInventoryDB extends Dexie {
-  products!: Table<LocalProduct>;
-  categories!: Table<LocalCategory>;
-  customers!: Table<LocalCustomer>;
-  syncQueue!: Table<SyncQueueItem>; // The "Outbox"
-  meta!: Table<{ key: string; value: any }>; // Store things like 'last_sync_timestamp'
+export interface MetaItem {
+  key: string;
+  value: any;
+}
+
+// Database Class
+export class SmartInventoryDB extends Dexie {
+  products!: Table<Product, number>;
+  categories!: Table<Category, number>;
+  sales!: Table<Sale, number>;          // ✅ Added
+  saleItems!: Table<SaleItem, number>;  // ✅ Added
+  syncQueue!: Table<SyncQueueItem, number>;
+  meta!: Table<MetaItem, string>;
 
   constructor() {
     super('SmartInventoryDB');
-    
-    // Define Schema
-    // ++id means auto-increment. &id means unique index.
     this.version(1).stores({
-      products: '&id, sku, category_id, name', // Index for fast searching
-      categories: '&id, name',
-      customers: '&id, name, phone',
-      syncQueue: '++id, created_at', // Ordered by creation time
-      meta: '&key' 
+      products: '++id, name, sku, category_id',
+      categories: '++id, name',
+      sales: '++id, tmp_id, created_at',       // ✅ Added schema
+      saleItems: '++id, sale_tmp_id',           // ✅ Added schema
+      syncQueue: '++id, created_at',
+      meta: 'key' // Key-value store
     });
   }
 }

@@ -69,7 +69,8 @@ INSTALLED_APPS = [
     'users',
     'billing',
     'purchases',
-    'sales',
+ #  'sales',
+    'sales.apps.SalesConfig',  # <--- Point to the class, not just the folder name!
     'sync',
     'forecast',
     'notifications',

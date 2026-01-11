@@ -5116,3 +5116,544 @@ AttributeError: module 'inventory.models' has no attribute 'CharField'
 [2026-01-10 12:31:03,371] INFO sync.tasks: Processed SyncJob 40: {'processed': 3, 'succeeded': 1, 'failed': 2, 'conflicts': 0, 'errors': [{'op_id': 24, 'error': "Missing required FK: ['sale_id']"}, {'op_id': 25, 'error': "Missing required FK: ['sale_id']"}]}
 [2026-01-10 12:33:36,426] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.04s
 [2026-01-10 12:33:36,488] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 12:41:39,549] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.14s
+[2026-01-10 12:41:39,607] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=75ae5951-b427-4f3e-8f32-4017de213599 ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 18:27:38,875] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.10s
+[2026-01-10 18:27:38,970] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 18:33:56,961] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=202 duration=2.68s
+[2026-01-10 18:33:57,781] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.54s
+[2026-01-10 18:34:00,039] INFO sync.notifications: 🔔 Sync failure notification sent for job 41
+[2026-01-10 18:34:00,051] INFO sync.tasks: Processed SyncJob 41: {'processed': 3, 'succeeded': 1, 'failed': 2, 'conflicts': 0, 'errors': [{'op_id': 27, 'error': "Missing required FK: ['sale_id']"}, {'op_id': 28, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 18:35:52,883] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 18:35:52,941] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 18:36:01,323] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=202 duration=0.04s
+[2026-01-10 18:36:01,398] INFO sync.tasks: Processed SyncJob 42: {'processed': 1, 'succeeded': 1, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-10 18:36:01,544] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=202 duration=0.04s
+[2026-01-10 18:36:01,606] ERROR sync.tasks: Error processing sync op 30: value too long for type character varying(16)
+Traceback (most recent call last):
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.StringDataRightTruncation: value too long for type character varying(16)
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/brymarjr/smart-inventory/backend/sync/tasks.py", line 47, in process_sync_job
+    result = _apply_sync_operation(job, op)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/sync/tasks.py", line 231, in _apply_sync_operation
+    sync_models.ChangeLog.objects.create(
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 663, in create
+    obj.save(force_insert=True, using=self.db)
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 902, in save
+    self.save_base(
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1008, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1169, in _save_table
+    results = self._do_insert(
+              ^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1210, in _do_insert
+    return manager._insert(
+           ^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1868, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1882, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.DataError: value too long for type character varying(16)
+
+[2026-01-10 18:36:01,724] INFO sync.notifications: 🔔 Sync failure notification sent for job 43
+[2026-01-10 18:36:01,724] INFO sync.tasks: Processed SyncJob 43: {'processed': 2, 'succeeded': 0, 'failed': 2, 'conflicts': 0, 'errors': [{'op_id': 30, 'error': 'value too long for type character varying(16)\n'}, {'op_id': 31, 'error': "SaleItem() got unexpected keyword arguments: 'tenant_id'"}]}
+[2026-01-10 18:36:29,618] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.45s
+[2026-01-10 18:36:30,326] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.51s
+[2026-01-10 18:37:17,503] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 18:37:17,567] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 18:40:34,515] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-10 18:40:34,610] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=be4d2e8e-e56e-40e6-b5fc-325c5e2c403f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 18:48:05,141] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-10 18:48:05,708] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.46s
+[2026-01-10 18:57:59,063] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.19s
+[2026-01-10 18:57:59,142] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 18:59:18,141] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 18:59:18,804] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.65s
+[2026-01-10 19:02:04,075] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.14s
+[2026-01-10 19:02:04,156] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:05:30,796] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=202 duration=0.41s
+[2026-01-10 19:05:30,892] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:05:31,084] INFO sync.notifications: 🔔 Sync failure notification sent for job 44
+[2026-01-10 19:05:31,086] INFO sync.tasks: Processed SyncJob 44: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 33, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 19:07:12,072] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 19:07:12,178] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 19:07:53,421] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 19:07:53,477] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 19:08:19,496] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 19:08:19,555] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 19:08:30,088] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:08:30,154] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 19:09:57,106] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:09:57,164] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 19:10:30,932] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 19:10:30,986] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 19:19:13,771] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.33s
+[2026-01-10 19:19:13,938] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:23:47,898] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 19:23:47,959] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=568a3777-11c3-4267-8e77-4f57a491edbc ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 19:26:16,346] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-10 19:26:16,410] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 19:27:44,425] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.27s
+[2026-01-10 19:27:44,554] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 19:27:45,226] INFO sync.notifications: 🔔 Sync failure notification sent for job 45
+[2026-01-10 19:27:45,231] INFO sync.tasks: Processed SyncJob 45: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 35, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 19:28:09,057] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:28:09,130] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:28:12,503] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:28:12,595] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-10 19:28:23,191] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-10 19:28:23,246] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.04s
+[2026-01-10 19:32:32,117] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.03s
+[2026-01-10 19:32:32,159] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.14s
+[2026-01-10 19:32:32,413] INFO sync.notifications: 🔔 Sync failure notification sent for job 47
+[2026-01-10 19:32:32,419] INFO sync.tasks: Processed SyncJob 47: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 38, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 19:32:32,920] ERROR sync.tasks: Error processing sync op 36: value too long for type character varying(16)
+Traceback (most recent call last):
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.StringDataRightTruncation: value too long for type character varying(16)
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/brymarjr/smart-inventory/backend/sync/tasks.py", line 47, in process_sync_job
+    result = _apply_sync_operation(job, op)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/sync/tasks.py", line 231, in _apply_sync_operation
+    sync_models.ChangeLog.objects.create(
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 663, in create
+    obj.save(force_insert=True, using=self.db)
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 902, in save
+    self.save_base(
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1008, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1169, in _save_table
+    results = self._do_insert(
+              ^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1210, in _do_insert
+    return manager._insert(
+           ^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1868, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1882, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.DataError: value too long for type character varying(16)
+
+[2026-01-10 19:32:33,026] INFO sync.notifications: 🔔 Device blocked notification sent for device POS-732f2ca8 (tenant shoprite)
+[2026-01-10 19:32:33,038] INFO sync.notifications: 🔔 Sync failure notification sent for job 46
+[2026-01-10 19:32:33,039] INFO sync.tasks: Processed SyncJob 46: {'processed': 1, 'succeeded': 0, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 36, 'error': 'value too long for type character varying(16)\n'}]}
+[2026-01-10 19:32:50,823] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:32:50,860] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:32:55,441] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:32:55,463] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:33:03,324] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:33:03,349] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.00s
+[2026-01-10 19:33:20,045] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:33:20,066] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:36:04,001] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.06s
+[2026-01-10 19:36:04,092] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.02s
+[2026-01-10 19:36:16,485] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.00s
+[2026-01-10 19:36:16,508] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:36:27,535] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:36:27,583] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:45:01,246] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.10s
+[2026-01-10 19:45:01,253] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.10s
+[2026-01-10 19:45:01,319] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:45:01,347] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:45:17,991] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:45:18,024] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 19:59:58,760] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.09s
+[2026-01-10 19:59:58,819] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 20:05:05,991] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.02s
+[2026-01-10 20:05:06,014] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 20:08:05,045] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 20:08:05,068] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 20:13:26,596] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-10 20:14:21,508] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:14:21,532] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.04s
+[2026-01-10 20:14:21,586] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:14:21,590] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=403 duration=0.01s
+[2026-01-10 20:19:10,694] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:19:10,851] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.16s
+[2026-01-10 20:19:10,870] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:19:10,969] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.10s
+[2026-01-10 20:22:54,616] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:22:54,689] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 20:22:54,710] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:22:54,756] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-10 20:24:58,088] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=3.75s
+[2026-01-10 20:24:58,473] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:24:59,194] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.76s
+[2026-01-10 20:25:00,293] INFO sync.notifications: 🔔 Sync failure notification sent for job 48
+[2026-01-10 20:25:00,305] INFO sync.tasks: Processed SyncJob 48: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 40, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 20:26:15,085] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:26:15,170] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-10 20:26:15,235] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:26:15,298] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-10 20:26:36,824] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:26:37,126] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.34s
+[2026-01-10 20:26:37,374] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:26:38,083] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.77s
+[2026-01-10 20:27:33,763] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:27:34,274] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.54s
+[2026-01-10 20:27:34,553] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:27:34,836] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.32s
+[2026-01-10 20:27:58,399] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.12s
+[2026-01-10 20:27:58,409] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.06s
+[2026-01-10 20:27:58,852] INFO sync.notifications: 🔔 Sync failure notification sent for job 50
+[2026-01-10 20:27:58,855] INFO sync.tasks: Processed SyncJob 50: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 43, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-10 20:27:58,895] ERROR sync.tasks: Error processing sync op 41: value too long for type character varying(16)
+Traceback (most recent call last):
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.StringDataRightTruncation: value too long for type character varying(16)
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/brymarjr/smart-inventory/backend/sync/tasks.py", line 47, in process_sync_job
+    result = _apply_sync_operation(job, op)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/sync/tasks.py", line 231, in _apply_sync_operation
+    sync_models.ChangeLog.objects.create(
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 663, in create
+    obj.save(force_insert=True, using=self.db)
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 902, in save
+    self.save_base(
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1008, in save_base
+    updated = self._save_table(
+              ^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1169, in _save_table
+    results = self._do_insert(
+              ^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 1210, in _do_insert
+    return manager._insert(
+           ^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 1868, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/sql/compiler.py", line 1882, in execute_sql
+    cursor.execute(sql, params)
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.DataError: value too long for type character varying(16)
+
+[2026-01-10 20:27:59,026] INFO sync.notifications: 🔔 Sync failure notification sent for job 49
+[2026-01-10 20:27:59,030] INFO sync.tasks: Processed SyncJob 49: {'processed': 1, 'succeeded': 0, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 41, 'error': 'value too long for type character varying(16)\n'}]}
+[2026-01-10 20:29:48,725] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:29:48,831] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-10 20:29:48,856] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:29:48,935] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-10 20:40:12,776] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-10 20:40:43,112] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-10 20:46:29,828] INFO sync.tasks: Processed SyncJob 50: {'processed': 0, 'succeeded': 0, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-10 20:47:42,628] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:47:42,924] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.31s
+[2026-01-10 20:47:43,201] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-10 20:47:45,423] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=2.25s
+[2026-01-10 20:51:12,521] INFO sync.tasks: Processed SyncJob 50: {'processed': 0, 'succeeded': 0, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 07:34:11,037] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 07:34:21,263] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 07:35:32,039] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 07:42:19,646] INFO sync.tasks: Processed SyncJob 50: {'processed': 0, 'succeeded': 0, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 07:49:16,196] INFO sync.notifications: 🔔 Sync failure notification sent for job 50
+[2026-01-11 07:49:16,199] INFO sync.tasks: Processed SyncJob 50: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 43, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-11 07:55:25,449] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 07:56:13,058] INFO sync.notifications: 🔔 Sync failure notification sent for job 50
+[2026-01-11 07:56:13,060] INFO sync.tasks: Processed SyncJob 50: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 43, 'error': "Missing required FK: ['sale_id']"}]}
+[2026-01-11 08:04:42,248] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 08:05:24,657] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:05:24,709] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-11 08:05:24,725] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:05:24,770] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-11 08:05:28,482] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:05:28,541] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 08:05:28,557] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:05:28,610] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 08:18:50,508] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:18:50,616] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 08:18:50,632] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:18:50,709] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-11 08:21:02,679] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.32s
+[2026-01-11 08:21:02,724] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:21:02,786] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 08:21:03,221] INFO sync.tasks: 🔍 DEBUG ITEM OP 45
+[2026-01-11 08:21:03,227] INFO sync.tasks: 📦 Payload Keys: ['quantity', 'subtotal', 'product_id', 'unit_price', 'sale_tmp_id']
+[2026-01-11 08:21:03,227] INFO sync.tasks: 🗺️ Current Map Keys: ['sale-ce6141e7-7766-4bc2-8216-697ce5857351']
+[2026-01-11 08:21:03,227] INFO sync.tasks: ❓ checking sale_tmp_id: sale-ce6141e7-7766-4bc2-8216-697ce5857351
+[2026-01-11 08:21:03,227] INFO sync.tasks: 👀 Found in map? True
+[2026-01-11 08:21:03,229] ERROR sync.tasks: Op 45 Failed
+Traceback (most recent call last):
+  File "/home/brymarjr/smart-inventory/backend/sync/tasks.py", line 196, in _apply_sync_operation
+    obj = Model.objects.create(**payload)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/query.py", line 661, in create
+    obj = self.model(**kwargs)
+          ^^^^^^^^^^^^^^^^^^^^
+  File "/home/brymarjr/smart-inventory/backend/venv/lib/python3.12/site-packages/django/db/models/base.py", line 569, in __init__
+    raise TypeError(
+TypeError: SaleItem() got unexpected keyword arguments: 'tenant_id'
+[2026-01-11 08:21:03,367] INFO sync.notifications: 🔔 Device blocked notification sent for device POS-732f2ca8 (tenant shoprite)
+[2026-01-11 08:21:03,378] INFO sync.notifications: 🔔 Sync failure notification sent for job 51
+[2026-01-11 08:21:03,379] INFO sync.tasks: Processed SyncJob 51: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 45, 'error': "SaleItem() got unexpected keyword arguments: 'tenant_id'"}]}
+[2026-01-11 08:28:31,553] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 08:31:23,622] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 08:32:10,974] INFO sync.tasks: 🔍 DEBUG ITEM OP 45
+[2026-01-11 08:32:10,974] INFO sync.tasks: 📦 Payload Keys: ['quantity', 'subtotal', 'product_id', 'unit_price', 'sale_tmp_id']
+[2026-01-11 08:32:10,974] INFO sync.tasks: 🗺️ Current Map Keys: ['sale-ce6141e7-7766-4bc2-8216-697ce5857351']
+[2026-01-11 08:32:10,974] INFO sync.tasks: ❓ checking sale_tmp_id: sale-ce6141e7-7766-4bc2-8216-697ce5857351
+[2026-01-11 08:32:10,974] INFO sync.tasks: 👀 Found in map? True
+[2026-01-11 08:32:11,001] INFO sync.tasks: Processed SyncJob 51: {'processed': 2, 'succeeded': 2, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 08:34:42,726] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:34:42,848] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.13s
+[2026-01-11 08:34:42,893] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:34:42,965] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-11 08:34:55,066] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:34:55,128] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 08:34:55,142] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:34:55,186] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-11 08:35:44,761] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:35:44,823] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 08:35:44,848] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:35:44,905] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 08:35:51,118] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:35:51,226] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 08:35:51,247] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:35:51,318] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 08:37:04,451] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:37:04,539] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-11 08:37:04,555] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:37:04,615] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 08:38:48,813] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:38:48,967] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.16s
+[2026-01-11 08:38:48,989] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:38:49,086] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.10s
+[2026-01-11 08:39:51,632] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.39s
+[2026-01-11 08:39:51,632] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.45s
+[2026-01-11 08:39:51,935] INFO sync.tasks: 🔍 DEBUG ITEM OP 48
+[2026-01-11 08:39:51,937] INFO sync.tasks: 📦 Payload Keys: ['quantity', 'subtotal', 'product_id', 'unit_price', 'sale_tmp_id']
+[2026-01-11 08:39:51,937] INFO sync.tasks: 🗺️ Current Map Keys: ['sale-13527771-ab42-4441-b73a-0afeeeb163d6']
+[2026-01-11 08:39:51,938] INFO sync.tasks: ❓ checking sale_tmp_id: sale-13527771-ab42-4441-b73a-0afeeeb163d6
+[2026-01-11 08:39:51,938] INFO sync.tasks: 👀 Found in map? True
+[2026-01-11 08:39:51,964] INFO sync.tasks: Processed SyncJob 53: {'processed': 2, 'succeeded': 2, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 08:39:52,014] INFO sync.tasks: Processed SyncJob 52: {'processed': 1, 'succeeded': 1, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 08:46:28,280] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:46:28,336] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 08:46:28,353] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:46:28,430] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-11 08:46:40,529] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:46:40,601] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-11 08:46:40,615] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 08:46:40,673] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 09:06:21,514] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 09:07:24,711] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 09:11:23,260] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:11:23,321] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 09:11:23,339] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:11:23,403] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 09:11:39,955] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:11:40,015] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 09:11:40,034] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:11:40,089] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 09:13:03,279] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:13:03,381] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 09:13:03,404] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:13:03,462] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.06s
+[2026-01-11 09:14:25,957] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.18s
+[2026-01-11 09:14:26,041] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:14:26,110] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 09:14:26,230] INFO sync.tasks: Processed SyncJob 54: {'processed': 2, 'succeeded': 2, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 09:17:16,805] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:17:16,853] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-11 09:17:16,870] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 09:17:16,957] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-11 09:37:26,311] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 09:37:52,083] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 09:38:16,404] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 09:38:36,163] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 13:34:13,956] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:34:14,940] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=1.04s
+[2026-01-11 13:34:14,976] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:34:15,093] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 13:35:09,740] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:35:10,759] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=1.12s
+[2026-01-11 13:35:10,987] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:35:11,598] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.64s
+[2026-01-11 13:36:36,829] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 13:36:58,518] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 13:39:09,164] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:39:10,731] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=1.69s
+[2026-01-11 13:39:10,760] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:39:10,881] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 13:39:24,642] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.28s
+[2026-01-11 13:39:24,643] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.14s
+[2026-01-11 13:39:25,100] INFO sync.tasks: Processed SyncJob 56: {'processed': 2, 'succeeded': 2, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 13:39:25,123] INFO sync.notifications: 🔔 Sync failure notification sent for job 55
+[2026-01-11 13:39:25,139] INFO sync.notifications: 🔔 Sync conflict notification sent for job 55 (1 conflicts)
+[2026-01-11 13:39:25,140] INFO sync.tasks: Processed SyncJob 55: {'processed': 1, 'succeeded': 0, 'failed': 1, 'conflicts': 1, 'errors': [{'op_id': 51, 'error': 'duplicate key value violates unique constraint "sales_sale_reference_key"\nDETAIL:  Key (reference)=(OFF-1768138764213) already exists.\n'}]}
+[2026-01-11 13:40:54,714] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:40:54,805] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-11 13:40:54,827] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:40:54,929] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 13:41:28,959] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.07s
+[2026-01-11 13:41:29,013] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.03s
+[2026-01-11 13:41:29,091] INFO sync.tasks: Skipping Duplicate Op 4b631ff3-a68d-478e-b4cb-b1dbc90ed33a (Already in ChangeLog)
+[2026-01-11 13:41:29,093] INFO sync.tasks: Processed SyncJob 57: {'processed': 1, 'succeeded': 1, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 13:41:29,145] INFO sync.notifications: 🔔 Sync failure notification sent for job 58
+[2026-01-11 13:41:29,145] INFO sync.tasks: Processed SyncJob 58: {'processed': 2, 'succeeded': 1, 'failed': 1, 'conflicts': 0, 'errors': [{'op_id': 56, 'error': "Missing dependencies: [('sale_id', 'sale-48a9fe8b-67f9-4820-9461-a85a4b8acadd')]"}]}
+[2026-01-11 13:41:52,345] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:41:52,455] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 13:41:52,476] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 13:41:52,564] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-11 14:02:14,176] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 14:12:10,106] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 14:13:55,138] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 14:15:13,365] INFO sync.tasks: Skipping Duplicate Op 4b631ff3-a68d-478e-b4cb-b1dbc90ed33a (Already in ChangeLog)
+[2026-01-11 14:15:13,408] INFO sync.tasks: Processed SyncJob 58: {'processed': 2, 'succeeded': 2, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 14:16:30,105] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:16:30,218] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 14:16:30,237] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:16:30,336] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.10s
+[2026-01-11 14:26:38,072] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:26:38,260] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.20s
+[2026-01-11 14:26:38,285] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:26:38,763] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.48s
+[2026-01-11 14:29:15,702] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:29:15,956] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.27s
+[2026-01-11 14:29:15,997] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:29:16,163] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.18s
+[2026-01-11 14:31:53,260] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:31:53,337] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-11 14:31:53,365] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:31:53,451] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-11 14:35:04,012] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.57s
+[2026-01-11 14:35:04,116] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:35:04,231] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 14:35:04,380] INFO sync.tasks: Processed SyncJob 59: {'processed': 3, 'succeeded': 3, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 14:39:10,729] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:39:10,844] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 14:39:10,869] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:39:10,947] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.08s
+[2026-01-11 14:40:26,713] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:40:26,821] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 14:40:26,847] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:40:26,915] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 14:40:58,611] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:40:58,725] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 14:40:58,788] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:40:58,896] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 14:47:21,765] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:47:21,906] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.15s
+[2026-01-11 14:47:21,931] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:47:22,037] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 14:48:22,453] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:48:22,576] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.13s
+[2026-01-11 14:48:22,599] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:48:22,690] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.10s
+[2026-01-11 14:50:26,519] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:50:26,621] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.11s
+[2026-01-11 14:50:26,648] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 14:50:26,802] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.16s
+[2026-01-11 15:22:22,019] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 15:22:22,131] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 15:22:22,154] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 15:22:22,221] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 15:22:42,704] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.33s
+[2026-01-11 15:22:42,719] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.40s
+[2026-01-11 15:22:43,302] INFO sync.tasks: Processed SyncJob 61: {'processed': 2, 'succeeded': 2, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 15:22:43,942] INFO sync.tasks: Skipping Duplicate Op ef0f5315-4642-4514-bc1e-e45bfa8f4f02 (Already in ChangeLog)
+[2026-01-11 15:22:43,962] INFO sync.tasks: Processed SyncJob 60: {'processed': 1, 'succeeded': 1, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 15:24:03,687] INFO sync: [SYNC] POST /api/sync/upload/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=202 duration=0.10s
+[2026-01-11 15:24:03,778] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 15:24:03,871] INFO sync.tasks: Processed SyncJob 62: {'processed': 2, 'succeeded': 2, 'failed': 0, 'conflicts': 0, 'errors': []}
+[2026-01-11 15:24:03,902] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.13s
+[2026-01-11 15:31:23,921] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 15:31:24,036] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 15:31:24,052] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
+[2026-01-11 15:31:24,144] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.10s

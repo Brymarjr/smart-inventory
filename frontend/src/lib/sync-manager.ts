@@ -4,65 +4,96 @@ import { v4 as uuidv4 } from 'uuid';
 
 const DEVICE_ID_KEY = 'device_id';
 
-// ✅ FIX: Logic rewritten to satisfy TypeScript strict null checks
 export const getDeviceId = (): string => {
+  if (typeof window === 'undefined') return 'server-side';
   const storedId = localStorage.getItem(DEVICE_ID_KEY);
-  
-  if (storedId) {
-    return storedId;
-  }
+  if (storedId) return storedId;
 
-  // If no ID exists, generate one, save it, and return it.
   const newId = uuidv4();
   localStorage.setItem(DEVICE_ID_KEY, newId);
   return newId;
 };
 
-// 2. PULL: Download updates from Server -> Local DB
+// Helper: Debugs and retrieves headers
+const getAuthHeaders = () => {
+    if (typeof window === 'undefined') return {};
+    
+    // 🔍 DEBUG: Check what keys you actually have
+    console.log("🔍 LocalStorage Keys:", Object.keys(localStorage));
+    
+    // Try the common names
+    const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
+    
+    if (!token) {
+        console.error("❌ getAuthHeaders: NO TOKEN FOUND! You appear logged out or using cookies.");
+        return {};
+    }
+    
+    console.log("✅ getAuthHeaders: Token found (length " + token.length + ")");
+    return { Authorization: `Bearer ${token}` };
+};
+
+// 2. PULL: Download updates
 export const pullData = async () => {
   try {
-    // Get last sync time
+    // 1. Safety Check
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) {
+        console.warn("⏸️ Sync Pull Skipped: No Auth Token available.");
+        return { success: false, error: "No token" };
+    }
+
     const meta = await db.meta.get('last_sync');
     const lastSync = meta?.value || null;
     const deviceId = getDeviceId();
 
-    // Call Backend Download View
+    console.log("⬇️ Starting Sync Pull...");
+
+    // 2. Request
     const response = await api.get('/api/sync/download/', {
       params: { 
         device_id: deviceId, 
         last_sync: lastSync 
-      }
+      },
+      headers: headers // Explicitly attach the found token
     });
 
     const { data, synced_at, has_more } = response.data;
 
-    // Save to Local DB (Bulk Put is faster)
-    await db.transaction('rw', db.products, db.categories, db.customers, db.meta, async () => {
+    // 3. Save to DB (Using array [] to fix arguments error)
+    await db.transaction('rw', [db.products, db.categories, db.sales, db.saleItems, db.meta], async () => {
       
-      // ✅ We check for data existence before putting
-      if (data.product && Array.isArray(data.product)) {
-        await db.products.bulkPut(data.product);
-      }
-      if (data.category && Array.isArray(data.category)) {
-        await db.categories.bulkPut(data.category);
-      }
-      // Add other models as needed
+      if (data?.products && Array.isArray(data.products)) await db.products.bulkPut(data.products);
+      if (data?.categories && Array.isArray(data.categories)) await db.categories.bulkPut(data.categories);
+      
+      if (data?.product && Array.isArray(data.product)) await db.products.bulkPut(data.product);
+      if (data?.category && Array.isArray(data.category)) await db.categories.bulkPut(data.category);
 
-      // Update timestamp
+      if (data?.sales && Array.isArray(data.sales)) await db.sales.bulkPut(data.sales);
+      if (data?.saleitems && Array.isArray(data.saleitems)) await db.saleItems.bulkPut(data.saleitems);
+
       await db.meta.put({ key: 'last_sync', value: synced_at });
     });
 
+    console.log(`✅ Sync Pull Success: ${synced_at}`);
+    
+    if (has_more) {
+        await pullData();
+    }
+
     return { success: true, hasMore: has_more };
   } catch (error) {
-    console.error("Pull Failed:", error);
+    console.error("❌ Sync Pull Failed:", error);
     return { success: false, error };
   }
 };
 
-// 3. PUSH: Upload Local Changes -> Server
+// 3. PUSH: Upload Local Changes
 export const pushData = async () => {
   try {
-    // Get all pending items
+    const headers = getAuthHeaders();
+    if (!headers.Authorization) return { success: false, error: "No token" };
+
     const pendingItems = await db.syncQueue.toArray();
     if (pendingItems.length === 0) return { success: true, count: 0 };
 
@@ -76,17 +107,18 @@ export const pushData = async () => {
       }))
     };
 
-    // Call Backend Upload View
-    await api.post('/api/sync/upload/', payload);
+    await api.post('/api/sync/upload/', payload, {
+        headers: headers
+    });
 
-    // If success, clear the queue!
     const idsToDelete = pendingItems.map(i => i.id as number);
     await db.syncQueue.bulkDelete(idsToDelete);
 
+    console.log(`✅ Pushed ${pendingItems.length} changes to server.`);
     return { success: true, count: pendingItems.length };
 
   } catch (error) {
-    console.error("Push Failed:", error);
+    console.error("❌ Push Failed:", error);
     return { success: false, error };
   }
 };
@@ -105,8 +137,7 @@ export const queueOperation = async (
     created_at: Date.now()
   });
   
-  // Try to push immediately if online
   if (typeof navigator !== 'undefined' && navigator.onLine) {
-    pushData(); 
+    pushData().catch(err => console.warn("Background push failed")); 
   }
 };

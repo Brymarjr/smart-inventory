@@ -1,7 +1,10 @@
+import logging
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from inventory.models import Product 
+
+logger = logging.getLogger(__name__)
 
 class Sale(models.Model):
     PAYMENT_METHOD_CHOICES = [

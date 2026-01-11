@@ -9,7 +9,8 @@ import { Separator } from '@/components/ui/separator';
 import { Trash2, ShoppingCart, Loader2, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
-import { queueOperation } from '@/lib/sync-manager'; // ✅ Import Offline Queue
+import { queueOperation } from '@/lib/sync-manager'; 
+import { db } from '@/lib/db'; 
 
 interface PosCartProps {
   cart: CartItem[];
@@ -25,21 +26,28 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
   const [customerName, setCustomerName] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'pos' | 'other'>('cash');
   const [notes, setNotes] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false); // Local loading state
+  const [isProcessing, setIsProcessing] = useState(false); 
 
   const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  // ✅ NEW: Offline-First Checkout Logic
+  // ✅ Smart Checkout Logic (Online vs Offline)
   const handleCheckout = async () => {
     if (cart.length === 0) return;
     setIsProcessing(true);
 
-    try {
-        const saleTmpId = `sale-${uuidv4()}`; // Generate ID locally
-        const timestamp = Date.now();
-        const reference = `OFF-${timestamp}`; // Offline reference
+    // 1. Detect Status
+    const isOnline = navigator.onLine;
 
-        // 1. Queue the Sale Record
+    try {
+        const saleTmpId = `sale-${uuidv4()}`;
+        const timestamp = Date.now();
+        
+        // 2. Generate Reference: POS- for Online, OFF- for Offline
+        const reference = isOnline 
+            ? `POS-${timestamp}` 
+            : `OFF-${timestamp}`; 
+
+        // 3. Queue the Sale Record
         await queueOperation('sales.Sale', 'create', {
             tmp_id: saleTmpId,
             reference: reference,
@@ -50,23 +58,38 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
             created_at: new Date().toISOString()
         });
 
-        // 2. Queue the Items
+        // 4. Queue the Items & UPDATE LOCAL STOCK
         for (const item of cart) {
+            // A. Queue the sync operation
             await queueOperation('sales.SaleItem', 'create', {
-                sale_tmp_id: saleTmpId, // Link to sale
+                sale_tmp_id: saleTmpId, 
                 product_id: item.productId,
                 quantity: item.quantity,
                 unit_price: item.price,
                 subtotal: item.price * item.quantity
             });
+
+            // B. Optimistic Update
+            const currentProduct = await db.products.get(item.productId);
+            if (currentProduct) {
+                await db.products.update(item.productId, {
+                    quantity: currentProduct.quantity - item.quantity
+                });
+            }
         }
 
-        toast.success('Sale Recorded (Offline/Synced)!');
+        // 5. User Feedback
+        if (isOnline) {
+            toast.success('Sale Completed Successfully!');
+        } else {
+            toast.info('Sale Recorded (Offline Mode)');
+        }
 
-        // Construct a "fake" sale object to pass to the receipt printer immediately
+        // 6. Construct Smart Receipt Data
         const receiptData = {
-            id: saleTmpId, // Use tmp ID for receipt
+            id: saleTmpId, 
             receipt_id: reference,
+            is_offline: !isOnline, // ✅ Flag for the receipt printer
             customer_name: customerName,
             total_amount: totalAmount,
             created_at: new Date().toISOString(),
@@ -78,7 +101,7 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
             }))
         };
 
-        // Trigger success callback (prints receipt)
+        // Trigger success callback
         onSaleSuccess(receiptData);
 
         // Cleanup
@@ -189,7 +212,7 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
         <Button 
             size="lg" 
             className="w-full text-lg" 
-            onClick={handleCheckout} // ✅ Use new handler
+            onClick={handleCheckout} 
             disabled={isProcessing}
         >
             {isProcessing ? (
