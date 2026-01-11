@@ -107,3 +107,13 @@ export interface SalePayload {
     quantity: number;
   }[];
 }
+
+export interface Device {
+  id: number;
+  name: string;
+  device_id: string; // The hardware UUID
+  is_blocked: boolean;
+  last_sync_at: string | null;
+  app_version: string;
+  consecutive_failures: number;
+}

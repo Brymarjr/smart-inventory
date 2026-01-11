@@ -26,6 +26,7 @@ class Device(models.Model):
     name = models.CharField(max_length=150, blank=True)
     last_seen = models.DateTimeField(default=timezone.now)
     metadata = models.JSONField(default=dict, blank=True)
+    app_version = models.CharField(max_length=50, blank=True, null=True)
     consecutive_failures = models.PositiveIntegerField(default=0)
     is_blocked = models.BooleanField(default=False)
 
@@ -213,4 +214,3 @@ class SyncCursor(models.Model):
 
     def __str__(self):
         return f"Cursor {self.device.device_id} -> {self.last_server_version}"
-

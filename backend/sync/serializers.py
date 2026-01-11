@@ -14,6 +14,8 @@ from sales.serializers import (
     )
 
 class DeviceSerializer(serializers.ModelSerializer):
+    last_sync_at = serializers.DateTimeField(source='last_seen', read_only=True)
+    
     class Meta:
         model = Device
         fields = [
@@ -23,9 +25,13 @@ class DeviceSerializer(serializers.ModelSerializer):
             "device_id",
             "name",
             "last_seen",
+            "last_sync_at",   # Alias for frontend
             "metadata",
+            "is_blocked",
+            "app_version",
+            "consecutive_failures",
         ]
-        read_only_fields = ["id", "last_seen"]
+        read_only_fields = ["id", "last_seen""last_sync_at", "is_blocked", "consecutive_failures"]
 
 
 class SyncJobSerializer(serializers.ModelSerializer):

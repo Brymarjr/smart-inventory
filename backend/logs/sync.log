@@ -5671,3 +5671,65 @@ TypeError: SaleItem() got unexpected keyword arguments: 'tenant_id'
 [2026-01-11 18:38:26,388] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
 [2026-01-11 18:38:30,224] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
 [2026-01-11 18:38:43,376] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 19:03:37,618] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.03s
+[2026-01-11 19:10:28,272] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=27.04s
+[2026-01-11 19:11:24,103] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=19.75s
+[2026-01-11 19:38:03,901] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 19:38:16,964] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 19:38:45,733] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 19:39:25,645] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.03s
+[2026-01-11 19:39:31,197] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.19s
+[2026-01-11 19:39:57,732] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:40:07,523] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:40:26,242] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:40:30,798] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:40:35,698] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:40:47,725] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.03s
+[2026-01-11 19:43:41,147] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.51s
+[2026-01-11 19:44:07,760] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.30s
+[2026-01-11 19:44:25,180] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:44:32,393] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.12s
+[2026-01-11 19:44:49,941] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:45:14,833] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.02s
+[2026-01-11 19:45:25,903] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.02s
+[2026-01-11 19:45:33,917] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.05s
+[2026-01-11 19:45:48,133] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:46:00,646] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 19:46:11,160] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.02s
+[2026-01-11 19:50:38,729] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 19:50:50,893] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 19:51:07,894] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 19:52:09,776] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.13s
+[2026-01-11 19:52:10,901] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.08s
+[2026-01-11 19:52:16,949] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.56s
+[2026-01-11 19:52:18,490] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.38s
+[2026-01-11 19:52:20,607] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.06s
+[2026-01-11 20:08:26,035] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.19s
+[2026-01-11 20:08:42,797] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.13s
+[2026-01-11 20:08:43,880] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.05s
+[2026-01-11 20:08:46,661] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.66s
+[2026-01-11 20:08:50,796] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.10s
+[2026-01-11 20:11:09,214] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:11:18,291] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:11:29,598] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.21s
+[2026-01-11 20:11:31,022] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.38s
+[2026-01-11 20:11:37,100] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=1.56s
+[2026-01-11 20:11:38,759] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.45s
+[2026-01-11 20:11:40,864] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.06s
+[2026-01-11 20:12:06,305] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=500 duration=0.10s
+[2026-01-11 20:15:14,855] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:15:36,753] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:15:47,319] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:16:17,295] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:16:31,057] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:16:56,020] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 20:17:55,021] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.55s
+[2026-01-11 20:19:35,114] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.02s
+[2026-01-11 20:19:37,671] INFO sync.notifications: 🔔 Device unblocked notification sent for device POS-732f2ca8 (tenant shoprite)
+[2026-01-11 20:19:37,671] INFO sync: [SYNC] POST /api/sync/devices/10/unblock/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.28s
+[2026-01-11 20:19:37,714] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 20:19:44,539] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 20:21:58,521] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 20:22:32,766] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.02s
+[2026-01-11 20:22:44,847] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 20:23:16,026] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
