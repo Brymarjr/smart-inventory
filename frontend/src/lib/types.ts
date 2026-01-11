@@ -12,6 +12,8 @@ export interface User {
   tenant?: string | null;
   role: string;
   must_change_password?: boolean;
+  tos_accepted_at?: string | null;
+  tos_version?: string;
 }
 
 export interface AuthResponse {

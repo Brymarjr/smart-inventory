@@ -47,7 +47,7 @@ class UserViewSet(TenantFilteredViewSet):
 
     def get_permissions(self):
         # Allows 'me' for any logged-in user (Staff/Manager/Admin)
-        if self.action == "me":
+        if self.action in ["me", "accept_tos"]:
             return [IsAuthenticated()]
         
         if self.action in ["create", "update", "partial_update", "destroy", "list"]:
@@ -92,6 +92,24 @@ class UserViewSet(TenantFilteredViewSet):
                 return Response(serializer.data)
             
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(detail=False, methods=['post'], url_path='accept-tos')
+    def accept_tos(self, request):
+        """
+        Endpoint for logged-in users to accept the Terms of Service.
+        """
+        user = request.user
+        
+        # Update the compliance fields
+        user.tos_accepted_at = timezone.now()
+        user.tos_version = "1.0.0" 
+        user.save()
+        
+        return Response({
+            "status": "Terms accepted", 
+            "accepted_at": user.tos_accepted_at,
+            "version": user.tos_version
+        }, status=status.HTTP_200_OK)
 
 
 # ----------------------------------------------------------

@@ -36,6 +36,9 @@ class User(AbstractUser):
         blank=True,
         help_text="Reason for reset: self_reset | admin_reset | system_reset"
     )
+    
+    tos_accepted_at = models.DateTimeField(null=True, blank=True)
+    tos_version = models.CharField(max_length=10, default="1.0.0")
 
     class Meta:
         constraints = [

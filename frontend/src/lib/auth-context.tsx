@@ -10,6 +10,8 @@ interface AuthContextType {
   loginTenant: (tenant: string, username: string, password: string) => Promise<void>;
   loginAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  // Added this so we can manually reload the user profile
+  refreshUser: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -20,23 +22,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  // Helper function to fetch user data
+  const fetchUserProfile = async () => {
+    try {
+      // This endpoint works for both Admins and Tenants
+      const { data } = await api.get('/api/users/me/');
+      setUser(data);
+    } catch (error) {
+      console.error('Session invalid, logging out');
+      logout();
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('access_token');
       if (token) {
-        try {
-          // This endpoint works for both Admins and Tenants
-          const { data } = await api.get('/api/users/me/');
-          setUser(data);
-        } catch (error) {
-          console.error('Session invalid, logging out');
-          logout();
-        }
+        await fetchUserProfile();
       }
       setIsLoading(false);
     };
     initAuth();
   }, []);
+
+  // Exposed function to force a profile refresh
+  const refreshUser = async () => {
+    await fetchUserProfile();
+  };
 
   const loginTenant = async (tenant: string, username: string, password: string) => {
     // Hits your custom TenantAwareAuthViewSet
@@ -84,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginTenant, loginAdmin, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, loginTenant, loginAdmin, logout, refreshUser, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

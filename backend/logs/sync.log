@@ -5657,3 +5657,17 @@ TypeError: SaleItem() got unexpected keyword arguments: 'tenant_id'
 [2026-01-11 15:31:24,036] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.12s
 [2026-01-11 15:31:24,052] INFO sync.views: 🔍 SyncDownload Request by User: 4__Brymar (shoprite)
 [2026-01-11 15:31:24,144] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.10s
+[2026-01-11 17:40:30,521] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 17:42:35,895] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 17:53:23,692] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 17:55:06,721] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 17:57:27,801] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:09:09,035] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:09:22,288] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:09:32,235] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:09:57,063] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:10:07,981] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:36:53,804] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:38:26,388] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:38:30,224] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active
+[2026-01-11 18:38:43,376] INFO sync.views: 🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active

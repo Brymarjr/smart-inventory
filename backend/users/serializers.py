@@ -29,8 +29,11 @@ class UserSerializer(serializers.ModelSerializer):
             'is_active',
             'is_staff',
             'must_change_password', 
+            # ToS fields
+            'tos_accepted_at',
+            'tos_version',
         ]
-        read_only_fields = ['id', 'is_staff', 'role', 'must_change_password']
+        read_only_fields = ['id', 'is_staff', 'role', 'must_change_password', 'tos_accepted_at', 'tos_version']
 
     def get_username(self, obj):
         if not obj.username:
@@ -232,6 +235,9 @@ class TenantAwareTokenObtainPairSerializer(serializers.Serializer):
                 "role": user.role.name if user.role else None,
                 "is_superuser": user.is_superuser,
                 "must_change_password": getattr(user, "must_change_password", False),
+                # ToS fields here for instant login check
+                "tos_accepted_at": user.tos_accepted_at,
+                "tos_version": user.tos_version,
             },
         }
 

@@ -4,11 +4,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "sonner"; // Changed import to match standard sonner usage if needed, or keep your component wrapper
-// If you have a custom component wrapper for toaster:
-// import { Toaster } from "@/components/ui/sonner"; 
+import { Toaster } from "sonner"; 
 import { useState } from "react";
-import { ThemeProvider } from "@/components/theme-provider"; // ✅ Import this
+import { ThemeProvider } from "@/components/theme-provider";
+import { LegalGuard } from "@/components/auth/legal-guard"; // ✅ Import the Guard
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,10 +20,8 @@ export default function RootLayout({
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    // ✅ 1. Add suppressHydrationWarning
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        {/* ✅ 2. Wrap everything in ThemeProvider */}
         <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -33,7 +30,11 @@ export default function RootLayout({
         >
             <QueryClientProvider client={queryClient}>
                 <AuthProvider>
-                    {children}
+                    {/* ✅ LegalGuard is placed here so it can access the user from AuthProvider */}
+                    <LegalGuard>
+                        {children}
+                    </LegalGuard>
+                    
                     <Toaster />
                 </AuthProvider>
             </QueryClientProvider>
