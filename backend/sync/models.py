@@ -26,6 +26,7 @@ class Device(models.Model):
     name = models.CharField(max_length=150, blank=True)
     last_seen = models.DateTimeField(default=timezone.now)
     metadata = models.JSONField(default=dict, blank=True)
+    app_version = models.CharField(max_length=50, blank=True, null=True)
     consecutive_failures = models.PositiveIntegerField(default=0)
     is_blocked = models.BooleanField(default=False)
 
@@ -65,6 +66,7 @@ class SyncJob(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_PENDING)
     result = models.JSONField(null=True, blank=True)  # summary JSON: counts, examples, errors
+    tmp_id_map = models.JSONField(default=dict, blank=True, help_text="Maps client tmp_ids to server DB ids")
 
     class Meta:
         indexes = [models.Index(fields=["tenant", "status", "created_at"])]
@@ -212,4 +214,3 @@ class SyncCursor(models.Model):
 
     def __str__(self):
         return f"Cursor {self.device.device_id} -> {self.last_server_version}"
-

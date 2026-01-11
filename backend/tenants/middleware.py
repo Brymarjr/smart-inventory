@@ -54,7 +54,7 @@ class BlockWriteIfSubscriptionExpiredMiddleware:
         print(f"🔍 BlockWriteIfSubscriptionExpiredMiddleware triggered: {request.path} {request.method}")
 
         # Allow safe methods and Paystack webhook
-        if request.method in ("GET", "HEAD", "OPTIONS") or request.path.startswith("/api/billing/paystack/webhook/"):
+        if request.method in ("GET", "HEAD", "OPTIONS") or request.path.startswith("/api/billing/"):
             return self.get_response(request)
 
         tenant = getattr(request, "tenant", None)

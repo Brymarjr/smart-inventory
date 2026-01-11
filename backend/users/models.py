@@ -19,6 +19,7 @@ class User(AbstractUser):
         blank=True,
         related_name="users",
     )
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
 
     #  Password reset & security controls
     must_change_password = models.BooleanField(default=False)
@@ -35,6 +36,9 @@ class User(AbstractUser):
         blank=True,
         help_text="Reason for reset: self_reset | admin_reset | system_reset"
     )
+    
+    tos_accepted_at = models.DateTimeField(null=True, blank=True)
+    tos_version = models.CharField(max_length=10, default="1.0.0")
 
     class Meta:
         constraints = [
@@ -61,7 +65,7 @@ class UserRole(models.Model):
         ('tenant_admin', 'TenantAdmin'),
         ('manager', 'Manager'),
         ('staff', 'Staff'),
-        ('finance_officer', 'FinanceOfficer'),
+        ('finance_officer', 'FinanceOfficer'), # Remove before doing final migrations as role is deprecated
     ]
 
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True, default='staff',)

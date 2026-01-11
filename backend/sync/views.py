@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework.generics import GenericAPIView
+from rest_framework_simplejwt.authentication import JWTAuthentication  # ✅ REQUIRED for Token Auth
 from django.conf import settings
 from django.apps import apps
 from . import models as sync_models
@@ -14,20 +16,14 @@ from . import serializers as sync_serializers
 from core.mixins import TenantFilteredViewSet
 from users.permissions import IsTenantAdmin
 from .tasks import _apply_sync_operation_preflight, process_sync_job
-from rest_framework.generics import GenericAPIView
 from .notifications import notify_device_unblocked
 import logging
 
+# ✅ PRODUCTION LOGGING SETUP
 logger = logging.getLogger(__name__)
-
+logger.info("🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active")
 
 class DeviceViewSet(TenantFilteredViewSet, viewsets.ModelViewSet):
-    """
-    Device management:
-    - List devices
-    - View device status
-    - Unblock a blocked device (admin only)
-    """
     queryset = sync_models.Device.objects.all()
     serializer_class = sync_serializers.DeviceSerializer
     permission_classes = [IsAuthenticated]
@@ -39,118 +35,77 @@ class DeviceViewSet(TenantFilteredViewSet, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def unblock(self, request, pk=None):
-        """
-        Manually unblock a device after repeated sync failures.
-        """
         device = self.get_object()
-
         if not device.is_blocked:
-            return Response(
-                {"detail": "Device is not blocked."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"detail": "Device is not blocked."}, status=status.HTTP_400_BAD_REQUEST)
 
         device.is_blocked = False
         device.consecutive_failures = 0
         device.save(update_fields=["is_blocked", "consecutive_failures"])
 
         notify_device_unblocked(device)
-
-        logger.info(
-            "🔓 Device %s unblocked by %s",
-            device.name,
-            request.user.email,
-        )
-
-        return Response(
-            {
-                "detail": "Device successfully unblocked.",
-                "device_id": device.id,
-                "device_name": device.name,
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({"detail": "Device successfully unblocked.", "device_id": device.id}, status=status.HTTP_200_OK)
 
 
 class SyncJobViewSet(TenantFilteredViewSet, viewsets.ReadOnlyModelViewSet):
-    """
-    Read-only access to SyncJob for job status polling.
-    """
     queryset = sync_models.SyncJob.objects.all().select_related("submitted_by", "device")
     serializer_class = sync_serializers.SyncJobSerializer
     permission_classes = [IsAuthenticated]
-    
-    
-class BlockedDeviceGuardMixin:
+
+
+class SyncUploadView(GenericAPIView):
     """
-    Prevent blocked devices from accessing sync endpoints.
+    Accepts an upload of client operations.
     """
-
-    def _reject_if_blocked(self, request):
-        device = getattr(request, "device", None)
-
-        if device and device.is_blocked:
-            return Response(
-                {
-                    "detail": (
-                        "This device has been blocked due to repeated sync failures. "
-                        "Please contact your administrator."
-                    )
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        return None
-
-
-class SyncUploadView(BlockedDeviceGuardMixin, GenericAPIView):
-    """
-    Accepts an upload of client operations, creates a SyncJob and SyncOperation rows,
-    and enqueues a Celery task to process the job.
-    """
+    authentication_classes = [JWTAuthentication] # ✅ FORCE TOKEN AUTH
     permission_classes = [IsAuthenticated]
     serializer_class = sync_serializers.SyncUploadSerializer
     
     def post(self, request, *args, **kwargs):
-        blocked = self._reject_if_blocked(request)
-        if blocked:
-            return blocked
-
-        serializer = sync_serializers.SyncUploadSerializer(data=request.data)
+        # 1. Validate Input
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-
-        # Find or create device
         device_id = data["device_id"]
+
+        # 2. Auto-Provision Device
         device, created = sync_models.Device.objects.get_or_create(
             tenant=request.user.tenant,
             device_id=device_id,
-            defaults={"user": request.user, "name": device_id}
+            defaults={"user": request.user, "name": f"POS-{device_id[:8]}"}
         )
-
-        # Reassign user if needed
         if device.user != request.user:
             device.user = request.user
             device.save(update_fields=["user"])
 
-        # -----------------------------
-        # Create SyncJob first so tmp_id_map can be used
-        # -----------------------------
+        if device.is_blocked:
+            return Response({"detail": "Device blocked.", "code": "device_blocked"}, status=status.HTTP_403_FORBIDDEN)
+
+        # 3. Create Job & Operations
         try:
             with transaction.atomic():
                 job = sync_models.SyncJob.objects.create(
                     tenant=request.user.tenant,
                     submitted_by=request.user,
                     device=device,
+                    tmp_id_map={} 
                 )
 
-                # Ensure tmp_id_map exists
-                if not hasattr(job, "tmp_id_map") or not isinstance(job.tmp_id_map, dict):
-                    job.tmp_id_map = {}
-
-                # Preflight and prepare operations
                 ops_to_create = []
+                
                 for op_data in data["client_ops"]:
+                    
+                    try:
+                        app_label, model_name = op_data["model_name"].split(".")
+                        Model = apps.get_model(app_label, model_name)
+                    except LookupError:
+                        Model = None
+
+                    if Model and op_data["action"] == "create":
+                        field_names = [f.name for f in Model._meta.get_fields()]
+                        if 'created_by' in field_names:
+                            op_data["payload"]["created_by_id"] = request.user.id
+
                     op_dummy = sync_models.SyncOperation(
                         sync_job=job,
                         client_change_id=op_data["client_change_id"],
@@ -159,22 +114,16 @@ class SyncUploadView(BlockedDeviceGuardMixin, GenericAPIView):
                         payload=op_data["payload"]
                     )
 
-                    preflight_result = _apply_sync_operation_preflight(
-                        job=job,
-                        op=op_dummy,
-                        tenant=request.user.tenant,
-                        user=request.user
+                    preflight = _apply_sync_operation_preflight(
+                        job=job, op=op_dummy, tenant=request.user.tenant, user=request.user
                     )
 
-                    if not preflight_result["success"]:
-                        return Response(
-                            {"detail": "Preflight validation failed", "error": preflight_result["error"]},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
+                    if not preflight["success"]:
+                        raise ValueError(f"Preflight failed for {op_data['model_name']}: {preflight.get('error')}")
 
-                    # Apply NOOP mapping for unique objects immediately
-                    noop_id = preflight_result.get("noop_map_existing_id")
+                    noop_id = preflight.get("noop_map_existing_id")
                     tmp_id = op_data["payload"].get("tmp_id") or op_data.get("client_change_id")
+                    
                     if noop_id and tmp_id:
                         job.tmp_id_map[tmp_id] = noop_id
 
@@ -188,44 +137,41 @@ class SyncUploadView(BlockedDeviceGuardMixin, GenericAPIView):
                         )
                     )
 
-                # Bulk create operations
+                if job.tmp_id_map:
+                    job.save(update_fields=["tmp_id_map"])
+
                 sync_models.SyncOperation.objects.bulk_create(ops_to_create)
 
-        except IntegrityError as exc:
-            return Response(
-                {"detail": "Failed to create sync job/operations", "error": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        except (IntegrityError, ValueError) as exc:
+            logger.warning(f"Sync upload rejected: {exc}")
+            return Response({"detail": "Invalid sync data", "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Enqueue processing asynchronously
         try:
             process_sync_job.delay(job.id)
         except Exception as e:
             job.mark_failed({"error": "celery_enqueue_failed", "details": str(e)})
-            return Response(
-                {"detail": "Failed to enqueue sync job for processing"},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+            return Response({"detail": "System busy"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        return Response(
-            {"job_id": job.id, "status": job.status},
-            status=status.HTTP_202_ACCEPTED,
-        )
+        return Response({"job_id": job.id, "status": job.status}, status=status.HTTP_202_ACCEPTED)
 
 
-
-
-class SyncDownloadView(BlockedDeviceGuardMixin, APIView):
+class SyncDownloadView(APIView):
     """
-    Returns all records from selected models updated since last_sync timestamp.
+    Returns records updated since last_sync.
     """
-
+    authentication_classes = [JWTAuthentication] # ✅ FORCE TOKEN AUTH
     permission_classes = [IsAuthenticated]
 
+    def _get_tenant_filter(self, model, tenant):
+        field_names = [f.name for f in model._meta.get_fields()]
+        if 'tenant' in field_names: return {'tenant': tenant}
+        if model.__name__ == 'SaleItem': return {'sale__tenant': tenant}
+        if model.__name__ == 'PurchaseItem': return {'purchase_order__tenant': tenant}
+        return None
+
     def get(self, request, *args, **kwargs):
-        blocked = self._reject_if_blocked(request)
-        if blocked:
-            return blocked
+        # 🔍 DEBUG: Log user identity
+        logger.info(f"🔍 SyncDownload Request by User: {request.user}")
         
         device_id = request.query_params.get("device_id")
         last_sync = request.query_params.get("last_sync")
@@ -233,44 +179,65 @@ class SyncDownloadView(BlockedDeviceGuardMixin, APIView):
         if not device_id:
             return Response({"detail": "device_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # get device
-        device = sync_models.Device.objects.filter(
-            tenant=request.user.tenant, device_id=device_id
-        ).first()
-        if not device:
-            return Response({"detail": "Device not registered"}, status=status.HTTP_404_NOT_FOUND)
+        device, created = sync_models.Device.objects.get_or_create(
+            tenant=request.user.tenant,
+            device_id=device_id,
+            defaults={"user": request.user, "name": f"POS-{device_id[:8]}"}
+        )
+        
+        if device.is_blocked:
+            return Response({"detail": "Device blocked."}, status=status.HTTP_403_FORBIDDEN)
 
-        # parse last_sync time
         try:
-            last_sync_dt = datetime.datetime.fromisoformat(last_sync) if last_sync else timezone.make_aware(datetime.datetime.min)
+            if last_sync and last_sync != "null":
+                last_sync_dt = datetime.datetime.fromisoformat(last_sync)
+            else:
+                last_sync_dt = timezone.make_aware(datetime.datetime.min)
         except Exception:
             return Response({"detail": "Invalid last_sync format"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # gather updates
         updated_data = {}
+        has_more_data = False
+        limit_per_model = 1000
+
         for model_path in getattr(settings, "SYNCED_MODELS", []):
-            app_label, model_name = model_path.split(".")
-            model = apps.get_model(app_label, model_name)
-
-            # filter by tenant and last modified date
-            qs = model.objects.filter(
-                tenant=request.user.tenant,
-                updated_at__gt=last_sync_dt
-            )
-
-            serializer_class_name = f"{model.__name__}Serializer"
-            serializer_class = getattr(sync_serializers, serializer_class_name, None)
-            if not serializer_class:
+            try:
+                app_label, model_name = model_path.split(".")
+                model = apps.get_model(app_label, model_name)
+            except LookupError:
                 continue
 
-            updated_data[model_name.lower()] = serializer_class(qs, many=True).data
+            serializer_name = f"{model.__name__}Serializer"
+            serializer_class = getattr(sync_serializers, serializer_name, None)
+            
+            if not serializer_class: continue
 
-        # update device last_sync
-        device.last_sync = timezone.now()
-        device.save(update_fields=["last_sync"])
+            tenant_filter = self._get_tenant_filter(model, request.user.tenant)
+            if tenant_filter is None: continue
+
+            field_names = [f.name for f in model._meta.get_fields()]
+            
+            if 'updated_at' in field_names:
+                qs = model.objects.filter(**tenant_filter, updated_at__gt=last_sync_dt).order_by('updated_at')
+            else:
+                qs = model.objects.filter(**tenant_filter).order_by('id')
+
+            qs = qs[:limit_per_model + 1]
+            records = list(qs)
+            
+            if len(records) > limit_per_model:
+                has_more_data = True
+                records = records[:limit_per_model]
+
+            if records:
+                updated_data[model_name.lower()] = serializer_class(records, many=True).data
+
+        device.last_seen = timezone.now()
+        device.save(update_fields=["last_seen"])
 
         return Response({
             "device_id": device.device_id,
             "synced_at": timezone.now().isoformat(),
+            "has_more": has_more_data,
             "data": updated_data
         }, status=status.HTTP_200_OK)

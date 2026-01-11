@@ -12,6 +12,10 @@ User = get_user_model()
 # ===========================
 
 class UserSerializer(serializers.ModelSerializer):
+    role = serializers.CharField(source='role.name', read_only=True, allow_null=True)
+    # FIX: Clean username display (remove tenant prefix like 1__john)
+    username = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -20,10 +24,23 @@ class UserSerializer(serializers.ModelSerializer):
             'email',
             'first_name',
             'last_name',
+            'phone_number',
+            'role',
             'is_active',
             'is_staff',
+            'must_change_password', 
+            # ToS fields
+            'tos_accepted_at',
+            'tos_version',
         ]
-        read_only_fields = ['id', 'is_staff']
+        read_only_fields = ['id', 'is_staff', 'role', 'must_change_password', 'tos_accepted_at', 'tos_version']
+
+    def get_username(self, obj):
+        if not obj.username:
+            return ""
+        # Split "1__john" -> ["1", "john"] and take the last part
+        parts = obj.username.split('__', 1)
+        return parts[-1] if len(parts) > 1 else obj.username
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -76,6 +93,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         raw_username = attrs.get("username")
         email = attrs.get("email")
 
+        # Logic to prefix username with tenant ID
         if tenant:
             stored_username = f"{tenant.id}__{raw_username}"
         else:
@@ -121,6 +139,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
             user.role = role
 
         user.set_password(password)
+        # FIX: Force password change for new API-created users
+        user.must_change_password = True  
         user.save()
         return user
 
@@ -212,8 +232,12 @@ class TenantAwareTokenObtainPairSerializer(serializers.Serializer):
                 "id": user.id,
                 "username": username,  # clean username
                 "tenant": tenant.name,
+                "role": user.role.name if user.role else None,
                 "is_superuser": user.is_superuser,
                 "must_change_password": getattr(user, "must_change_password", False),
+                # ToS fields here for instant login check
+                "tos_accepted_at": user.tos_accepted_at,
+                "tos_version": user.tos_version,
             },
         }
 

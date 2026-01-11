@@ -13,9 +13,12 @@ app.config_from_object('django.conf:settings', namespace='CELERY')
 # Auto-discover tasks from all installed apps
 app.autodiscover_tasks()
 
+# --- PERIODIC TASK SCHEDULE (The "Alarm Clock") ---
 app.conf.beat_schedule = {
-    "auto-renew-subscriptions-daily": {
-        "task": "billing.tasks.auto_renew_subscriptions_task",
-        "schedule": crontab(hour=0, minute=0),  # runs daily at midnight
+    # 1. THE BRAIN: Runs every night at 2:00 AM
+    'run-daily-analytics-at-2am': {
+        'task': 'forecast.tasks.run_analytics_for_all', 
+        'schedule': crontab(hour=2, minute=0),  # 2:00 AM
+        'args': (), 
     },
 }

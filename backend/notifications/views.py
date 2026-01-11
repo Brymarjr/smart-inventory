@@ -19,6 +19,8 @@ class NotificationViewSet(TenantFilteredViewSet):
 
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
+    
+    pagination_class = None  # Disable pagination for notifications
 
     def get_queryset(self):
         """

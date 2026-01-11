@@ -1,6 +1,10 @@
+import logging
 from django.conf import settings
-from django.db import models, transaction
+from django.db import models
 from django.utils import timezone
+from inventory.models import Product 
+
+logger = logging.getLogger(__name__)
 
 class Sale(models.Model):
     PAYMENT_METHOD_CHOICES = [
@@ -28,17 +32,25 @@ class Sale(models.Model):
 
 class SaleItem(models.Model):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='items')
-    # Assumes inventory app has Product model
     product = models.ForeignKey('inventory.Product', on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    # Snapshot of Cost Price
+    cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
 
     def save(self, *args, **kwargs):
-        # ensure subtotal is the locked-in value
         self.subtotal = (self.unit_price or 0) * (self.quantity or 0)
+        
+        # AUTOMATION: Grab cost from Product if we didn't provide one
+        if self.cost_price is None or self.cost_price == 0:
+            if self.product:
+                # Uses the field we just added to Product
+                self.cost_price = self.product.cost_price 
+
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.product} x {self.quantity} ({self.subtotal})"
-
+        return f"{self.product} x {self.quantity}"

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Tenant
-from users.models import User, UserRole
+from .models import Tenant, TenantSettings, AuditLog
+from users.models import UserRole
 
 
 class TenantRegistrationSerializer(serializers.Serializer):
@@ -21,10 +21,10 @@ class TenantRegistrationSerializer(serializers.Serializer):
     def create(self, validated_data):
         from users.serializers import UserCreateSerializer
 
-        # 1️⃣ Create tenant
+        # 1 Create tenant
         tenant = Tenant.objects.create(name=validated_data["tenant_name"])
 
-        # 2️⃣ Prepare admin user data
+        # 2 Prepare admin user data
         user_data = {
             "username": validated_data["username"],
             "email": validated_data["email"],
@@ -33,23 +33,43 @@ class TenantRegistrationSerializer(serializers.Serializer):
             "last_name": validated_data.get("last_name", ""),
         }
 
-        # 3️⃣ Create the user for this tenant
+        # 3 Create the user for this tenant
         user_serializer = UserCreateSerializer(data=user_data, context={"tenant": tenant})
         user_serializer.is_valid(raise_exception=True)
         user = user_serializer.save()
+        
+        user.must_change_password = False  # Admin user does not need to change password on first login
 
-        # 4️⃣ Promote to TenantAdmin
+        # 4 Promote to TenantAdmin
         user.is_staff = False
         user.is_superuser = False
         user.tenant = tenant  # ensure tenant relationship is explicit
 
-        # 5️⃣ Assign TenantAdmin role automatically
-        tenant_admin_role = UserRole.objects.get(name="tenant_admin")
-        user.role = tenant_admin_role
+       # 5 Assign TenantAdmin role automatically
+        try:
+            tenant_admin_role = UserRole.objects.get(name="tenant_admin")
+            user.role = tenant_admin_role
+        except UserRole.DoesNotExist:
+            # Fallback (optional, helps if roles aren't seeded yet)
+            pass
         user.save()
 
         return {"tenant": tenant, "admin_user": user}
 
 
+class TenantSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TenantSettings
+        fields = [
+            'store_name', 'store_address', 'currency_symbol', 
+            'low_stock_alerts', 'weekly_reports'
+        ]
 
 
+class AuditLogSerializer(serializers.ModelSerializer):
+    actor_name = serializers.CharField(source='actor.username', read_only=True)
+    actor_email = serializers.CharField(source='actor.email', read_only=True)
+
+    class Meta:
+        model = AuditLog
+        fields = ['id', 'actor_name', 'actor_email', 'action', 'target_model', 'target_name', 'reason', 'timestamp']
