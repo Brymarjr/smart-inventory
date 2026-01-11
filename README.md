@@ -81,3 +81,13 @@ npm install && npm run dev
 
 Development Philosophy
 The engineering of Smart Inventory is guided by the principle of correctness over cleverness. By favoring explicit workflows over implicit side effects and ensuring that every background task is idempotent, the system provides a reliable foundation for high-stakes retail operations.
+
+## License
+
+Proprietary. All Rights Reserved. 
+
+Copyright (c) 2024-2026 [Braimah Olatilewa Eyituoyo].
+
+This project is closed-source and confidential. No part of this software may be 
+reproduced, distributed, or transmitted in any form or by any means without 
+prior written permission from the copyright holder.
