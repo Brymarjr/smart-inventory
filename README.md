@@ -1,180 +1,83 @@
 Smart Inventory
+Smart Inventory is a high-availability, multi-tenant inventory management and demand forecasting platform engineered for retail environments where operational continuity and data integrity are non-negotiable.
 
-Smart Inventory is a multi-tenant, enterprise-grade inventory management system designed to help retail businesses efficiently manage products, sales, purchases, stock levels, and operational decisions across multiple stores.
+The system is architected as a monolith-first application, emphasizing robust backend controls, role-based workflows, and a sophisticated offline-first synchronization engine designed to mitigate the risks of intermittent connectivity.
 
-The system combines robust backend architecture, role-based workflows, offline-first synchronization, and machine learning–driven demand forecasting to provide actionable insights and operational reliability, even in constrained environments.
+Core Architectural Pillars
+Distributed Data Synchronization
+The platform utilizes an asynchronous, bi-directional synchronization protocol that allows Point of Sale (POS) terminals to operate with full functionality during network partitions.
 
-Overview
+Idempotent Processing: Utilizing a comprehensive ChangeLog and client-side transaction identifiers, the system ensures that every operation is applied exactly once, regardless of network retries.
 
-Retail businesses often struggle with fragmented inventory records, poor stock visibility, delayed replenishment decisions, and unreliable forecasting. Smart Inventory addresses these challenges by providing:
+Global Dependency Resolution: The sync engine implements a self-healing mechanism that resolves data dependencies (e.g., Sale-to-Item relationships) across disparate sync batches by performing global history lookups.
 
-Centralized, tenant-isolated inventory management
+Optimistic Local State: The frontend maintains an IndexedDB-backed local state, performing optimistic updates to inventory levels to provide immediate UI feedback while the background worker reconciles the server-side state.
 
-Structured approval workflows for purchases and payments
+Multi-Tenant Isolation
+Designed as a software-as-a-service (SaaS) foundation, Smart Inventory enforces strict tenant isolation at the application and query layers.
 
-Accurate sales and stock tracking
+Logical Partitioning: Every database transaction is scoped to a specific TenantID, ensuring that data leakage between organizations is architecturally impossible.
 
-Offline-capable data synchronization
+Device Identity: Hardware terminals are registered and validated via a device-handshake protocol, allowing for granular security controls and device-specific synchronization tracking.
 
-Predictive analytics for demand planning
+Event-Driven Inventory Integrity
+Stock management is treated as a series of immutable events rather than simple field updates to ensure auditability and precision.
 
-Scalable architecture suitable for small to large retailers
+Signal-Based Consistency: Changes to stock levels are triggered by decoupled signals with unique dispatch identifiers, preventing double-deductions during concurrent operations or re-processed tasks.
 
-The system is designed to be monolith-first, extensible, and production-ready.
+Atomic Transactions: All financial and inventory state changes are wrapped in database-level atomic blocks to ensure the system never enters an inconsistent state during partial failures.
 
-Key Capabilities
-Multi-Tenancy
+Role-Based Access Control (RBAC)
+The system defines three distinct operational tiers to ensure a clear separation of concerns:
 
-Each organization operates within its own isolated tenant.
+Tenant Admin: Complete oversight of the organization, managing subscriptions, system-wide configurations, terminal authorization, and tenant-level analytics.
 
-Data is automatically filtered per tenant at the application layer.
+Manager: Responsible for procurement workflows, product catalog management, operational approvals, and high-level inventory reporting.
 
-Designed to scale across multiple stores and businesses.
+Sales: Front-facing role focused on transaction execution, offline POS operations, and customer interaction.
 
-User Roles & Permissions
+Machine Learning & Predictive Analytics
+Smart Inventory integrates demand forecasting as a core decision-support utility rather than a standalone feature.
 
-Fine-grained role-based access control (RBAC).
+Isolated Model Training: Dedicated forecasting models are trained independently for each tenant, ensuring that predictive outputs are grounded in specific local sales patterns and seasonal trends.
 
-Clear separation of responsibilities between staff, managers, and finance roles.
+Actionable Intelligence: Raw time-series forecasts are transformed into operational directives, assisting managers in replenishment planning through explainable data points and confidence metrics.
 
-Permission enforcement at both API and workflow levels.
+Technical Specifications
+Backend Stack
+Framework: Django / Django REST Framework (DRF)
 
-Inventory Management
+Database: PostgreSQL (Primary), Redis (Broker)
 
-Product, category, and supplier management.
+Concurrency: Celery (Asynchronous Task Queue)
 
-Accurate stock tracking driven by real sales and purchase events.
+Security: JWT-based stateless authentication
 
-Controlled stock updates to prevent inconsistencies.
+Frontend Architecture
+Framework: Next.js / React
 
-Sales Management
+Persistence: IndexedDB (Dexie.js)
 
-Structured sales recording with line items.
+State Sync: Custom-built synchronization manager with persistent operation queuing and network state detection.
 
-Historical sales data retained for analytics and forecasting.
+Deployment & Development
+Initialization Sequence
+Service Configuration Define environment variables for database credentials, Redis broker URL, and JWT secret keys.
 
-Designed to work both online and offline.
+Database Migration:
 
-Purchase Workflow
+Bash;
+python manage.py migrate
 
-Staff-initiated purchase requests.
+Background Worker Execution Critical for sync job processing and ML model training:
 
-Finance-only approval and payment confirmation.
+Bash;
+celery -A smart_inventory worker -l info
 
-Stock updates occur strictly after confirmed payment.
+Frontend Hydration:
 
-Full audit trail for approvals and payments.
-
-Offline Synchronization
-
-Offline-first design for environments with unstable connectivity.
-
-Device-based sync jobs and conflict handling.
-
-Reliable reconciliation once connectivity is restored.
-
-Demand Forecasting & Intelligence
-
-Machine learning–driven demand forecasting per tenant.
-
-Forecasts generated from historical sales patterns.
-
-Confidence intervals included for better decision-making.
-
-Action-oriented insights to support replenishment planning.
-
-Notifications & Background Processing
-
-Asynchronous background tasks using Celery.
-
-Reliable processing of long-running jobs such as forecasting and sync.
-
-Designed to support notifications and alerts.
-
-Billing & Subscriptions
-
-Tenant-level subscription handling.
-
-Payment integration designed for Nigerian payment infrastructure.
-
-Supports feature gating and usage-based limits.
-
-Architecture
-
-Smart Inventory follows a clean, modular backend architecture:
-
-Backend: Django + Django REST Framework
-
-Database: PostgreSQL
-
-Asynchronous Processing: Celery with Redis
-
-Authentication: JWT-based authentication
-
-API Design: RESTful, ViewSet-based structure
-
-Tenant Isolation: Enforced at query and application layers
-
-Deployment Model: Production-ready, container-friendly
-
-The system is intentionally designed as a monolith-first application, allowing faster iteration, simpler reasoning, and safer scaling.
-
-Machine Learning Strategy
-
-Smart Inventory integrates demand forecasting as a decision-support tool, not a black box.
-
-Key principles:
-
-One trained model per tenant
-
-Forecasts generated from real historical sales data
-
-Predictive outputs remain explainable and auditable
-
-Forecast results translated into practical recommendations for staff
-
-This ensures that forecasts are useful, trustworthy, and actionable, rather than theoretical.
-
-Data Integrity & Safety
-
-All stock updates are event-driven and controlled.
-
-Purchase and payment workflows prevent premature stock changes.
-
-Transactions are atomic where consistency is required.
-
-Tenant data isolation is strictly enforced.
-
-Background jobs are idempotent and safe to retry.
+Bash;
+npm install && npm run dev
 
 Development Philosophy
-
-Smart Inventory is built with the following principles:
-
-Correctness over cleverness
-
-Explicit workflows instead of implicit side effects
-
-Scalability through clarity
-
-Real-world constraints considered from day one
-
-Extensibility without premature complexity
-
-Every major subsystem is designed to evolve independently without breaking core guarantees.
-
-Project Status
-
-The system has completed:
-
-Core inventory and sales management
-
-Purchase and finance workflows
-
-Offline synchronization
-
-Tenant billing foundation
-
-Machine learning forecasting
-
-Forecast validation and operational dashboards
+The engineering of Smart Inventory is guided by the principle of correctness over cleverness. By favoring explicit workflows over implicit side effects and ensuring that every background task is idempotent, the system provides a reliable foundation for high-stakes retail operations.
