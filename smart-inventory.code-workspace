@@ -1,0 +1,9 @@
+{
+  "folders": [
+    { "path": "frontend" },
+    { "path": "backend" }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "/home/brymar/projects/smart-inventory/backend/venv/bin/python"
+  }
+}
