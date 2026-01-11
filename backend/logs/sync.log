@@ -5733,3 +5733,9 @@ TypeError: SaleItem() got unexpected keyword arguments: 'tenant_id'
 [2026-01-11 20:22:32,766] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.02s
 [2026-01-11 20:22:44,847] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
 [2026-01-11 20:23:16,026] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.01s
+[2026-01-11 20:32:56,874] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.09s
+[2026-01-11 20:40:27,489] INFO sync: [SYNC] GET /api/sync/devices/ by 'anonymous' device=N/A ip=127.0.0.1 status=200 duration=0.07s
+[2026-01-11 20:41:46,784] INFO sync.views: 🔍 SyncDownload Request by User: 4__Testadmin1 (shoprite)
+[2026-01-11 20:41:46,952] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.18s
+[2026-01-11 20:41:47,036] INFO sync.views: 🔍 SyncDownload Request by User: 4__Testadmin1 (shoprite)
+[2026-01-11 20:41:47,124] INFO sync: [SYNC] GET /api/sync/download/ by 'anonymous' device=732f2ca8-0dc8-4aa2-a106-a09e98cdd36f ip=127.0.0.1 status=200 duration=0.09s
