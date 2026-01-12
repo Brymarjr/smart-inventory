@@ -65,7 +65,7 @@ export default function SalesPage() {
       return db.products
         .filter(p => 
             p.name.toLowerCase().includes(search.toLowerCase()) || 
-            p.sku.toLowerCase().includes(search.toLowerCase())
+            (p.sku || "").toLowerCase().includes(search.toLowerCase())
         )
         .toArray();
     },
