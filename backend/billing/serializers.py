@@ -9,11 +9,12 @@ class PlanSerializer(serializers.ModelSerializer):
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     plan = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.filter(is_active=True))
+    plan_name = serializers.CharField(source='plan.name', read_only=True)
     tenant = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Subscription
-        fields = ['id', 'tenant', 'plan', 'status', 'started_at', 'expires_at', 'paystack_reference', 'auto_renew', 'metadata']
+        fields = ['id', 'tenant', 'plan', 'plan_name','status', 'started_at', 'expires_at', 'paystack_reference', 'auto_renew', 'metadata']
         read_only_fields = ['status', 'started_at', 'expires_at', 'paystack_reference']
 
     def create(self, validated_data):

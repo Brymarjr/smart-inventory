@@ -67,24 +67,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/dashboard');
   };
 
-  const loginAdmin = async (username: string, password: string) => {
-    // Hits standard SimpleJWT endpoint (Superusers)
-    const { data } = await api.post<AuthResponse>('/api/auth/token/', {
-      username,
-      password,
-    });
+ const loginAdmin = async (username: string, password: string) => {
+    try {
+      // 1. Login to get the Token
+      const { data } = await api.post<AuthResponse>('/api/auth/token/', {
+        username,
+        password,
+      });
 
-    localStorage.setItem('access_token', data.access);
-    localStorage.setItem('refresh_token', data.refresh);
-    localStorage.removeItem('tenant_slug'); // CRITICAL: Cleared for global access
-
-    // Standard JWT endpoint might not return full user object, so we fetch 'me'
-    const userRes = await api.get('/api/users/me/', {
+      // 2. Fetch the User Profile immediately to check who they are
+      // We pass the new token in the header manually for this request
+      const userRes = await api.get<User>('/api/users/me/', {
         headers: { Authorization: `Bearer ${data.access}` }
-    });
-    
-    setUser(userRes.data);
-    router.push('/dashboard');
+      });
+
+      const userProfile = userRes.data;
+
+      // 3. SECURITY CHECK: The "Bouncer"
+      // If a normal tenant tries to log in via the Admin tab, we stop them here.
+      if (!userProfile.is_superuser) {
+        throw new Error("Unauthorized: You do not have System Admin access.");
+      }
+
+      // 4. Save Session
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      localStorage.removeItem('tenant_slug'); // Clear tenant data so we don't get mixed up
+
+      setUser(userProfile);
+
+      // 5. ROUTING
+      // Send them to the new System Admin area
+      router.push('/system-admin'); 
+
+    } catch (error) {
+      console.error("Admin Login Failed", error);
+      // Safety: Clear any tokens if the checks failed
+      localStorage.removeItem('access_token'); 
+      localStorage.removeItem('refresh_token');
+      throw error;
+    }
   };
 
   const logout = () => {

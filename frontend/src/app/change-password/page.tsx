@@ -10,36 +10,41 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Loader2, LockKeyhole } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 export default function ChangePasswordPage() {
-  const { user } = useAuth(); 
+  const { user, refreshUser } = useAuth(); // ✅ We use refreshUser now
+  const router = useRouter();
+  
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
-      // Calls the endpoint we just secured
+      // ✅ Ensure this URL matches your users/urls.py
+      // Based on your ViewSet, it is likely:
       await api.post('/api/users/password/change_password/', {
         current_password: currentPassword,
         new_password: newPassword,
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success('Password changed successfully!');
       
-      // CRITICAL: We need to update the local user state so the "Enforcer" stops blocking us.
-      // Since we don't have a "refreshUser" function exposed yet, we manually update storage 
-      // and force a reload to let the auth-context re-initialize.
-      if (user) {
-         const updatedUser = { ...user, must_change_password: false };
-         localStorage.setItem('user', JSON.stringify(updatedUser));
-         
-         // Force reload to Dashboard
-         window.location.href = '/dashboard';
+      // 1. Refresh the user profile via API to get "must_change_password: false"
+      await refreshUser();
+
+      // 2. Intelligent Redirect based on Role
+      if (user?.is_superuser) {
+          router.push('/system-admin');
+      } else {
+          router.push('/dashboard');
       }
     },
     onError: (error: any) => {
-       const msg = error.response?.data?.detail || error.response?.data?.current_password?.[0] || 'Failed to change password.';
+       const msg = error.response?.data?.detail || 
+                   error.response?.data?.current_password?.[0] || 
+                   'Failed to change password.';
        toast.error(msg);
     },
   });
@@ -54,7 +59,7 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <div className="flex h-[80vh] items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-md border-amber-200 bg-amber-50/50 shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-2 text-amber-600 mb-2">
@@ -100,7 +105,7 @@ export default function ChangePasswordPage() {
               </div>
             </div>
 
-            <Button className="w-full" type="submit" disabled={changePasswordMutation.isPending}>
+            <Button className="w-full bg-amber-600 hover:bg-amber-700 text-white" type="submit" disabled={changePasswordMutation.isPending}>
               {changePasswordMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Update Password
             </Button>

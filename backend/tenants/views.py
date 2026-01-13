@@ -4,11 +4,13 @@ from rest_framework import status, viewsets, filters
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import action
-from .serializers import TenantRegistrationSerializer, TenantSettingsSerializer, AuditLogSerializer
-from .models import TenantSettings, AuditLog
+from .serializers import TenantDetailSerializer, TenantRegistrationSerializer, TenantSettingsSerializer, AuditLogSerializer, TenantListSerializer
+from .models import Tenant, TenantSettings, AuditLog
 from core.pagination import StandardResultsSetPagination
 from core.mixins import TenantFilteredViewSet
 from users.permissions import IsTenantAdminOrManager
+from core.permissions import IsSupportReadOnly
+
 
 class TenantRegistrationViewSet(viewsets.ViewSet):
     permission_classes = [AllowAny]
@@ -70,7 +72,7 @@ class AuditLogViewSet(TenantFilteredViewSet):
     """
     queryset = AuditLog.objects.all().order_by('-timestamp')
     serializer_class = AuditLogSerializer
-    permission_classes = [IsAuthenticated, IsTenantAdminOrManager] 
+    permission_classes = [IsAuthenticated, IsSupportReadOnly | IsTenantAdminOrManager] 
     pagination_class = StandardResultsSetPagination
     
     # ENABLE SEARCH
@@ -115,3 +117,68 @@ class AuditLogViewSet(TenantFilteredViewSet):
             ])
 
         return response
+    
+    
+class SystemAdminTenantViewSet(viewsets.ModelViewSet):
+    """
+    [SYSTEM ADMIN ONLY]
+    View all tenants.
+    """
+    queryset = Tenant.objects.all().order_by('-created_at')
+    permission_classes = [IsSupportReadOnly]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name', 'slug']
+
+    def get_serializer_class(self):
+        #  If fetching ONE tenant (e.g. /api/admin/tenants/5/), use Detail logic
+        if self.action == 'retrieve':
+            return TenantDetailSerializer
+        #  If fetching ALL tenants (e.g. /api/admin/tenants/), use List logic
+        return TenantListSerializer
+
+    # Action to Suspend/Activate Tenant
+    @action(detail=True, methods=['post'])
+    def toggle_status(self, request, pk=None):
+        tenant = self.get_object()
+        tenant.is_active = not tenant.is_active
+        tenant.save()
+        return Response({
+            "status": "Active" if tenant.is_active else "Suspended", 
+            "is_active": tenant.is_active
+        })
+        
+    # Fetch Audit Logs for this specific Tenant
+    @action(detail=True, methods=['get'])
+    def audit_logs(self, request, pk=None):
+        tenant = self.get_object()
+        
+        # Get logs for this tenant, newest first
+        logs = AuditLog.objects.filter(tenant=tenant).order_by('-timestamp')
+        
+        # Apply standard pagination (so we don't crash if they have 10,000 logs)
+        page = self.paginate_queryset(logs)
+        if page is not None:
+            serializer = AuditLogSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = AuditLogSerializer(logs, many=True)
+        return Response(serializer.data)
+    
+    
+class SystemAdminStatsViewSet(viewsets.ViewSet):
+    """
+    [SYSTEM ADMIN ONLY]
+    Returns simple counts for the dashboard cards.
+    """
+    permission_classes = [IsSupportReadOnly]
+
+    def list(self, request):
+        total = Tenant.objects.count()
+        active = Tenant.objects.filter(is_active=True).count()
+        inactive = Tenant.objects.filter(is_active=False).count()
+        
+        return Response({
+            "total": total,
+            "active": active,
+            "inactive": inactive
+        })

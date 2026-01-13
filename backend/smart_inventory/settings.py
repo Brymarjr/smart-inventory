@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'django_celery_results',
     'django_celery_beat',
+    'django_filters',
     # Internal Apps
     'tenants',
     'core',
@@ -179,6 +180,11 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'users.permissions.MustChangePasswordPermission',
         'rest_framework.permissions.IsAuthenticated',
+        
+        # 1. Check for Support Restrictions first
+        'core.permissions.IsSupportReadOnly',
+        
+        # 2. Then check Tenant Subscription status
         'tenants.permissions.IsTenantActiveOrReadOnly',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',

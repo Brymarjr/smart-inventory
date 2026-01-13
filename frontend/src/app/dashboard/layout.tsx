@@ -56,8 +56,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     if (user.must_change_password) {
-      if (pathname !== '/dashboard/change-password') {
-        router.replace('/dashboard/change-password');
+      if (pathname !== '/change-password') {
+        router.replace('/change-password');
       }
     }
   }, [user, isLoading, router, pathname]);

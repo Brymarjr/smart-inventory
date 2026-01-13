@@ -27,13 +27,14 @@ class UserSerializer(serializers.ModelSerializer):
             'phone_number',
             'role',
             'is_active',
+            'is_superuser',
             'is_staff',
             'must_change_password', 
             # ToS fields
             'tos_accepted_at',
             'tos_version',
         ]
-        read_only_fields = ['id', 'is_staff', 'role', 'must_change_password', 'tos_accepted_at', 'tos_version']
+        read_only_fields = ['id', 'is_staff', 'is_superuser', 'role', 'must_change_password', 'tos_accepted_at', 'tos_version']
 
     def get_username(self, obj):
         if not obj.username:

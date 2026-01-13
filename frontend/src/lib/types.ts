@@ -117,3 +117,37 @@ export interface Device {
   app_version: string;
   consecutive_failures: number;
 }
+
+export interface SystemTenant {
+  id: number;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface SystemTenantDetail extends SystemTenant {
+  admin_info: {
+    full_name: string;
+    email: string;
+    username: string;
+    total_admins: number;
+  } | null;
+  
+  settings: {
+    store_name: string | null;
+    store_address: string | null;
+    currency_symbol: string;
+  } | null;
+}
+
+export interface AuditLog {
+  id: number;
+  actor_name: string;
+  actor_email: string;
+  action: string;
+  target_model: string;
+  target_name: string;
+  reason: string;
+  timestamp: string;
+}

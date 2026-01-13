@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 import hmac, hashlib, json, logging, uuid
@@ -16,6 +17,7 @@ from .tasks import verify_paystack_transaction_task, notify_subscription_cancell
 from django.core.mail import send_mail
 from .permissions import IsCompanySuperUser
 from users.permissions import IsTenantAdmin, IsTenantAdminOrManager
+from django_filters.rest_framework import DjangoFilterBackend
 
 logger = logging.getLogger("billing.webhook")
 
@@ -385,20 +387,73 @@ class PaystackVerifyView(APIView):
 # -------------------------------------------------------------------
 # ADMIN VIEWS (Superuser Only)
 # -------------------------------------------------------------------
-class GlobalSubscriptionViewSet(viewsets.ReadOnlyModelViewSet):
+class GlobalSubscriptionViewSet(viewsets.ModelViewSet):
+    """
+    Superuser endpoint to manage ALL subscriptions.
+    Allows filtering by tenant_id to see a specific store's plan.
+    """
     queryset = Subscription.objects.select_related("tenant", "plan").all().order_by("-created_at")
     serializer_class = SubscriptionSerializer
     permission_classes = [IsCompanySuperUser]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["tenant__name", "tenant__slug", "status", "plan__name"]
-    ordering_fields = ["created_at", "expires_at"]
+    
+    # Enable filtering so the dashboard can find a specific tenant's sub
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    filterset_fields = ['tenant', 'status', 'plan']
+    search_fields = ["tenant__name", "tenant__slug"]
+    
+    
+
+    # --- GOD MODE ACTION: EXTEND SUBSCRIPTION ---
+    @action(detail=True, methods=['post'])
+    def extend_subscription(self, request, pk=None):
+        """
+        Manually add days to a subscription (Gift/Grace Period).
+        Expects: { "days": 30 }
+        """
+        subscription = self.get_object()
+        days = int(request.data.get('days', 0))
+
+        if days <= 0:
+            return Response({"error": "Days must be positive"}, status=status.HTTP_400_BAD_REQUEST)
+
+        now = timezone.now()
+        
+        # Logic: If not expired yet, add days to the current expiry.
+        # If already expired, start fresh from NOW + days.
+        if subscription.expires_at and subscription.expires_at > now:
+            subscription.expires_at += timedelta(days=days)
+        else:
+            subscription.expires_at = now + timedelta(days=days)
+            subscription.status = 'active' # Reactivate if it was expired/cancelled
+
+        subscription.save()
+        
+        return Response({
+            "message": f"Extended by {days} days.",
+            "new_expires_at": subscription.expires_at,
+            "status": subscription.status
+        })
+
+    # --- GOD MODE ACTION: CANCEL IMMEDIATELY ---
+    @action(detail=True, methods=['post'])
+    def cancel_now(self, request, pk=None):
+        subscription = self.get_object()
+        subscription.status = 'cancelled'
+        # Optional: You might want to set expires_at to now, or keep it running until the end
+        subscription.save()
+        return Response({"status": "cancelled", "message": "Subscription terminated immediately."})
 
 
 class GlobalTransactionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    View all transactions. 
+    We keep this ReadOnly because you generally shouldn't edit financial logs for audit reasons.
+    """
     queryset = Transaction.objects.select_related("tenant", "subscription").all().order_by("-created_at")
     serializer_class = TransactionSerializer
     permission_classes = [IsCompanySuperUser]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["tenant__name", "tenant__slug", "status", "reference"]
-    ordering_fields = ["created_at", "amount"]
+    
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
+    filterset_fields = ['tenant', 'status', 'reference']
+    search_fields = ["tenant__name", "reference"]
 

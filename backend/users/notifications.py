@@ -11,6 +11,10 @@ def notify_password_changed(user):
     """
     Notify the user and all tenant admins when a password is changed.
     """
+    # If this is a System Admin (no tenant), skip DB notifications
+    if not user.tenant:
+        return
+    
     tenant = user.tenant
 
     recipients = User.objects.filter(
@@ -46,6 +50,10 @@ def notify_role_changed(user, new_role):
     """
     Notify the affected user and tenant admins when a role is changed.
     """
+    # If this is a System Admin (no tenant), skip DB notifications
+    if not user.tenant:
+        return
+    
     tenant = user.tenant
 
     recipients = User.objects.filter(
