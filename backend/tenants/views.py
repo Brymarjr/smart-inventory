@@ -1,3 +1,13 @@
+"""
+Tenants Views Module.
+
+This module is responsible for the core Multi-Tenancy logic. It handles:
+1.  **Onboarding:** Public registration of new organizations (`TenantRegistrationViewSet`).
+2.  **Configuration:** Managing per-tenant settings like alerts and localization (`TenantSettingsViewSet`).
+3.  **Security:** Providing audit trails for sensitive actions (`AuditLogViewSet`).
+4.  **Platform Administration:** "God Mode" views for system admins to manage the entire SaaS platform (`SystemAdminTenantViewSet`).
+"""
+
 import csv
 from django.http import HttpResponse
 from rest_framework import status, viewsets, filters
@@ -13,6 +23,14 @@ from core.permissions import IsSupportReadOnly
 
 
 class TenantRegistrationViewSet(viewsets.ViewSet):
+    """
+    Public Endpoint for New Organization Sign-up.
+
+    This ViewSet handles the initial onboarding process:
+    1.  Validates the company name and subdomain (slug).
+    2.  Creates the Tenant record.
+    3.  Creates the initial Admin User for that Tenant.
+    """
     permission_classes = [AllowAny]
     serializer_class = TenantRegistrationSerializer
 
@@ -29,13 +47,25 @@ class TenantRegistrationViewSet(viewsets.ViewSet):
 
 
 class TenantSettingsViewSet(viewsets.ViewSet):
+    """
+    Manages Configuration for the Current Tenant.
+
+    Handles settings such as:
+    - Low stock alert thresholds.
+    - Currency and Localization preferences.
+    - Feature toggles.
+    """
     permission_classes = [IsAuthenticated]
 
     def list(self, request):
         """
         GET /api/settings/
         Returns the settings for the current tenant.
-        Creates default settings if they don't exist yet.
+        
+        Logic:
+        - Implicitly uses `request.tenant` (via middleware).
+        - Uses `get_or_create` to ensure a settings object always exists, 
+          even if it's the first time the user visits the settings page.
         """
         # 1. Get the tenant from the request (middleware handles this)
         tenant = request.tenant 
@@ -50,7 +80,10 @@ class TenantSettingsViewSet(viewsets.ViewSet):
     def create(self, request):
         """
         POST /api/settings/
-        Updates the settings for the current tenant.
+        Updates specific settings fields.
+        
+        Uses `partial=True` to allow updating single fields (e.g., toggling a switch)
+        without sending the entire settings payload.
         """
         tenant = request.tenant
         settings, _ = TenantSettings.objects.get_or_create(tenant=tenant)
@@ -67,8 +100,14 @@ class TenantSettingsViewSet(viewsets.ViewSet):
     
 class AuditLogViewSet(TenantFilteredViewSet):
     """
-    Read-only view of audit logs.
-    Only accessible by Tenant Admins and Managers.
+    Tenant Administrator View for Security Logs.
+    
+    Allows Tenant Admins/Managers to see WHO did WHAT inside their specific store.
+    
+    Features:
+    - **Read-Only:** Logs cannot be deleted or modified to preserve integrity.
+    - **Searchable:** Filter by Actor (User), Action (Update/Delete), or Target (Product Name).
+    - **Exportable:** Download logs as CSV for external compliance reporting.
     """
     queryset = AuditLog.objects.all().order_by('-timestamp')
     serializer_class = AuditLogSerializer
@@ -89,7 +128,9 @@ class AuditLogViewSet(TenantFilteredViewSet):
     @action(detail=False, methods=['get'])
     def export_csv(self, request):
         """
-        Exports the filtered audit logs to a CSV file.
+        Generates a CSV file of the currently filtered logs.
+        
+        Useful for managers who need to report to store owners or external auditors.
         """
         queryset = self.filter_queryset(self.get_queryset())
 
@@ -102,7 +143,7 @@ class AuditLogViewSet(TenantFilteredViewSet):
 
         # Data Rows
         for log in queryset:
-            # Strip the tenant prefix (e.g., "1__admin" -> "admin")
+            # Strip the tenant prefix (e.g., "1__admin" -> "admin") so the report looks clean
             raw_username = log.actor.username if log.actor else 'System'
             clean_username = raw_username.split('__')[-1] if '__' in raw_username else raw_username
 
@@ -121,8 +162,14 @@ class AuditLogViewSet(TenantFilteredViewSet):
     
 class SystemAdminTenantViewSet(viewsets.ModelViewSet):
     """
-    [SYSTEM ADMIN ONLY]
-    View all tenants.
+    [SYSTEM ADMIN ONLY] Platform Management ViewSet.
+    
+    This view allows Superusers/Support Staff to oversee all Tenants on the platform.
+    
+    Capabilities:
+    - **Global Visibility:** View all registered organizations.
+    - **Moderation:** Suspend/Activate tenants (e.g., for non-payment or abuse).
+    - **Deep Inspection:** View audit logs for a specific tenant to help debug issues.
     """
     queryset = Tenant.objects.all().order_by('-created_at')
     permission_classes = [IsSupportReadOnly]
@@ -131,14 +178,22 @@ class SystemAdminTenantViewSet(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         #  If fetching ONE tenant (e.g. /api/admin/tenants/5/), use Detail logic
+        #  (Includes more heavy data)
         if self.action == 'retrieve':
             return TenantDetailSerializer
         #  If fetching ALL tenants (e.g. /api/admin/tenants/), use List logic
+        #  (Lightweight, just names and status)
         return TenantListSerializer
 
     # Action to Suspend/Activate Tenant
     @action(detail=True, methods=['post'])
     def toggle_status(self, request, pk=None):
+        """
+        Toggles a Tenant's active status.
+        
+        - **Active:** Tenant can login and use the system.
+        - **Suspended (Inactive):** API access is blocked for all users in this tenant.
+        """
         tenant = self.get_object()
         tenant.is_active = not tenant.is_active
         tenant.save()
@@ -150,6 +205,12 @@ class SystemAdminTenantViewSet(viewsets.ModelViewSet):
     # Fetch Audit Logs for this specific Tenant
     @action(detail=True, methods=['get'])
     def audit_logs(self, request, pk=None):
+        """
+        Allows System Admins to peek into a specific Tenant's audit logs.
+        
+        Useful for Support Staff when a customer claims "Data disappeared" 
+        and we need to verify if someone deleted it.
+        """
         tenant = self.get_object()
         
         # Get logs for this tenant, newest first
@@ -167,8 +228,9 @@ class SystemAdminTenantViewSet(viewsets.ModelViewSet):
     
 class SystemAdminStatsViewSet(viewsets.ViewSet):
     """
-    [SYSTEM ADMIN ONLY]
-    Returns simple counts for the dashboard cards.
+    [SYSTEM ADMIN ONLY] Global Dashboard Stats.
+    
+    Provides high-level metrics for the Platform Admin Dashboard cards.
     """
     permission_classes = [IsSupportReadOnly]
 

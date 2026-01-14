@@ -1,3 +1,22 @@
+"""
+Purchases Views Module.
+
+This module handles the end-to-end Procurement Cycle for the store.
+
+Workflow:
+1.  **Creation (Pending):** Staff members create a draft Purchase Order (PO) to request stock.
+2.  **Approval (Approved):** A Manager reviews the PO, confirms the cost price with the Supplier, 
+    and approves it.
+3.  **Payment (Paid):** A Manager confirms payment has been sent. This triggers the 
+    **Inventory Update**, which increases stock levels and recalculates product costs.
+4.  **Rejection (Cancelled):** A Manager denies the request.
+
+Key Features:
+- **Moving Average Cost (MAC):** Automatically recalculates the cost price of products 
+  based on the weighted average of old stock vs. new incoming stock.
+- **Role-Based Access:** Strict separation between Requestors (Staff) and Approvers (Managers).
+"""
+
 from rest_framework import status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -17,7 +36,12 @@ from core.pagination import StandardResultsSetPagination
 
 class PurchaseOrderViewSet(TenantFilteredViewSet):
     """
-    Handles purchase order creation, approval, rejection, and payment confirmation.
+    Manages the Lifecycle of a Purchase Order.
+
+    Permissions:
+    - **Create:** Allowed for Staff (to request stock).
+    - **Approve/Reject/Pay:** Restricted to Managers/Admins.
+    - **View:** Scoped to the user's tenant.
     """
     queryset = PurchaseOrder.objects.all().select_related("supplier", "created_by", "approved_by", "paid_by")
     serializer_class = PurchaseOrderSerializer
@@ -27,6 +51,10 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     search_fields = ['reference', 'supplier__name', 'status', 'notes']
 
     def get_queryset(self):
+        """
+        Returns Purchase Orders belonging to the authenticated user's tenant.
+        Superusers can view all POs globally.
+        """
         user = self.request.user
         base_qs = PurchaseOrder.objects.select_related(
             "supplier", "created_by", "approved_by", "paid_by"
@@ -36,6 +64,11 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
         return base_qs.filter(tenant=user.tenant)
 
     def perform_create(self, serializer):
+        """
+        Creates a Draft PO.
+        
+        Enforces the 'purchases' feature flag from the billing plan.
+        """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
@@ -63,9 +96,22 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsManager])
     def approve(self, request, pk=None):
         """
-        Approve a purchase order (Manager only).
-        REQUIREMENT: 'items' list with [{'id': 1, 'unit_cost': 150.00}, ...]
-        The Manager MUST supply the cost price from the supplier here.
+        Step 2: Manager Approval.
+        
+        Transitions status from 'Pending' -> 'Approved (Pending Payment)'.
+        
+        **Critical Input:**
+        The Manager MUST provide the confirmed `unit_cost` for every item in the PO.
+        This locks in the cost price before payment is made.
+
+        Payload Example:
+        {
+            "supplier": 5,
+            "items": [
+                {"id": 10, "unit_cost": 150.00},
+                {"id": 11, "unit_cost": 200.00}
+            ]
+        }
         """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
@@ -144,7 +190,12 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
 
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsManager])
     def reject(self, request, pk=None):
-        """Reject a purchase order (Manager only)."""
+        """
+        Step 2b: Rejection.
+        
+        Transitions status to 'Cancelled'.
+        No inventory changes occur.
+        """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
             return Response({"detail": "Tenant context not found."}, status=status.HTTP_403_FORBIDDEN)
@@ -171,8 +222,18 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsManager], serializer_class=PurchaseMarkPaidSerializer)
     def mark_paid(self, request, pk=None):
         """
-        Mark a purchase as paid (Manager only).
-        Updates Product Quantity, Selling Price, and calculates Moving Average Cost.
+        Step 3: Payment Confirmation & Inventory Update.
+        
+        Transitions status from 'Approved' -> 'Paid'.
+        
+        **Side Effects (The "Magic"):**
+        1.  **Updates Inventory Quantity:** Adds the PO items to current stock.
+        2.  **Calculates Moving Average Cost (MAC):** Updates the product's cost price based on the weighted average of existing stock 
+            and new incoming stock.
+            
+            `New Cost = ((Old Qty * Old Cost) + (New Qty * New Cost)) / Total Qty`
+        
+        3.  **Updates Selling Price:** Optionally updates the retail price if provided.
         """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
@@ -230,12 +291,13 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
                 incoming_cost = item.unit_cost  # Guaranteed to be set from 'approve' step
 
                 if incoming_cost is None:
-                     # Safety catch if data is corrupt
-                     raise ValueError(f"Item {item.id} has no unit_cost set.")
+                      # Safety catch if data is corrupt
+                      raise ValueError(f"Item {item.id} has no unit_cost set.")
 
                 new_total_qty = current_qty + incoming_qty
 
                 if new_total_qty > 0:
+                    # MAC Formula: Weighted Average
                     total_value = (current_qty * current_cost) + (incoming_qty * incoming_cost)
                     product.cost_price = total_value / new_total_qty  
                 
@@ -262,6 +324,10 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
 
 
 class PurchaseItemViewSet(TenantFilteredViewSet):
+    """
+    Read-Only view for items inside a Purchase Order.
+    Used mainly by the frontend to display line items when viewing PO details.
+    """
     queryset = PurchaseItem.objects.none()
     serializer_class = PurchaseItemSerializer
     pagination_class = StandardResultsSetPagination

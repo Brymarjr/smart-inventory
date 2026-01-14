@@ -22,7 +22,7 @@ class IsSupportReadOnly(permissions.BasePermission):
 
         # 3. If we are here, the user is Support Staff (Superuser but NOT Staff).
         
-        # ✅ EXCEPTION: Allow write access if we are in the 'support' app
+        # EXCEPTION: Allow write access if we are in the 'support' app
         # We check the app_label of the view's queryset model
         if hasattr(view, 'queryset') and view.queryset is not None:
             model_app = view.queryset.model._meta.app_label

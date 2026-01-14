@@ -1,3 +1,18 @@
+"""
+Sync Views Module.
+
+This module implements the **Offline-First Synchronization Engine**.
+It allows the frontend Point of Sale (POS) to operate without internet and
+sync data back to the server when connection is restored.
+
+Key Components:
+1.  **Device Management:** Authenticates and tracks physical POS terminals.
+2.  **Upload (Push):** Receives a batch of offline actions (e.g., Sales created offline)
+    and processes them transactionally.
+3.  **Download (Pull):** Sends only *changed* data (Delta Sync) back to the client
+    to keep local databases up to date.
+"""
+
 import datetime
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -24,17 +39,34 @@ logger = logging.getLogger(__name__)
 logger.info("🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active")
 
 class DeviceViewSet(TenantFilteredViewSet, viewsets.ModelViewSet):
+    """
+    Manages physical Point of Sale (POS) devices.
+
+    Used to:
+    - Register new terminals.
+    - Monitor "Blocked" devices (security mechanism for failed sync spam).
+    - Manually Unblock devices via Admin UI.
+    """
     queryset = sync_models.Device.objects.all()
     serializer_class = sync_serializers.DeviceSerializer
     permission_classes = [IsAuthenticated]
     
     def get_permissions(self):
+        """
+        Standard users can list devices, but ONLY Tenant Admins can unblock them.
+        """
         if self.action in ["unblock"]:
             return [IsAuthenticated(), IsTenantAdmin()]
         return super().get_permissions()
 
     @action(detail=True, methods=["post"])
     def unblock(self, request, pk=None):
+        """
+        Manually resets a blocked device.
+        
+        Resets `consecutive_failures` to 0 and sets `is_blocked=False`.
+        Triggers a notification to the staff using that device.
+        """
         device = self.get_object()
         if not device.is_blocked:
             return Response({"detail": "Device is not blocked."}, status=status.HTTP_400_BAD_REQUEST)
@@ -48,6 +80,12 @@ class DeviceViewSet(TenantFilteredViewSet, viewsets.ModelViewSet):
 
 
 class SyncJobViewSet(TenantFilteredViewSet, viewsets.ReadOnlyModelViewSet):
+    """
+    Read-Only view of Sync History.
+    
+    Allows admins to audit past sync attempts, see which succeeded, 
+    and debug why specific jobs failed.
+    """
     queryset = sync_models.SyncJob.objects.all().select_related("submitted_by", "device")
     serializer_class = sync_serializers.SyncJobSerializer
     permission_classes = [IsAuthenticated]
@@ -55,7 +93,17 @@ class SyncJobViewSet(TenantFilteredViewSet, viewsets.ReadOnlyModelViewSet):
 
 class SyncUploadView(GenericAPIView):
     """
-    Accepts an upload of client operations.
+    The Core "Push" Endpoint (Client -> Server).
+
+    Accepts a JSON payload containing a list of operations performed offline
+    (e.g., Created Sale #1, Updated Product #5).
+
+    Key Logic:
+    1.  **Auto-Provisioning:** Creates a Device record if it doesn't exist.
+    2.  **Transactional Write:** All operations are saved to a `SyncJob` container first.
+    3.  **Preflight Check:** Validates data integrity before queuing.
+    4.  **Temp ID Mapping:** Resolves temporary offline IDs (e.g., 'temp_123') 
+        to real Database IDs if the object was already synced previously.
     """
     authentication_classes = [JWTAuthentication] # ✅ FORCE TOKEN AUTH
     permission_classes = [IsAuthenticated]
@@ -101,6 +149,7 @@ class SyncUploadView(GenericAPIView):
                     except LookupError:
                         Model = None
 
+                    # If creating a record, force the creator to be the current user
                     if Model and op_data["action"] == "create":
                         field_names = [f.name for f in Model._meta.get_fields()]
                         if 'created_by' in field_names:
@@ -114,6 +163,7 @@ class SyncUploadView(GenericAPIView):
                         payload=op_data["payload"]
                     )
 
+                    # Check if this operation is valid or redundant (No-Op)
                     preflight = _apply_sync_operation_preflight(
                         job=job, op=op_dummy, tenant=request.user.tenant, user=request.user
                     )
@@ -124,6 +174,7 @@ class SyncUploadView(GenericAPIView):
                     noop_id = preflight.get("noop_map_existing_id")
                     tmp_id = op_data["payload"].get("tmp_id") or op_data.get("client_change_id")
                     
+                    # If this temp_id was already synced before, map it to the real ID
                     if noop_id and tmp_id:
                         job.tmp_id_map[tmp_id] = noop_id
 
@@ -146,6 +197,7 @@ class SyncUploadView(GenericAPIView):
             logger.warning(f"Sync upload rejected: {exc}")
             return Response({"detail": "Invalid sync data", "error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        # 4. Offload heavy processing to Celery
         try:
             process_sync_job.delay(job.id)
         except Exception as e:
@@ -157,12 +209,22 @@ class SyncUploadView(GenericAPIView):
 
 class SyncDownloadView(APIView):
     """
-    Returns records updated since last_sync.
+    The Core "Pull" Endpoint (Server -> Client).
+
+    Implements **Delta Sync**:
+    - The client sends `last_sync` timestamp.
+    - The server returns ONLY records updated *after* that timestamp.
+    
+    This ensures we don't re-download the entire database every time.
     """
     authentication_classes = [JWTAuthentication] # ✅ FORCE TOKEN AUTH
     permission_classes = [IsAuthenticated]
 
     def _get_tenant_filter(self, model, tenant):
+        """
+        Dynamically determines how to filter a model by Tenant.
+        Handles direct relationships (model.tenant) and indirect ones (SaleItem.sale.tenant).
+        """
         field_names = [f.name for f in model._meta.get_fields()]
         if 'tenant' in field_names: return {'tenant': tenant}
         if model.__name__ == 'SaleItem': return {'sale__tenant': tenant}
@@ -200,6 +262,7 @@ class SyncDownloadView(APIView):
         has_more_data = False
         limit_per_model = 1000
 
+        # Iterate over all models defined in settings.SYNCED_MODELS
         for model_path in getattr(settings, "SYNCED_MODELS", []):
             try:
                 app_label, model_name = model_path.split(".")
@@ -217,11 +280,13 @@ class SyncDownloadView(APIView):
 
             field_names = [f.name for f in model._meta.get_fields()]
             
+            # Filter logic: Get items newer than last_sync
             if 'updated_at' in field_names:
                 qs = model.objects.filter(**tenant_filter, updated_at__gt=last_sync_dt).order_by('updated_at')
             else:
                 qs = model.objects.filter(**tenant_filter).order_by('id')
 
+            # Pagination Logic (Limit 1000 per model)
             qs = qs[:limit_per_model + 1]
             records = list(qs)
             

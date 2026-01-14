@@ -1,4 +1,18 @@
-# inventory/views.py
+"""
+Inventory Views Module.
+
+This module manages the core inventory entities: Categories, Suppliers, and Products.
+It enforces strict multi-tenant isolation, plan limits (e.g., Max 50 products),
+and role-based access control.
+
+Key Features:
+1.  **Audit Logging:** All critical changes (Updates, Deletes, Stock Adjustments) are
+    automatically logged to the `AuditLog` or `InventoryLog` tables.
+2.  **Plan Enforcement:** Checks if the tenant has reached their quota before allowing creation.
+3.  **Soft Deletion:** Products are "Archived" instead of deleted to preserve sales history.
+4.  **Stock Adjustment:** A dedicated, transactional endpoint for reconciling inventory counts.
+"""
+
 from rest_framework import permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -16,8 +30,15 @@ from core.mixins import TenantFilteredViewSet
 from tenants.models import AuditLog
 
 class AuditLogMixin:
+    """
+    Mixin to automatically record Audit Logs for destructive actions.
+    
+    Overrides `perform_update` and `perform_destroy` to intercept the request,
+    require a 'reason' field, and create a log entry in `AuditLog` before
+    committing the change to the database.
+    """
     def perform_update(self, serializer):
-        # 1. Get the reason from the request
+        # 1. Get the reason from the request (Required for compliance)
         reason = self.request.data.get('reason', '').strip()
         if not reason:
             raise ValidationError({"reason": "A reason is required for updates."})
@@ -42,7 +63,7 @@ class AuditLogMixin:
         if not reason:
             raise ValidationError({"reason": "A reason is required for deletion."})
 
-        # 2. Create Audit Log BEFORE deleting (so we have the name)
+        # 2. Create Audit Log BEFORE deleting (so we capture the name before it vanishes)
         AuditLog.objects.create(
             tenant=self.request.tenant,
             actor=self.request.user,
@@ -60,9 +81,12 @@ class AuditLogMixin:
 # ============================================================
 class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
     """
-    - TenantAdmin & Manager: full CRUD
-    - Staff: read-only
-    - Restricted by tenant plan (requires 'inventory_view' feature)
+    Manages Product Categories (e.g., 'Electronics', 'Groceries').
+
+    Access Control:
+    - Tenant Admin/Manager: Full Create/Update/Delete access.
+    - Staff: Read-Only access.
+    - Plan Check: Requires 'inventory_view' feature and checks 'max_categories' limit.
     """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
@@ -76,6 +100,10 @@ class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
         return [IsTenantAdminOrManager()]
 
     def list(self, request, *args, **kwargs):
+        """
+        List categories for the current tenant.
+        Gated by 'inventory_view' feature.
+        """
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
@@ -84,6 +112,13 @@ class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a new category.
+        
+        Enforces:
+        1. Feature presence ('inventory_view').
+        2. Plan Usage Limits ('max_categories').
+        """
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
@@ -99,11 +134,13 @@ class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
 # ============================================================
 # SUPPLIER VIEWSET
 # ============================================================
-class SupplierViewSet(AuditLogMixin,TenantFilteredViewSet):
+class SupplierViewSet(AuditLogMixin, TenantFilteredViewSet):
     """
-    - TenantAdmin & Manager: full CRUD
-    - Staff: no access
-    - Restricted by tenant plan (requires 'inventory_view')
+    Manages External Suppliers/Vendors.
+
+    Access Control:
+    - Tenant Admin/Manager: Full Access.
+    - Staff: No access (typically sensitive business info).
     """
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
@@ -126,6 +163,11 @@ class SupplierViewSet(AuditLogMixin,TenantFilteredViewSet):
 
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a new Supplier.
+        
+        Enforces 'max_suppliers' plan limit.
+        """
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
@@ -141,11 +183,14 @@ class SupplierViewSet(AuditLogMixin,TenantFilteredViewSet):
 # ============================================================
 # PRODUCT VIEWSET
 # ============================================================
-class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
+class ProductViewSet(AuditLogMixin, TenantFilteredViewSet):
     """
-    - TenantAdmin & Manager: full CRUD
-    - Staff: read-only (for viewing product catalog)
-    - Restricted by tenant plan (requires 'inventory_view')
+    Manages the Product Catalog.
+
+    This is the central entity of the system. It handles:
+    - CRUD operations for products.
+    - Soft Deletion (Archiving) vs Hard Deletion.
+    - Stock Level Adjustments (Stock-taking).
     """
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
@@ -154,6 +199,11 @@ class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
     search_fields = ['name', 'sku', 'description']
 
     def get_permissions(self):
+        """
+        - List/Retrieve: Open to all authenticated store staff.
+        - Create/Update/Delete: Restricted to Admins/Managers.
+        - Adjust Stock: Also restricted (via IsTenantAdminOrManager).
+        """
         if self.action in ["list", "retrieve"]:
             return [permissions.IsAuthenticated()]
         # adjust_stock will fall here, so it is protected automatically
@@ -161,6 +211,13 @@ class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
     
     # Filter logic to handle Soft Deletion
     def get_queryset(self):
+        """
+        Custom QuerySet logic to handle Soft Deletion.
+        
+        - Normal List: Returns ONLY active products.
+        - '?deleted=true': Returns ONLY archived products.
+        - Restore Action: Must access archived products to restore them.
+        """
         # 1. Get base queryset filtered by Tenant
         qs = super().get_queryset()
         
@@ -185,6 +242,10 @@ class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a new Product.
+        Enforces 'max_products' limit based on the subscription tier.
+        """
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
@@ -200,6 +261,16 @@ class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
     # Usage: POST /api/inventory/products/{id}/adjust_stock/
     @action(detail=True, methods=['post'], url_path='adjust-stock')
     def adjust_stock(self, request, pk=None):
+        """
+        Manually correct stock levels (Stock Taking).
+
+        Supports two modes:
+        1. **Delta:** Add/Remove quantity (e.g., `quantity_change: -5` for damage).
+        2. **Set:** Force a specific value (e.g., `new_total: 50` after physical count).
+
+        Wraps the update and the log creation in an atomic transaction to ensure
+        data integrity.
+        """
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
@@ -254,6 +325,12 @@ class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
     # POST /api/products/{id}/archive/
     @action(detail=True, methods=['post'], url_path='archive')
     def archive_product(self, request, pk=None):
+        """
+        Soft-deletes a product.
+        
+        Does not remove the record from DB (to preserve sales history).
+        Sets `is_deleted=True` and logs the action.
+        """
         product = self.get_object()
         
         reason = request.data.get('reason', 'discontinued')
@@ -280,6 +357,11 @@ class ProductViewSet(AuditLogMixin,TenantFilteredViewSet):
     # POST /api/products/{id}/restore/
     @action(detail=True, methods=['post'], url_path='restore')
     def restore_product(self, request, pk=None):
+        """
+        Restores a previously archived product.
+        
+        Sets `is_deleted=False` to make it visible in sales and lists again.
+        """
         product = self.get_object()
         
         with transaction.atomic():

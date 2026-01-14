@@ -1,3 +1,17 @@
+"""
+Support Views Module.
+
+This module powers the "Help Desk" functionality. It handles two distinct types of support:
+1.  **Platform Support (TicketViewSet):** Communication between a Tenant and the SaaS Platform Administrators.
+    - Used for bug reports, billing issues, or feature requests.
+2.  **Internal Support (ContactTenantAdminView):** Communication between a Staff Member and their own Tenant Admin.
+    - Used when a cashier needs help from their store manager (e.g., "I forgot my password").
+
+Key Features:
+- **Bi-directional Notifications:** If Support replies, the User is notified. If the User replies, Support is notified.
+- **State Locking:** Closed tickets are immutable to preserve audit history.
+"""
+
 from rest_framework import viewsets, status, views, serializers, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,6 +25,13 @@ from notifications.utils import notify_user
 User = get_user_model()
 
 class IsSupportStaffOrOwner(permissions.BasePermission):
+    """
+    Custom Permission for Ticket Access.
+    
+    Allows access if:
+    1. User is a Superuser (Platform Support Staff).
+    2. User belongs to the same Tenant as the Ticket (The Customer).
+    """
     def has_permission(self, request, view):
         return request.user.is_authenticated
     def has_object_permission(self, request, view, obj):
@@ -18,10 +39,26 @@ class IsSupportStaffOrOwner(permissions.BasePermission):
         return obj.tenant == request.user.tenant
 
 class TicketViewSet(viewsets.ModelViewSet):
+    """
+    Manages Platform Support Tickets.
+
+    This is the main channel for Tenants to talk to the SaaS Owners.
+
+    Capabilities:
+    - **List:** Superusers see global tickets; Tenants see only their own tickets.
+    - **Create:** Tenants open new tickets (Status: Open).
+    - **Reply:** Both parties can add comments via the `reply` action.
+    - **Status:** Superusers generally manage the status (Open -> In Progress -> Resolved).
+    """
     serializer_class = TicketSerializer
     permission_classes = [IsSupportStaffOrOwner]
 
     def get_queryset(self):
+        """
+        Visibility Logic:
+        - Superusers: See ALL tickets (Global View).
+        - Tenant Users: See ONLY tickets linked to their Tenant ID.
+        """
         user = self.request.user
         if user.is_superuser:
             return Ticket.objects.all().order_by('-created_at')
@@ -30,11 +67,22 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Ticket.objects.none()
 
     def perform_create(self, serializer):
+        """
+        Creates a new ticket.
+        Automatically links it to the Requestor's Tenant.
+        """
         if not self.request.user.tenant:
             raise serializers.ValidationError("You must belong to a tenant to open a ticket.")
         serializer.save(tenant=self.request.user.tenant, created_by=self.request.user, status='open')
 
     def perform_update(self, serializer):
+        """
+        Updates ticket details or status.
+        
+        Enforces:
+        1. **Immutability:** Closed tickets cannot be edited by anyone.
+        2. **Notifications:** If the status changes (e.g., Open -> Resolved), notify the creator.
+        """
         instance = self.get_object()
         
         # RULE: If currently closed, NOBODY can edit it.
@@ -63,6 +111,14 @@ class TicketViewSet(viewsets.ModelViewSet):
     # ENDPOINT: Add Comment (/api/support/tickets/1/reply/)
     @action(detail=True, methods=['post'])
     def reply(self, request, pk=None):
+        """
+        Adds a comment to the ticket thread.
+
+        Logic:
+        1. **Validation:** Cannot reply to closed tickets.
+        2. **Notification:** - If Support replies -> Notify User.
+           - If User replies -> Notify Support (implicitly) and Re-open ticket if it was 'Resolved'.
+        """
         ticket = self.get_object()
         
         # RULE: Cannot reply to closed tickets
@@ -97,16 +153,27 @@ class TicketViewSet(viewsets.ModelViewSet):
 
 
 class ContactTenantAdminView(views.APIView):
+    """
+    Internal Communication Endpoint.
+    
+    Allows a Staff member (e.g., Cashier) to send an urgent alert to 
+    ALL Administrators of their specific Tenant.
+    
+    Use Case: "I cannot login", "Printer is broken", etc.
+    """
     permission_classes = [IsAuthenticated]
+    
     def post(self, request):
         serializer = ContactTenantAdminSerializer(data=request.data)
         if serializer.is_valid():
             user = request.user
             if not user.tenant: return Response({"error": "No tenant"}, 400)
+            
+            # Find all admins for THIS tenant
             admins = User.objects.filter(tenant=user.tenant, role__name='tenant_admin')
             if not admins: return Response({"error": "No admin found"}, 404)
             
-            # ... (notification logic) ...
+            # Broadcast notification
             for admin in admins:
                 notify_user(
                     tenant=user.tenant, recipient=admin, 

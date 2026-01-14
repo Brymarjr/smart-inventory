@@ -1,3 +1,21 @@
+"""
+Billing Views Module.
+
+This module handles the entire subscription lifecycle, payment processing, and
+financial logging for the multi-tenant SaaS platform.
+
+Key Components:
+1.  **Plans (Public):** Read-only list of available pricing tiers.
+2.  **Subscriptions (Tenant):** Creation, renewal, and cancellation of plans.
+    - Integrates with Paystack for payment initialization.
+3.  **Transactions (Tenant):** Read-only history of payments.
+4.  **Webhooks (Public):** The critical entry point for Paystack to notify
+    the system of payment success/failure. Handles automatic activation and
+    expiration logic.
+5.  **Admin Views (Superuser):** "God Mode" views for system administrators
+    to manually extend subscriptions or audit financial logs globally.
+"""
+
 from rest_framework import viewsets, status, serializers, permissions, filters
 from rest_framework.views import APIView
 from rest_framework.decorators import action, api_view, permission_classes
@@ -26,6 +44,12 @@ logger = logging.getLogger("billing.webhook")
 # 1 Plans ViewSet (Public Read-Only)
 # -------------------------------------------------------------------
 class PlanViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Public API endpoint to list all active Pricing Plans.
+
+    Used by the frontend (Landing Page or Pricing Page) to display available
+    tiers (e.g., Free, Pro, Enterprise) and their costs.
+    """
     queryset = Plan.objects.filter(is_active=True).order_by('amount')
     serializer_class = PlanSerializer
     permission_classes = [AllowAny]  # Public
@@ -35,10 +59,26 @@ class PlanViewSet(viewsets.ReadOnlyModelViewSet):
 # 2 Subscriptions ViewSet (Tenant Scoped)
 # -------------------------------------------------------------------
 class SubscriptionViewSet(viewsets.ModelViewSet):
+    """
+    Manages Subscription lifecycle for a specific Tenant.
+
+    Capabilities:
+    - List: View current and past subscriptions.
+    - Create: Initialize a new subscription and generate a Paystack payment link.
+    - Cancel: Stop auto-renewal or immediately terminate pending subscriptions.
+
+    Access:
+    - Restricted to Tenant Admins or Managers.
+    - Data is scoped strictly to the authenticated user's tenant.
+    """
     serializer_class = SubscriptionSerializer
     permission_classes = [IsAuthenticated & IsTenantAdminOrManager]
 
     def get_queryset(self):
+        """
+        Filters subscriptions to the requesting user's tenant.
+        Superusers can see all subscriptions globally.
+        """
         user = self.request.user
         if user.is_superuser:
             return Subscription.objects.all().order_by('-created_at')
@@ -49,6 +89,19 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     # FIXED: Changed from 'perform_create' to 'create' to control the Response
     def create(self, request, *args, **kwargs):
+        """
+        Initializes a Subscription and generates a Payment Link.
+
+        Logic Flow:
+        1. Validates selected Plan.
+        2. Creates a 'Pending' Subscription record in the database.
+        3. Calls Paystack API to initialize the transaction.
+        4. Logs the transaction as 'Pending'.
+
+        Returns:
+            Response: Contains the Paystack Authorization URL. The frontend
+            should redirect the user to this URL to complete payment.
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -111,6 +164,17 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsTenantAdmin])
     def cancel(self, request, pk=None):
+        """
+        Cancels a subscription.
+
+        Logic distinguishes between 'Active' vs 'Pending' subscriptions:
+        1. **Active (Paid):** - Does NOT immediately revoke access.
+           - Sets `auto_renew = False`.
+           - User keeps access until `expires_at`.
+        
+        2. **Pending/Unpaid:** - Immediately sets status to 'Cancelled'.
+           - Revokes access immediately.
+        """
         subscription = self.get_object()
 
         # 1. Safety Check: If already inactive, stop.
@@ -148,8 +212,13 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     
 class SubscriptionRenewView(APIView):
     """
-    Generate a fresh Paystack payment link for a subscription.
-    Only accessible to tenant admins/managers.
+    Generates a fresh Payment Link for an existing subscription.
+    
+    This is used when:
+    1. A payment failed previously and the user wants to retry.
+    2. A user wants to manually renew a subscription before auto-renewal kicks in.
+    
+    Access: Tenant Admin/Manager only.
     """
     permission_classes = [IsAuthenticated, IsTenantAdminOrManager]
 
@@ -213,6 +282,12 @@ class SubscriptionRenewView(APIView):
 # 3 Transactions ViewSet (Tenant Scoped)
 # -------------------------------------------------------------------
 class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only view of Payment History.
+
+    Allows tenants to see their past payments, including successful charges
+    and failed attempts.
+    """
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated & IsTenantAdmin]
     # --- ADD SEARCH CAPABILITY ---
@@ -222,6 +297,9 @@ class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
     # -----------------------------
 
     def get_queryset(self):
+        """
+        Limits transactions to the authenticated user's tenant.
+        """
         user = self.request.user
         if user.is_superuser:
             return Transaction.objects.all().order_by('-created_at')
@@ -238,6 +316,24 @@ class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def paystack_webhook(request):
+    """
+    The Single Source of Truth for payment confirmation.
+
+    This endpoint is called by Paystack servers (not the user).
+    
+    Security:
+    - Verifies the 'x-paystack-signature' header using HMAC SHA512.
+    - Explicitly verifies the reference again via API to prevent spoofing.
+
+    Logic:
+    - If Success:
+        - Finds the subscription via metadata.
+        - Calculates new expiry date (Extends if active, restarts if expired).
+        - Sets Status = Active.
+        - Sets Auto Renew = True.
+    - If Failed:
+        - Marks transaction and subscription as failed/pending.
+    """
     secret = getattr(settings, "PAYSTACK_SECRET_KEY", "")
     signature = request.headers.get("x-paystack-signature")
 
@@ -331,6 +427,13 @@ def paystack_webhook(request):
 # 5 Manual Verification Endpoint (for testing via Swagger)
 # -------------------------------------------------------------------
 class PaystackVerifyView(APIView):
+    """
+    Debug Endpoint: Manually trigger transaction verification.
+
+    Useful if a webhook was missed or for local development testing.
+    This mimics the logic of the webhook but is triggered via GET request
+    by an authenticated Admin.
+    """
     permission_classes = [IsAuthenticated & IsTenantAdmin]
 
     def get(self, request, *args, **kwargs):
@@ -371,7 +474,7 @@ class PaystackVerifyView(APIView):
                 subscription.save()
 
                 return Response({
-                    "detail": "✅ Payment verified successfully.",
+                    "detail": "Payment verified successfully.",
                     "subscription_id": subscription.id,
                     "reference": reference,
                     "expires_at": subscription.expires_at
@@ -389,8 +492,12 @@ class PaystackVerifyView(APIView):
 # -------------------------------------------------------------------
 class GlobalSubscriptionViewSet(viewsets.ModelViewSet):
     """
-    Superuser endpoint to manage ALL subscriptions.
-    Allows filtering by tenant_id to see a specific store's plan.
+    System Admin (Superuser) ViewSet for Global Subscription Management.
+
+    "God Mode" capabilities:
+    - View subscriptions across ALL tenants.
+    - Manually extend subscriptions (e.g., compensation for downtime).
+    - Force-cancel subscriptions (e.g., policy violations).
     """
     queryset = Subscription.objects.select_related("tenant", "plan").all().order_by("-created_at")
     serializer_class = SubscriptionSerializer
@@ -407,8 +514,14 @@ class GlobalSubscriptionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def extend_subscription(self, request, pk=None):
         """
-        Manually add days to a subscription (Gift/Grace Period).
-        Expects: { "days": 30 }
+        Manually extends a subscription's expiry date.
+
+        Args:
+            days (int): Number of days to add.
+
+        Logic:
+            - If active/future expiry: Adds days to existing expiry date.
+            - If expired: Resets expiry to Now + days and reactivates.
         """
         subscription = self.get_object()
         days = int(request.data.get('days', 0))
@@ -437,6 +550,11 @@ class GlobalSubscriptionViewSet(viewsets.ModelViewSet):
     # --- GOD MODE ACTION: CANCEL IMMEDIATELY ---
     @action(detail=True, methods=['post'])
     def cancel_now(self, request, pk=None):
+        """
+        Force-cancels a subscription immediately.
+        
+        Used by admins to terminate access instantly, regardless of payment status.
+        """
         subscription = self.get_object()
         subscription.status = 'cancelled'
         # Optional: You might want to set expires_at to now, or keep it running until the end
@@ -446,8 +564,10 @@ class GlobalSubscriptionViewSet(viewsets.ModelViewSet):
 
 class GlobalTransactionViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    View all transactions. 
-    We keep this ReadOnly because you generally shouldn't edit financial logs for audit reasons.
+    System Admin View for Audit Logs.
+    
+    ReadOnly access to all financial transactions across the platform.
+    Used for platform-wide revenue analysis and debugging payment issues.
     """
     queryset = Transaction.objects.select_related("tenant", "subscription").all().order_by("-created_at")
     serializer_class = TransactionSerializer
@@ -456,4 +576,3 @@ class GlobalTransactionViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter, DjangoFilterBackend]
     filterset_fields = ['tenant', 'status', 'reference']
     search_fields = ["tenant__name", "reference"]
-

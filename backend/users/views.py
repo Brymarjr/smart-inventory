@@ -1,3 +1,14 @@
+"""
+Users Views Module.
+
+This module handles Identity and Access Management (IAM).
+It is responsible for:
+1.  **User Management:** Creating and managing staff accounts within a tenant.
+2.  **Authentication:** Tenant-aware login (JWT).
+3.  **Password Security:** Handling forgot password flows, admin resets, and mandatory password changes.
+4.  **Role Assignment:** Promoting or demoting users (with safety checks).
+"""
+
 from rest_framework import viewsets, permissions, status, mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -32,11 +43,25 @@ User = get_user_model()
 #  User ViewSet
 # ----------------------------------------------------------
 class UserViewSet(TenantFilteredViewSet):
+    """
+    Manages User Accounts.
+
+    This ViewSet automatically filters users by the authenticated user's tenant.
+    
+    Permissions:
+    - **List/Create/Delete:** Restricted to Tenant Admins.
+    - **Me:** Accessible by any authenticated user (to view/edit their own profile).
+    - **Plan Limit:** Creation is blocked if the tenant has reached their 'max_users' limit.
+    """
     serializer_class = UserSerializer
     # Base permissions
     permission_classes = [IsAuthenticated, IsTenantAdmin, MustChangePasswordPermission]
 
     def get_queryset(self):
+        """
+        Returns users belonging to the current tenant.
+        Superusers can see all users globally.
+        """
         user = self.request.user
         if user.is_superuser:
             return User.objects.all()
@@ -46,6 +71,11 @@ class UserViewSet(TenantFilteredViewSet):
         return User.objects.filter(tenant=tenant)
 
     def get_permissions(self):
+        """
+        Dynamic Permission Assignment:
+        - 'me' & 'accept_tos': Allow any logged-in user.
+        - 'create/update/list': Require Tenant Admin privileges.
+        """
         # Allows 'me' for any logged-in user (Staff/Manager/Admin)
         if self.action in ["me", "accept_tos"]:
             return [IsAuthenticated()]
@@ -61,6 +91,13 @@ class UserViewSet(TenantFilteredViewSet):
         return UserSerializer
 
     def perform_create(self, serializer):
+        """
+        Creates a new user.
+        
+        Enforces:
+        1. Tenant Association (Current User's Tenant).
+        2. Plan Limits (Max Users check).
+        """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant:
             current_user_count = tenant.users.count()
@@ -70,6 +107,17 @@ class UserViewSet(TenantFilteredViewSet):
     # Added "patch" method and update logic
     @action(detail=False, methods=["get", "patch"])
     def me(self, request):
+        """
+        Self-Management Endpoint.
+        
+        Allows a user to:
+        1. **GET:** Retrieve their own profile details.
+        2. **PATCH:** Update their own profile (First Name, Last Name, etc.).
+        
+        **Security:**
+        Sensitive fields (`role`, `is_superuser`, `tenant`) are stripped from the
+        request data to prevent Privilege Escalation.
+        """
         user = request.user
 
         if request.method == 'GET':
@@ -97,6 +145,8 @@ class UserViewSet(TenantFilteredViewSet):
     def accept_tos(self, request):
         """
         Endpoint for logged-in users to accept the Terms of Service.
+        
+        Updates the `tos_accepted_at` timestamp.
         """
         user = request.user
         
@@ -117,7 +167,12 @@ class UserViewSet(TenantFilteredViewSet):
 # ----------------------------------------------------------
 class PasswordResetViewSet(viewsets.ViewSet):
     """
-    Handles all password reset flows.
+    Handles the complexity of Password Resets.
+    
+    Supports 3 distinct flows:
+    1. **Forgot Password:** Public endpoint. Sends reset link to email.
+    2. **Admin Reset:** Tenant Admin manually resets a staff member's password.
+    3. **Change Password:** Logged-in user updates their own credentials.
     """
     # AllowAny for forgot_password, but Authenticated for the rest
     permission_classes = [AllowAny]
@@ -135,6 +190,14 @@ class PasswordResetViewSet(viewsets.ViewSet):
     @extend_schema(request=ForgotPasswordRequestSerializer)
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def forgot_password(self, request):
+        """
+        Public endpoint for users who cannot log in.
+        
+        **Security Note (Timing Attack Mitigation):**
+        This endpoint returns "If the email exists..." regardless of whether
+        the user was found or not. This prevents attackers from enumerating
+        valid email addresses.
+        """
         serializer = ForgotPasswordRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -172,6 +235,12 @@ class PasswordResetViewSet(viewsets.ViewSet):
         permission_classes=[IsAuthenticated, IsTenantAdmin],
     )
     def admin_reset_password(self, request):
+        """
+        Allows a Tenant Admin to force-reset a staff member's password.
+        
+        Useful if a cashier forgets their login and needs immediate access.
+        Scopes the lookup to `request.user.tenant` to prevent cross-tenant resets.
+        """
         serializer = AdminInitiatePasswordResetSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -204,6 +273,17 @@ class PasswordResetViewSet(viewsets.ViewSet):
         permission_classes=[IsAuthenticated],
     )
     def change_password(self, request):
+        """
+        Standard Password Change Flow.
+        
+        Requires:
+        1. Old Password (Verification).
+        2. New Password.
+        
+        Side Effect:
+        Sets `must_change_password = False`, unlocking the account if it was 
+        previously locked due to a reset.
+        """
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -241,6 +321,10 @@ class UserRoleViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
+    """
+    Read-only view of available User Roles.
+    Used by frontend to populate 'Role' dropdowns.
+    """
     queryset = UserRole.objects.all()
     serializer_class = UserRoleSerializer
     permission_classes = [IsAuthenticated]
@@ -251,6 +335,12 @@ class UserRoleViewSet(
 # ----------------------------------------------------------
 @extend_schema(tags=["Tenant Login"])
 class TenantAwareAuthViewSet(viewsets.ViewSet):
+    """
+    Custom Authentication Endpoint.
+    
+    Validates credentials AND ensures the user belongs to the requested Tenant.
+    Returns JWT Tokens (Access/Refresh).
+    """
     permission_classes = [AllowAny]
 
     @extend_schema(
@@ -269,6 +359,13 @@ class TenantAwareAuthViewSet(viewsets.ViewSet):
 #  Assign Role
 # ----------------------------------------------------------
 class UserRoleAssignViewSet(TenantFilteredViewSet):
+    """
+    Manages Role Promotions/Demotions.
+    
+    Strictly controlled to prevent:
+    1. Cross-Tenant modification.
+    2. Self-Lockout (Removing the last Admin).
+    """
     queryset = User.objects.all()
     serializer_class = AssignRoleSerializer
     permission_classes = [IsAuthenticated, IsTenantAdmin]
