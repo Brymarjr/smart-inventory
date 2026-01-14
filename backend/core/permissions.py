@@ -1,37 +1,41 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework import permissions
 
-class IsSupportReadOnly(BasePermission):
+class IsSupportReadOnly(permissions.BasePermission):
     """
-    Control access for the System Admin Dashboard.
-
-    1. Support Staff (is_superuser=True, is_staff=False):
-       - These are restricted admins.
-       - They can VIEW data (GET) but cannot EDIT or DELETE.
-       
-    2. Full Admins (is_superuser=True, is_staff=True):
-       - These are the owners/developers.
-       - They are ignored by this permission (return True), so they have full write access.
-
-    3. Regular Tenants (is_superuser=False):
-       - Ignored by this permission (return True).
-       - Their restrictions are handled by IsTenantActiveOrReadOnly.
-    """
+    Global permission to restrict Support Staff (is_superuser=True, is_staff=False)
+    to Read-Only access across the entire system.
     
-    message = "Support accounts are restricted to Read-Only access."
+    EXCEPTION: They must have write access to the 'support' app to manage tickets.
+    """
 
     def has_permission(self, request, view):
-        # 1. Check if user is authenticated
-        if not request.user or not request.user.is_authenticated:
-            return False
+        user = request.user
+        
+        # 1. If user is not authenticated or not a superuser, this permission doesn't apply.
+        # (Other permissions like IsAuthenticated will handle basic access)
+        if not user or not user.is_authenticated or not user.is_superuser:
+            return True
 
-        # 2. Identify 'Restricted Support Staff'
-        # They have Superuser powers (to see data) but NO Staff status (no Django Admin access).
-        is_restricted_support = request.user.is_superuser and not request.user.is_staff
+        # 2. If user is a Full Admin (is_staff=True), let them do anything.
+        if user.is_staff:
+            return True
 
-        if is_restricted_support:
-            # If they are restricted support, strictly allow only Safe Methods.
-            return request.method in SAFE_METHODS
+        # 3. If we are here, the user is Support Staff (Superuser but NOT Staff).
+        
+        # ✅ EXCEPTION: Allow write access if we are in the 'support' app
+        # We check the app_label of the view's queryset model
+        if hasattr(view, 'queryset') and view.queryset is not None:
+            model_app = view.queryset.model._meta.app_label
+            if model_app == 'support':
+                return True
+        
+        # Also check directly if the view belongs to the support module
+        if view.__module__.startswith('support.'):
+            return True
 
-        # 3. Everyone else (Full Admins & Tenants) is allowed to pass.
-        # Full Admins can write. Tenants are filtered by the next permission class.
-        return True
+        # 4. For all other apps (Billing, Tenants, etc.), allow ONLY Safe Methods.
+        if request.method in permissions.SAFE_METHODS:
+            return True
+
+        # 5. Block write attempts elsewhere
+        return False

@@ -4,13 +4,13 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import api from './api';
 import { useRouter } from 'next/navigation';
 import { User, AuthResponse } from './types';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
   loginTenant: (tenant: string, username: string, password: string) => Promise<void>;
   loginAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
-  // Added this so we can manually reload the user profile
   refreshUser: () => Promise<void>;
   isLoading: boolean;
 }
@@ -25,18 +25,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Helper function to fetch user data
   const fetchUserProfile = async () => {
     try {
-      // This endpoint works for both Admins and Tenants
       const { data } = await api.get('/api/users/me/');
       setUser(data);
-    } catch (error) {
-      console.error('Session invalid, logging out');
-      logout();
+    } catch (error: any) {
+      console.error('Failed to fetch user profile:', error);
+      
+      // ✅ FIX: Only logout if it is a 401 Unauthorized
+      if (error.response && error.response.status === 401) {
+          console.warn('Session expired, logging out.');
+          logout();
+      } else {
+         // If it's another error (like 500 or network), just don't set the user, 
+         // but don't kick them out immediately to allow for retries.
+         toast.error("Connection error. Please refresh.");
+      }
     }
   };
 
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('access_token');
+      // Only try to fetch if we actually have a token
       if (token) {
         await fetchUserProfile();
       }
@@ -45,13 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
-  // Exposed function to force a profile refresh
   const refreshUser = async () => {
     await fetchUserProfile();
   };
 
   const loginTenant = async (tenant: string, username: string, password: string) => {
-    // Hits your custom TenantAwareAuthViewSet
     const { data } = await api.post<AuthResponse>('/api/login/', {
       tenant,
       username,
@@ -60,49 +67,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem('access_token', data.access);
     localStorage.setItem('refresh_token', data.refresh);
-    localStorage.setItem('tenant_slug', tenant); // CRITICAL: Saved for headers
+    // ✅ This is crucial for the API interceptor
+    localStorage.setItem('tenant_slug', tenant); 
 
-    // Use the user object directly from response (saves a network call)
     setUser(data.user); 
     router.push('/dashboard');
   };
 
  const loginAdmin = async (username: string, password: string) => {
     try {
-      // 1. Login to get the Token
       const { data } = await api.post<AuthResponse>('/api/auth/token/', {
         username,
         password,
       });
 
-      // 2. Fetch the User Profile immediately to check who they are
-      // We pass the new token in the header manually for this request
+      // Explicitly passing header here because interceptor might not be ready or we want to be safe
       const userRes = await api.get<User>('/api/users/me/', {
         headers: { Authorization: `Bearer ${data.access}` }
       });
 
       const userProfile = userRes.data;
 
-      // 3. SECURITY CHECK: The "Bouncer"
-      // If a normal tenant tries to log in via the Admin tab, we stop them here.
       if (!userProfile.is_superuser) {
         throw new Error("Unauthorized: You do not have System Admin access.");
       }
 
-      // 4. Save Session
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
-      localStorage.removeItem('tenant_slug'); // Clear tenant data so we don't get mixed up
+      localStorage.removeItem('tenant_slug'); // Admins don't have a tenant context
 
       setUser(userProfile);
-
-      // 5. ROUTING
-      // Send them to the new System Admin area
       router.push('/system-admin'); 
 
     } catch (error) {
       console.error("Admin Login Failed", error);
-      // Safety: Clear any tokens if the checks failed
       localStorage.removeItem('access_token'); 
       localStorage.removeItem('refresh_token');
       throw error;

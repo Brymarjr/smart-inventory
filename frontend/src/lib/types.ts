@@ -151,3 +151,32 @@ export interface AuditLog {
   reason: string;
   timestamp: string;
 }
+
+export interface SupportTicket {
+  id: number;
+  tenant_name?: string;
+  created_by_name?: string;
+  created_by_email?: string;
+  subject: string;
+  message: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  internal_notes?: string;
+  created_at: string;
+  updated_at: string;
+  comments: TicketComment[]; // array
+}
+
+export interface ContactAdminPayload {
+  subject: string;
+  message: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+export interface TicketComment {
+  id: number;
+  user_name: string;
+  is_superuser: boolean;
+  message: string;
+  created_at: string;
+}

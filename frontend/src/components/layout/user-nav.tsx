@@ -14,9 +14,12 @@ import {
     Moon, 
     Sun, 
     Monitor, 
-    ShieldAlert // ✅ Added Icon
+    ShieldAlert,
+    HelpCircle,
+    MessageSquare 
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context"; 
+import SupportDialog from "@/components/support/SupportDialog"; 
 
 export function UserNav() {
   const router = useRouter();
@@ -24,7 +27,6 @@ export function UserNav() {
   
   const { user, logout } = useAuth(); 
 
-  // INITIALS LOGIC
   const initials = (user?.first_name && user?.last_name)
     ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
     : user?.email?.substring(0, 2).toUpperCase() || "U";
@@ -33,8 +35,8 @@ export function UserNav() {
     ? `${user.first_name} ${user.last_name}`
     : user?.username || 'User';
 
-  // ✅ CHECK ROLE
   const isPrivileged = user?.role === 'tenant_admin' || user?.role === 'manager';
+  const isTenantAdmin = user?.role === 'tenant_admin'; // ✅ Specific check for Tenant Admin
 
   return (
     <DropdownMenu>
@@ -67,18 +69,33 @@ export function UserNav() {
             <span>Settings</span>
           </DropdownMenuItem>
           
-          {/* ✅ ADDED: Audit Logs Link (Admin Only) */}
           {isPrivileged && (
             <DropdownMenuItem onClick={() => router.push('/dashboard/audit-logs')}>
                 <ShieldAlert className="mr-2 h-4 w-4 text-amber-600" />
                 <span>Audit Logs</span>
             </DropdownMenuItem>
           )}
+
+          {/* Link to View Support History (Tenant Admin Only) */}
+          {isTenantAdmin && (
+             <DropdownMenuItem onClick={() => router.push('/dashboard/support')}>
+                <MessageSquare className="mr-2 h-4 w-4 text-blue-500" />
+                <span>My Tickets</span>
+             </DropdownMenuItem>
+          )}
+
+          {/* GET HELP MODAL */}
+          <SupportDialog>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+               <HelpCircle className="mr-2 h-4 w-4 text-green-600" />
+               <span>Get Help</span>
+            </DropdownMenuItem>
+          </SupportDialog>
+
         </DropdownMenuGroup>
         
         <DropdownMenuSeparator />
         
-        {/* Theme Switcher */}
         <DropdownMenuLabel className="text-xs text-muted-foreground">Theme</DropdownMenuLabel>
         <DropdownMenuItem onClick={() => setTheme("light")}>
            <Sun className="mr-2 h-4 w-4" /> Light
