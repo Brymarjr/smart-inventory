@@ -254,3 +254,17 @@ SYNCED_MODELS = [
 ]
 SYNC_MODELS = SYNCED_MODELS
 MAX_OPS_PER_UPLOAD = 500
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/1'),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            # If Redis takes > 2 seconds to connect or read, stop waiting.
+            # This prevents your Dashboard from freezing if Redis is slow.
+            "SOCKET_CONNECT_TIMEOUT": 2,  
+            "SOCKET_TIMEOUT": 2,
+        }
+    }
+}

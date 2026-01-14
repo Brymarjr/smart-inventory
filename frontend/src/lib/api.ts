@@ -109,6 +109,11 @@ export const adminApi = {
   cancelSubscription: async (subscriptionId: number) => {
     const { data } = await api.post(`/api/billing/admin/subscriptions/${subscriptionId}/cancel_now/`);
     return data;
+  },
+
+  getSystemAnalytics: async () => {
+    const { data } = await api.get('/api/admin/analytics/');
+    return data;
   }
 };
 
@@ -144,5 +149,6 @@ export const supportApi = {
   replyToTicket: async (id: number, message: string) => {
     const { data } = await api.post(`/api/support/tickets/${id}/reply/`, { message });
     return data;
-  }
+  },
+
 };

@@ -1,17 +1,29 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { adminApi } from '@/lib/api'; 
+import api from '@/lib/api';
+import { SystemTenant } from '@/lib/types';
+import Link from 'next/link';
+
+// UI Components
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Loader2, Building2, ChevronLeft, ChevronRight, Activity, Ban } from 'lucide-react';
-import api from '@/lib/api';
-import { SystemTenant } from '@/lib/types';
-import Link from 'next/link';
 
-// Helper to debounce search requests
+// Icons
+import { 
+  Loader2, Search, Building2, ChevronLeft, ChevronRight, 
+  DollarSign, Ticket, TrendingUp, Activity
+} from 'lucide-react';
+
+// Charts
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
+import { toast } from 'sonner';
+
+// --- HELPER HOOKS ---
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -21,232 +33,342 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Stats Interface
-interface DashboardStats {
-    total: number;
-    active: number;
-    inactive: number;
+// --- TYPES ---
+interface AnalyticsData {
+  total_tenants: number;
+  active_tenants: number;
+  global_revenue: number;
+  open_tickets: number;
+  growth_rate: number; // ✅ REAL DATA
+  health: {            // ✅ REAL DATA
+    database: string;
+    redis: string;
+    api: string;
+  };
+  graph_data: { name: string; total: number }[];
 }
 
-export default function SystemDashboard() {
-  // --- STATE ---
+export default function SystemAdminDashboard() {
+  // --- STATE: ANALYTICS ---
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(true);
+
+  // --- STATE: TENANT LIST ---
   const [tenants, setTenants] = useState<SystemTenant[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({ total: 0, active: 0, inactive: 0 });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isListLoading, setIsListLoading] = useState(true);
   
-  // Search State
+  // Search & Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 500);
-
-  // Pagination State
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [prevPage, setPrevPage] = useState<string | null>(null);
 
-  // --- FETCH STATS (Runs Once) ---
+  // --- 1. FETCH ANALYTICS (Once) ---
   useEffect(() => {
-    const fetchStats = async () => {
-        try {
-            const { data } = await api.get<DashboardStats>('/api/admin/stats/');
-            setStats(data);
-        } catch (e) {
-            console.error("Failed to fetch stats");
-        }
+    const loadAnalytics = async () => {
+      try {
+        const stats = await adminApi.getSystemAnalytics();
+        setAnalytics(stats);
+      } catch (error) {
+        console.error("Analytics Error", error);
+        toast.error("Failed to load global stats");
+      } finally {
+        setIsAnalyticsLoading(false);
+      }
     };
-    fetchStats();
+    loadAnalytics();
   }, []);
 
-  // --- FETCH TENANTS (Main Logic) ---
+  // --- 2. FETCH TENANTS (Searchable & Paginated) ---
   const fetchTenants = useCallback(async (url: string = '/api/admin/tenants/') => {
-    setIsLoading(true);
+    setIsListLoading(true);
     try {
-      // Logic: If searching, append query param (only if we are on the base URL)
       let finalUrl = url;
       if (url.includes('/api/admin/tenants/') && debouncedSearch) {
-        // Check if '?' already exists to append correctly
         const separator = finalUrl.includes('?') ? '&' : '?';
         finalUrl += `${separator}search=${encodeURIComponent(debouncedSearch)}`;
       }
 
       const { data } = await api.get(finalUrl);
 
-      // Handle Pagination Response
       if (data.results) {
         setTenants(data.results);
-        setNextPage(data.next);      // Save Next Page URL
-        setPrevPage(data.previous);  // Save Prev Page URL
+        setNextPage(data.next);
+        setPrevPage(data.previous);
       } else if (Array.isArray(data)) {
-        // Fallback for non-paginated response
         setTenants(data);
         setNextPage(null);
         setPrevPage(null);
       }
     } catch (error) {
-      console.error("Failed to fetch tenants", error);
+      console.error("Tenant Fetch Error", error);
+      toast.error("Failed to load tenant list");
     } finally {
-      setIsLoading(false);
+      setIsListLoading(false);
     }
   }, [debouncedSearch]);
 
-  // Trigger Fetch when Debounced Search changes
   useEffect(() => {
-    // Reset to page 1 when search term changes
     fetchTenants('/api/admin/tenants/');
   }, [fetchTenants]); 
 
-  // --- PAGINATION HANDLERS ---
-  const handleNext = () => {
-    if (nextPage) fetchTenants(nextPage);
-  };
+  const handleNext = () => { if (nextPage) fetchTenants(nextPage); };
+  const handlePrev = () => { if (prevPage) fetchTenants(prevPage); };
 
-  const handlePrev = () => {
-    if (prevPage) fetchTenants(prevPage);
-  };
+  if (isAnalyticsLoading && isListLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
 
-  // --- RENDER ---
+  // Helper to determine color based on status
+  const getHealthColor = (status: string) => status === 'Online' ? 'bg-green-500' : 'bg-red-500';
+  const getHealthText = (status: string) => status === 'Online' ? 'text-green-600' : 'text-red-600';
+  const isPositiveGrowth = (analytics?.growth_rate || 0) >= 0;
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Organizations</h2>
-          <p className="text-slate-500 dark:text-slate-400">Manage and monitor all registered stores.</p>
-        </div>
+    <div className="space-y-8">
+      
+      {/* ---------------- SECTION 1: GLOBAL ANALYTICS ---------------- */}
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">System Overview</h2>
+        <p className="text-slate-500">Global performance across all organizations.</p>
       </div>
 
-      {/* --- STATS CARDS --- */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Total Organizations</CardTitle>
-            <Building2 className="h-4 w-4 text-slate-500" />
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold">
+              ₦{analytics?.global_revenue.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">Lifetime platform volume</p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Active Stores</CardTitle>
-            <Activity className="h-4 w-4 text-green-500" />
+            <CardTitle className="text-sm font-medium">Active Tenants</CardTitle>
+            <Activity className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-2xl font-bold">
+              {analytics?.active_tenants} <span className="text-sm text-slate-400 font-normal">/ {analytics?.total_tenants}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Stores currently online</p>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">Inactive/Suspended</CardTitle>
-            <Ban className="h-4 w-4 text-red-500" />
+            <CardTitle className="text-sm font-medium">Support Load</CardTitle>
+            <Ticket className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.inactive}</div>
+            <div className="text-2xl font-bold">{analytics?.open_tickets}</div>
+            <p className="text-xs text-muted-foreground">Active tickets pending</p>
+          </CardContent>
+        </Card>
+
+        {/* ✅ REAL DYNAMIC GROWTH RATE CARD */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
+            <TrendingUp className={`h-4 w-4 ${isPositiveGrowth ? 'text-green-600' : 'text-red-600'}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${isPositiveGrowth ? 'text-green-600' : 'text-red-600'}`}>
+              {isPositiveGrowth ? '+' : ''}{analytics?.growth_rate}%
+            </div>
+            <p className="text-xs text-muted-foreground">vs. last month</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* --- TENANT DIRECTORY TABLE --- */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Directory</CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search organizations..."
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+      <div className="grid gap-4 md:grid-cols-7">
+        {/* Revenue Graph */}
+        <Card className="col-span-4">
+          <CardHeader>
+            <CardTitle>Revenue Trend</CardTitle>
+          </CardHeader>
+          <CardContent className="pl-2">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analytics?.graph_data}>
+                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₦${value}`} />
+                <Tooltip 
+                    contentStyle={{ background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                    cursor={{fill: 'transparent'}}
+                />
+                <Bar dataKey="total" fill="#0f172a" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* ✅ REAL DYNAMIC SYSTEM HEALTH */}
+        <Card className="col-span-3">
+          <CardHeader>
+            <CardTitle>System Health</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-8">
+              
+              {/* DATABASE */}
+              <div className="flex items-center">
+                <span className="relative flex h-2 w-2 mr-2">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${analytics?.health.database === 'Online' ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                  <span className={`relative inline-flex rounded-full h-2 w-2 ${getHealthColor(analytics?.health.database || 'Offline')}`}></span>
+                </span>
+                <div className="ml-4 space-y-1">
+                  <p className="text-sm font-medium leading-none">Database</p>
+                  <p className="text-sm text-muted-foreground">PostgreSQL</p>
+                </div>
+                <div className={`ml-auto font-medium ${getHealthText(analytics?.health.database || 'Offline')}`}>
+                  {analytics?.health.database}
+                </div>
+              </div>
+              
+              {/* REDIS */}
+              <div className="flex items-center">
+                <span className={`flex h-2 w-2 rounded-full mr-2 ${getHealthColor(analytics?.health.redis || 'Offline')}`}></span>
+                <div className="ml-4 space-y-1">
+                  <p className="text-sm font-medium leading-none">Task Queue</p>
+                  <p className="text-sm text-muted-foreground">Redis / Celery</p>
+                </div>
+                <div className={`ml-auto font-medium ${getHealthText(analytics?.health.redis || 'Offline')}`}>
+                  {analytics?.health.redis}
+                </div>
+              </div>
+
+              {/* API */}
+              <div className="flex items-center">
+                <span className={`flex h-2 w-2 rounded-full mr-2 ${getHealthColor(analytics?.health.api || 'Offline')}`}></span>
+                <div className="ml-4 space-y-1">
+                  <p className="text-sm font-medium leading-none">API Gateway</p>
+                  <p className="text-sm text-muted-foreground">Django REST</p>
+                </div>
+                <div className={`ml-auto font-medium ${getHealthText(analytics?.health.api || 'Offline')}`}>
+                  {analytics?.health.api}
+                </div>
+              </div>
+
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ---------------- SECTION 2: TENANT MANAGEMENT ---------------- */}
+      <div className="pt-4">
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-4">Organizations Directory</h2>
+        
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Manage Tenants</CardTitle>
+              <div className="relative w-72">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search organizations..."
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>URL Slug</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Joined Date</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tenants.length === 0 ? (
+          </CardHeader>
+          <CardContent>
+            {isListLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        No organizations found.
-                      </TableCell>
+                      <TableHead>Name</TableHead>
+                      <TableHead>URL Slug</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Joined Date</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
                     </TableRow>
-                  ) : (
-                    tenants.map((tenant) => (
-                      <TableRow key={tenant.id}>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-md">
-                              <Building2 className="h-4 w-4 text-slate-600 dark:text-slate-400" />
-                            </div>
-                            {tenant.name}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-slate-500">{tenant.slug}</TableCell>
-                        <TableCell>
-                          {tenant.is_active ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 border">
-                              Active
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive">Inactive</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(tenant.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                             <Link href={`/system-admin/tenants/${tenant.id}`}>
-                               View Data
-                             </Link>
-                          </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {tenants.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          No organizations found.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      tenants.map((tenant) => (
+                        <TableRow key={tenant.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-md">
+                                <Building2 className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                              </div>
+                              {tenant.name}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-slate-500">{tenant.slug}</TableCell>
+                          <TableCell>
+                            {tenant.is_active ? (
+                              <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200 border">
+                                Active
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive">Inactive</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(tenant.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="outline" size="sm" asChild>
+                               <Link href={`/system-admin/tenants/${tenant.id}`}>
+                                 View Data
+                               </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
 
-              {/* --- PAGINATION CONTROLS --- */}
-              <div className="flex items-center justify-end space-x-2 py-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handlePrev}
-                  disabled={!prevPage || isLoading}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNext}
-                  disabled={!nextPage || isLoading}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+                {/* Pagination */}
+                <div className="flex items-center justify-end space-x-2 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePrev}
+                    disabled={!prevPage || isListLoading}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNext}
+                    disabled={!nextPage || isListLoading}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
