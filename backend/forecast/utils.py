@@ -19,7 +19,7 @@ def get_clean_sales_data(tenant, product, days=90):
     # 2. Convert to DataFrame
     df = pd.DataFrame(list(sales_qs))
     
-    # ✅ FIX: Create a strict date range ending TODAY
+    # FIX: Create a strict date range ending TODAY
     # This ensures that if sales stopped 10 days ago, we see 10 rows of "0" at the end.
     end_date = pd.to_datetime(date.today())
     start_date = end_date - timedelta(days=days-1)
