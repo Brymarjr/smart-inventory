@@ -1,4 +1,4 @@
-#!/home/brymarjr/smart-inventory/backend/venv/bin/python3.12
+#!/home/brymar/projects/smart-inventory/backend/venv/bin/python3
 import sys
 from gunicorn.app.wsgiapp import run
 if __name__ == '__main__':
