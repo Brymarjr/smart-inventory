@@ -6,8 +6,9 @@ from sales.models import SaleItem
 
 def get_clean_sales_data(tenant, product, days=90):
     """
-    Fetch sales data and IMPUTE missing demand.
-    Crucial Fix: Forces the timeline to end TODAY, so recent drop-offs (theft) are visible.
+    Fetch raw sales data. 
+    CRITICAL FIX: Do NOT smooth out zeros. We need the AI to see the zeros 
+    to detect 'Ghost Stock' and the raw spikes for 'Velocity Spike'.
     """
     # 1. Fetch Sales
     sales_qs = SaleItem.objects.filter(
@@ -19,26 +20,27 @@ def get_clean_sales_data(tenant, product, days=90):
     # 2. Convert to DataFrame
     df = pd.DataFrame(list(sales_qs))
     
-    # FIX: Create a strict date range ending TODAY
-    # This ensures that if sales stopped 10 days ago, we see 10 rows of "0" at the end.
+    # Create strict timeline ending TODAY
     end_date = pd.to_datetime(date.today())
-    start_date = end_date - timedelta(days=days-1)
+    start_date = end_date - timedelta(days=days) 
     full_index = pd.date_range(start=start_date, end=end_date, freq='D')
 
     if df.empty:
-        # Return an empty DF with the correct index/columns to prevent crashes
-        return pd.DataFrame({'qty': 0, 'adjusted_qty': 0}, index=full_index)
+        # Return empty frame with correct structure
+        df_empty = pd.DataFrame({'qty': 0, 'adjusted_qty': 0}, index=full_index)
+        return df_empty.reset_index().rename(columns={'index': 'date'})
 
-    # Map database results to the full date range
+    # Map results to the full date range
     df['date'] = pd.to_datetime(df['sale__created_at__date'])
     df = df.set_index('date').reindex(full_index, fill_value=0)
     
-    # 3. STOCKOUT INTELLIGENCE
-    # If sales are 0, we check if it was a stockout or just low demand.
-    # For simplicity here, we assume 0 means 0 demand unless defined otherwise.
-    # We add a rolling average for smoothing.
-    df['rolling_avg'] = df['qty'].rolling(window=7, min_periods=1).mean()
-    df['adjusted_qty'] = np.where(df['qty'] == 0, df['rolling_avg'], df['qty'])
+    # 3. THE FIX: RAW REALITY
+    # Previously, we replaced 0s with averages. This hid the "Ghost Stock".
+    # Now, we pass the raw 'qty' as 'adjusted_qty' so the AI sees the sudden drop to 0.
+    df['adjusted_qty'] = df['qty']
+    
+    # Add column for index access if needed
+    df = df.reset_index().rename(columns={'index': 'date'})
     
     return df
 
