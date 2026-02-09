@@ -45,7 +45,7 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     """
     queryset = PurchaseOrder.objects.all().select_related("supplier", "created_by", "approved_by", "paid_by")
     serializer_class = PurchaseOrderSerializer
-    permission_classes = [IsAuthenticated, IsStaffOrTenantAdminManager]
+    permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['reference', 'supplier__name', 'status', 'notes']
