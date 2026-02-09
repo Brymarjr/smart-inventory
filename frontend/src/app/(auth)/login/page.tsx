@@ -17,40 +17,25 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, Building2, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Building2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-// 1. Validation Schema for Tenant Users
+// Validation Schema for Tenant Users
 const tenantSchema = z.object({
   tenant: z.string().min(1, 'Organization ID is required'),
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
-// 2. Validation Schema for System Admins
-const adminSchema = z.object({
-  username: z.string().min(1, 'Username is required'),
-  password: z.string().min(1, 'Password is required'),
-});
-
 export default function LoginPage() {
-  const { loginTenant, loginAdmin } = useAuth();
+  const { loginTenant } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Toggle between 'tenant' (default) and 'admin'
-  const [mode, setMode] = useState<'tenant' | 'admin'>('tenant');
 
-  // Initialize Forms
+  // Initialize Form
   const tenantForm = useForm<z.infer<typeof tenantSchema>>({
     resolver: zodResolver(tenantSchema),
     defaultValues: { tenant: '', username: '', password: '' },
-  });
-
-  const adminForm = useForm<z.infer<typeof adminSchema>>({
-    resolver: zodResolver(adminSchema),
-    defaultValues: { username: '', password: '' },
   });
 
   // Handler: Tenant Login
@@ -68,168 +53,93 @@ export default function LoginPage() {
     }
   }
 
-  // Handler: Admin Login
-  async function onAdminSubmit(values: z.infer<typeof adminSchema>) {
-    setIsLoading(true);
-    setError('');
-    try {
-      await loginAdmin(values.username, values.password);
-    } catch (err: any) {
-      console.error(err);
-      setError('Invalid System Admin credentials.');
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-md shadow-xl border-slate-200">
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
-            {mode === 'tenant' ? (
-              <Building2 className="w-8 h-8 text-primary" />
-            ) : (
-              <ShieldCheck className="w-8 h-8 text-red-600" />
-            )}
+        <CardHeader className="text-center pb-6">
+          <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-4">
+            <Building2 className="w-8 h-8 text-primary" />
           </div>
           <CardTitle className="text-2xl font-bold text-slate-900">
-            {mode === 'tenant' ? 'Organization Login' : 'System Admin'}
+            Organization Login
           </CardTitle>
           <CardDescription>
-            {mode === 'tenant' 
-              ? 'Access your company inventory workspace.' 
-              : 'Restricted access for system maintainers.'}
+            Access your company inventory workspace.
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <Tabs defaultValue="tenant" className="w-full" onValueChange={(v) => {
-             setMode(v as 'tenant' | 'admin');
-             setError(''); // Clear errors when switching tabs
-          }}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="tenant">Tenant User</TabsTrigger>
-              <TabsTrigger value="admin">System Admin</TabsTrigger>
-            </TabsList>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-            {/* Error Alert */}
-            {error && (
-              <Alert variant="destructive" className="mb-4 animate-in fade-in slide-in-from-top-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* --- TAB 1: TENANT FORM --- */}
-            <TabsContent value="tenant">
-              <Form {...tenantForm}>
-                <form onSubmit={tenantForm.handleSubmit(onTenantSubmit)} className="space-y-4">
-                  <FormField
-                    control={tenantForm.control}
-                    name="tenant"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Organization ID (Tenant)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. acme-corp" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={tenantForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="john.doe" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {/* --- UPDATED PASSWORD FIELD WITH LINK --- */}
-                  <FormField
-                    control={tenantForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center justify-between">
-                            <FormLabel>Password</FormLabel>
-                            <Link 
-                                href="/forgot-password" 
-                                className="text-sm font-medium text-primary hover:underline"
-                                tabIndex={-1}
-                            >
-                                Forgot password?
-                            </Link>
-                        </div>
-                        <FormControl>
-                          <Input type="password" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  {/* ---------------------------------------- */}
-
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Authenticating...' : 'Sign In'}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-
-            {/* --- TAB 2: ADMIN FORM --- */}
-            <TabsContent value="admin">
-              <Form {...adminForm}>
-                <form onSubmit={adminForm.handleSubmit(onAdminSubmit)} className="space-y-4">
-                  <FormField
-                    control={adminForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>System Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="admin" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={adminForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
+          <Form {...tenantForm}>
+            <form onSubmit={tenantForm.handleSubmit(onTenantSubmit)} className="space-y-4">
+              <FormField
+                control={tenantForm.control}
+                name="tenant"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Organization ID</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. acme-corp" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={tenantForm.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="john.doe" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={tenantForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center justify-between">
                         <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" variant="destructive" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Verifying...' : 'Access System Core'}
-                  </Button>
-                </form>
-              </Form>
-            </TabsContent>
-          </Tabs>
+                        <Link 
+                            href="/forgot-password" 
+                            className="text-sm font-medium text-primary hover:underline"
+                            tabIndex={-1}
+                        >
+                            Forgot password?
+                        </Link>
+                    </div>
+                    <FormControl>
+                      <Input type="password" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Authenticating...' : 'Sign In'}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
         
-        {mode === 'tenant' && (
-          <CardFooter className="flex justify-center border-t pt-4">
+        <CardFooter className="flex justify-center border-t pt-4">
             <p className="text-sm text-slate-500">
-              Don't have an account? <a href="/register" className="text-primary font-medium hover:underline">Register your business</a>
+              Don't have an account? <Link href="/register" className="text-primary font-medium hover:underline">Register your business</Link>
             </p>
-          </CardFooter>
-        )}
+        </CardFooter>
       </Card>
     </div>
   );

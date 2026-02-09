@@ -1,0 +1,35 @@
+Steps in starting the system up:
+
+1. Open up your vscode and connect to wsl
+2. Open up 5 terminals (4 for backend 1 for the frontend)
+3. On the backend terminals do the following;
+a. Activate the virtual environments for all the backend terminals with this command :  source venv/bin/activate
+b. Run these commands in the same backend terminal : 
+
+   sudo service postgresql start
+   sudo service redis-server start
+
+   You can verify what you are doing is actually working by running this command after
+
+   sudo service postgresql status
+   sudo service redis-server status
+   
+   and just to be extra sure you can run
+
+   redis-cli ping (You should see pong)
+
+c. Run these commands in the different backend terminals:    
+
+   python manage.py runserver    
+   celery -A smart_inventory worker --loglevel=info     
+   celery -A smart_inventory beat --loglevel=info
+
+4. For the frontend terminal simply run :
+   
+   npm run dev
+
+5. Troubleshooting: If wsl inside vscode ever says reconnecting, click on reload window, but if it fails to reload and reconnect, close vscode, then run windows powershell as administrator and then type this command:
+
+   wsl --shutdown
+
+   wait for some seconds, reopen vscode and connect to wsl once again
