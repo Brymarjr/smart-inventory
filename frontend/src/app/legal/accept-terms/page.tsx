@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth-context';
 export default function AcceptTermsPage() {
   const [agreed, setAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // We don't need router here anymore because LegalGuard handles the redirect
+  // We don't need router here anymore because LegalGuard handles the redirect itself after acceptance.
   const { refreshUser } = useAuth(); 
 
   const handleAccept = async () => {
