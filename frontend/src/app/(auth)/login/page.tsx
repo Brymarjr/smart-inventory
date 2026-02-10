@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link'; 
+import { useSearchParams } from 'next/navigation'; // ✅ Import SearchParams
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,45 +18,55 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { AlertCircle, Building2 } from 'lucide-react';
+import { AlertCircle, Building2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 
-// Validation Schema for Tenant Users
 const tenantSchema = z.object({
   tenant: z.string().min(1, 'Organization ID is required'),
   username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
-export default function LoginPage() {
+// ✅ Separate component to safely use searchParams
+function LoginForm() {
   const { loginTenant } = useAuth();
+  const searchParams = useSearchParams();
+  
+  // ✅ AUTO-FILL: Check URL for ?tenant=xxx&username=yyy
+  const defaultTenant = searchParams.get('tenant') || '';
+  const defaultUser = searchParams.get('username') || '';
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Initialize Form
   const tenantForm = useForm<z.infer<typeof tenantSchema>>({
     resolver: zodResolver(tenantSchema),
-    defaultValues: { tenant: '', username: '', password: '' },
+    defaultValues: { 
+        tenant: defaultTenant, 
+        username: defaultUser, 
+        password: '' 
+    },
   });
 
-  // Handler: Tenant Login
   async function onTenantSubmit(values: z.infer<typeof tenantSchema>) {
     setIsLoading(true);
     setError('');
     try {
       await loginTenant(values.tenant, values.username, values.password);
+      toast.success('Welcome back!');
     } catch (err: any) {
       console.error(err);
       const serverMsg = err.response?.data?.detail || err.response?.data?.tenant || 'Invalid Organization ID or credentials.';
       setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
+      toast.error("Login Failed");
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <Card className="w-full max-w-md shadow-xl border-slate-200">
+    <Card className="w-full max-w-md shadow-xl border-slate-200">
         <CardHeader className="text-center pb-6">
           <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-4">
             <Building2 className="w-8 h-8 text-primary" />
@@ -129,7 +140,7 @@ export default function LoginPage() {
               />
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Authenticating...' : 'Sign In'}
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Authenticating...</> : 'Sign In'}
               </Button>
             </form>
           </Form>
@@ -141,6 +152,16 @@ export default function LoginPage() {
             </p>
         </CardFooter>
       </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      {/* ✅ Suspense is required when using useSearchParams in Next.js App Router */}
+      <Suspense fallback={<div className="flex items-center gap-2"><Loader2 className="animate-spin" /> Loading...</div>}>
+         <LoginForm />
+      </Suspense>
     </div>
   );
 }

@@ -19,10 +19,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Rocket, CheckCircle } from 'lucide-react';
+import { Loader2, Rocket } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Validation Schema matching TenantRegistrationSerializer
 const registerSchema = z.object({
   tenant_name: z.string().min(2, 'Company name is required'),
   username: z.string().min(3, 'Admin username is required').regex(/^[a-zA-Z0-9_]+$/, 'Alphanumeric and underscores only'),
@@ -37,7 +36,6 @@ type RegisterValues = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -54,79 +52,45 @@ export default function RegisterPage() {
   async function onSubmit(values: RegisterValues) {
     setIsLoading(true);
     try {
-      // POST /api/tenants/register/ matches TenantRegistrationSerializer
       await api.post('/api/tenants/register/', {
         tenant_name: values.tenant_name,
-        username: values.username, // Admin User's username
+        username: values.username,
         email: values.email,
         password: values.password,
         first_name: values.first_name,
         last_name: values.last_name,
       });
       
-      setIsSuccess(true);
-      toast.success('Account created successfully!');
+      // ✅ SUCCESS FEEDBACK
+      toast.success('Registration Successful!', {
+        description: 'Redirecting to login...',
+        duration: 2000,
+      });
+
+      // ✅ SMART REDIRECT: Send the tenant name to the login page
+      setTimeout(() => {
+        const tenantSlug = values.tenant_name.toLowerCase().replace(/\s+/g, '-');
+        router.push(`/login?tenant=${tenantSlug}&username=${values.username}`);
+      }, 1500);
       
     } catch (error: any) {
       console.error(error);
       const data = error.response?.data;
       
-      // Map backend errors to form fields
-      if (data?.tenant_name) {
-        form.setError('tenant_name', { message: data.tenant_name[0] });
-      } 
-      else if (data?.username) {
-        form.setError('username', { message: data.username[0] });
-      } 
-      else if (data?.email) {
-        form.setError('email', { message: data.email[0] });
-      } 
+      // Map specific field errors
+      if (data?.tenant_name) form.setError('tenant_name', { message: data.tenant_name[0] });
+      else if (data?.username) form.setError('username', { message: data.username[0] });
+      else if (data?.email) form.setError('email', { message: data.email[0] });
       else {
-        toast.error('Registration failed. Please check your inputs.');
+        toast.error('Registration failed', {
+            description: 'Please check your inputs and try again.'
+        });
       }
     } finally {
       setIsLoading(false);
     }
   }
 
-  // --- SUCCESS STATE ---
-  if (isSuccess) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-        <Card className="w-full max-w-md text-center shadow-lg">
-          <CardHeader>
-            <div className="mx-auto bg-green-100 p-3 rounded-full mb-4">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl">Registration Successful!</CardTitle>
-            <CardDescription>
-              Your workspace <strong>{form.getValues('tenant_name')}</strong> is ready.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Please log in with the company name below and your admin username.
-            </p>
-            <div className="bg-slate-100 p-3 rounded text-left text-sm space-y-1">
-                <div className="flex justify-between">
-                    <span className="text-slate-500">Tenant:</span>
-                    <span className="font-semibold">{form.getValues('tenant_name')}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-slate-500">Username:</span>
-                    <span className="font-semibold">{form.getValues('username')}</span>
-                </div>
-            </div>
-            <Button className="w-full" onClick={() => router.push('/login')}>
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // --- FORM STATE ---
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <Card className="w-full max-w-lg shadow-xl border-slate-200">
@@ -159,7 +123,7 @@ export default function RegisterPage() {
                         <Input placeholder="e.g. Acme Corp" {...field} disabled={isLoading} />
                       </FormControl>
                       <FormDescription className="text-xs">
-                        You will use this name to identify your organization at login.
+                        This will be your Organization ID.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -178,9 +142,7 @@ export default function RegisterPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John" {...field} disabled={isLoading} />
-                        </FormControl>
+                        <FormControl><Input placeholder="John" {...field} disabled={isLoading} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -191,28 +153,20 @@ export default function RegisterPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Doe" {...field} disabled={isLoading} />
-                        </FormControl>
+                        <FormControl><Input placeholder="Doe" {...field} disabled={isLoading} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                {/* NEW USERNAME FIELD */}
                 <FormField
                     control={form.control}
                     name="username"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Admin Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="johndoe" {...field} disabled={isLoading} />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                           Your personal login ID (not email).
-                        </FormDescription>
+                        <FormControl><Input placeholder="johndoe" {...field} disabled={isLoading} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -224,9 +178,7 @@ export default function RegisterPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Work Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="john@acme.com" {...field} disabled={isLoading} />
-                      </FormControl>
+                      <FormControl><Input type="email" placeholder="john@acme.com" {...field} disabled={isLoading} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -238,9 +190,7 @@ export default function RegisterPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} disabled={isLoading} />
-                      </FormControl>
+                      <FormControl><Input type="password" {...field} disabled={isLoading} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
