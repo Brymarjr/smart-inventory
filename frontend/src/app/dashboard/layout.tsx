@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { getDisplayUsername } from '@/lib/utils'; 
+import { getDisplayUsername } from '@/lib/utils';
+// ✅ IMPORT HOOK & ICONS
+import { useSync } from '@/hooks/use-sync';
 import { 
   LayoutDashboard, 
   Package, 
@@ -13,23 +15,24 @@ import {
   CreditCard, 
   Users, 
   Menu,
-  TrendingUp, 
+  TrendingUp,
+  Loader2, // Added
+  WifiOff  // Added
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   Sheet, 
   SheetContent, 
   SheetTrigger, 
-  SheetTitle,       // ✅ Added
-  SheetDescription  // ✅ Added
+  SheetTitle,
+  SheetDescription
 } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge'; // Added
 
-// ✅ IMPORT THE NEW COMPONENTS
 import { NotificationsBell } from '@/components/layout/notifications-bell';
 import { UserNav } from '@/components/layout/user-nav';
 
-// Navigation Items Configuration
 const NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Analytics', href: '/dashboard/analytics', icon: TrendingUp }, 
@@ -46,9 +49,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // =========================================================
-  //  SECURITY & ENFORCER LOGIC
-  // =========================================================
+  // ✅ GLOBAL SYNC ENGINE (Runs once, persists across pages)
+  const { isSyncing, pendingCount } = useSync();
+
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
@@ -62,7 +65,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, isLoading, router, pathname]);
 
-  // Loading State
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
@@ -74,7 +76,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // Prevent flash of content if user is missing (redirecting)
   if (!user) return null;
 
   return (
@@ -131,41 +132,50 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-6">
-          <div className="md:hidden">
-              {/* Mobile Sidebar Trigger */}
-              <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Menu className="h-6 w-6" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-64 p-0">
-                    {/* ✅ FIX: Added accessible Title & Description */}
-                    <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
-                    <SheetDescription className="sr-only">
-                      Navigation links for mobile users
-                    </SheetDescription>
+          <div className="flex items-center gap-4">
+              <div className="md:hidden">
+                  <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+                    <SheetTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Menu className="h-6 w-6" />
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="left" className="w-64 p-0">
+                        <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                        <SheetDescription className="sr-only">Navigation links</SheetDescription>
+                        <div className="h-16 flex items-center px-6 border-b">
+                          <span className="text-lg font-bold">Smart Inventory</span>
+                        </div>
+                        <div className="py-4 px-3 space-y-1">
+                          {NAV_ITEMS.map((item) => (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={() => setIsMobileOpen(false)}
+                              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                                pathname === item.href ? 'bg-secondary' : 'hover:bg-secondary/50'
+                              }`}
+                            >
+                              <item.icon className="mr-3 h-5 w-5" />
+                              {item.name}
+                            </Link>
+                          ))}
+                        </div>
+                    </SheetContent>
+                  </Sheet>
+              </div>
 
-                    <div className="h-16 flex items-center px-6 border-b">
-                      <span className="text-lg font-bold">Smart Inventory</span>
-                    </div>
-                    <div className="py-4 px-3 space-y-1">
-                      {NAV_ITEMS.map((item) => (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setIsMobileOpen(false)}
-                          className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                            pathname === item.href ? 'bg-secondary' : 'hover:bg-secondary/50'
-                          }`}
-                        >
-                          <item.icon className="mr-3 h-5 w-5" />
-                          {item.name}
-                        </Link>
-                      ))}
-                    </div>
-                </SheetContent>
-              </Sheet>
+              {/* ✅ GLOBAL SYNC STATUS (Visible on all pages) */}
+              {isSyncing && (
+                  <Badge variant="secondary" className="hidden md:flex gap-1 bg-blue-50 text-blue-700 border-blue-200">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Syncing Data...
+                  </Badge>
+              )}
+              {pendingCount > 0 && (
+                  <Badge variant="destructive" className="hidden md:flex gap-1">
+                      <WifiOff className="h-3 w-3" /> {pendingCount} Offline Actions
+                  </Badge>
+              )}
           </div>
           
           {/* Header Right Side */}
