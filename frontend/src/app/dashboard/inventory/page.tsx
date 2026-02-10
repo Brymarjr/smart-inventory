@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Product, PaginatedResponse } from '@/lib/types';
@@ -10,71 +10,50 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
 import { 
-  Plus, 
-  Search, 
-  AlertTriangle, 
-  PackageOpen, 
-  Settings2, 
-  Trash2, 
-  ArchiveRestore, 
-  RotateCcw,
-  ChevronLeft,  // ✅ Added
-  ChevronRight  // ✅ Added
+  Plus, AlertTriangle, PackageOpen, Settings2, Trash2, 
+  ArchiveRestore, RotateCcw, ChevronLeft, ChevronRight, Loader2
 } from 'lucide-react';
 import { ProductForm } from './product-form';
 import { StockAdjustmentDialog } from '@/components/inventory/stock-adjustment-dialog';
 import { ArchiveProductDialog } from '@/components/inventory/archive-product-dialog'; 
 import { RestoreProductDialog } from '@/components/inventory/restore-product-dialog';
 
-export default function InventoryPage() {
-  // ✅ Pagination & Search State
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1); // Start at page 1
+// ✅ Import the new component
+import { DebouncedInput } from '@/components/shared/debounced-input';
 
+export default function InventoryPage() {
+  // ✅ We only hold the "Final" search term here. 
+  // The immediate typing is handled inside DebouncedInput.
+  const [search, setSearch] = useState(''); 
+  
+  const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState("active");
 
-  // Modal States
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [archiveProduct, setArchiveProduct] = useState<Product | null>(null);
   const [restoreProduct, setRestoreProduct] = useState<Product | null>(null);
 
   const queryClient = useQueryClient();
 
-  // ✅ Updated Fetch Logic
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['products', search, currentTab, page], // Refetch on page change
+  useEffect(() => {
+    setPage(1);
+  }, [search, currentTab]);
+
+  const { data, isLoading, isError, isFetching } = useQuery({
+    queryKey: ['products', search, currentTab, page],
     queryFn: async () => {
-      const params: any = { 
-          page, 
-          page_size: 20 // Optional: enforce size
-      };
-      
+      const params: any = { page, page_size: 20 };
       if (search) params.search = search;
-      
-      if (currentTab === 'archived') {
-        params.deleted = 'true';
-      }
+      if (currentTab === 'archived') params.deleted = 'true';
       
       const response = await api.get<PaginatedResponse<Product>>('/api/products/', { params });
       return response.data;
     },
+    placeholderData: (prev) => prev,
   });
-
-  // ✅ Handle Search (Reset page to 1)
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearch(e.target.value);
-      setPage(1);
-  };
-
-  // ✅ Handle Tabs (Reset page to 1)
-  const handleTabChange = (val: string) => {
-      setCurrentTab(val);
-      setPage(1);
-  };
 
   return (
     <div className="space-y-6">
@@ -91,7 +70,7 @@ export default function InventoryPage() {
         )}
       </div>
 
-      <Tabs defaultValue="active" onValueChange={handleTabChange} className="w-full">
+      <Tabs defaultValue="active" onValueChange={setCurrentTab} className="w-full">
         <div className="flex items-center justify-between mb-4">
             <TabsList>
                 <TabsTrigger value="active">Active Inventory</TabsTrigger>
@@ -105,21 +84,21 @@ export default function InventoryPage() {
             <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
                 <CardTitle>{currentTab === 'active' ? 'Active Products' : 'Archived Products'}</CardTitle>
-                <div className="relative w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Search products..."
-                    className="pl-8"
+                
+                {/* ✅ FAST INPUT: Only updates parent state after 500ms delay */}
+                <DebouncedInput 
                     value={search}
-                    onChange={handleSearch} // ✅ Use new handler
+                    onChange={(val) => setSearch(val)}
+                    isLoading={isFetching && !isLoading}
+                    placeholder="Search products..."
                 />
-                </div>
+
             </div>
             </CardHeader>
             <CardContent>
             {isLoading ? (
                 <div className="h-48 flex items-center justify-center text-muted-foreground">
-                Loading inventory...
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading inventory...
                 </div>
             ) : isError ? (
                 <div className="h-48 flex items-center justify-center text-red-500">
@@ -213,7 +192,6 @@ export default function InventoryPage() {
                 </Table>
                 </div>
 
-                {/* ✅ PAGINATION CONTROLS */}
                 <div className="flex items-center justify-between space-x-2 py-4">
                     <div className="text-sm text-muted-foreground">
                         {data?.count ? (

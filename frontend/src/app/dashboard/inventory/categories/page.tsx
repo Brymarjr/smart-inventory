@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -20,46 +20,49 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-    Plus, Search, Loader2, Tags, Pencil, Trash2, MoreHorizontal, 
-    ChevronLeft, ChevronRight // ✅ Added Arrows
+    Plus, Loader2, Tags, Pencil, Trash2, MoreHorizontal, 
+    ChevronLeft, ChevronRight 
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// ✅ Import Debounced Input
+import { DebouncedInput } from '@/components/shared/debounced-input';
+
 export default function CategoriesPage() {
   const { user } = useAuth();
+  
+  // ✅ State holds "final" search term only
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1); // ✅ Added Page State
+  const [page, setPage] = useState(1);
   
   const queryClient = useQueryClient();
 
-  // --- MODAL STATES ---
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
 
-  // --- FORM DATA ---
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [reason, setReason] = useState('');
 
   const canModify = user?.role === 'tenant_admin' || user?.role === 'manager';
 
-  // 1. Fetch Categories (Paginated)
-  const { data, isLoading } = useQuery({
-    queryKey: ['categories', search, page], // ✅ Update key
+  // ✅ Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  // 1. Fetch Categories
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['categories', search, page],
     queryFn: async () => {
-      const params = { 
-          search, 
-          page, 
-          page_size: 20 
-      };
+      const params = { search, page, page_size: 20 };
       const { data } = await api.get<PaginatedResponse<Category>>('/api/categories/', { params });
       return data;
     },
     placeholderData: (prev) => prev,
   });
 
-  // 2. CREATE Mutation
   const createMutation = useMutation({
     mutationFn: async () => {
       await api.post('/api/categories/', { name, description });
@@ -73,7 +76,6 @@ export default function CategoriesPage() {
     onError: (error: any) => handleApiError(error)
   });
 
-  // 3. UPDATE Mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
         if (!editingCategory) return;
@@ -88,7 +90,6 @@ export default function CategoriesPage() {
     onError: (error: any) => handleApiError(error)
   });
 
-  // 4. DELETE Mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
         if (!deletingCategory) return;
@@ -120,15 +121,8 @@ export default function CategoriesPage() {
       setReason('');
   };
 
-  // ✅ Handle Search: Reset page
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearch(e.target.value);
-      setPage(1);
-  };
-
   return (
     <div className="space-y-6">
-      {/* HEADER */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
            <h1 className="text-2xl font-bold tracking-tight">Categories</h1>
@@ -169,15 +163,14 @@ export default function CategoriesPage() {
         <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
                 <CardTitle className="text-base">All Categories</CardTitle>
-                <div className="relative w-64">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Search..." 
-                        className="pl-8 h-9" 
-                        value={search}
-                        onChange={handleSearch} // ✅ Updated Handler
-                    />
-                </div>
+                
+                {/* ✅ FAST DEBOUNCED INPUT */}
+                <DebouncedInput 
+                    value={search}
+                    onChange={(val) => setSearch(val)}
+                    isLoading={isFetching && !isLoading}
+                    placeholder="Search..."
+                />
             </div>
         </CardHeader>
         <CardContent>
@@ -230,7 +223,6 @@ export default function CategoriesPage() {
                 </Table>
             </div>
 
-            {/* ✅ PAGINATION FOOTER */}
             <div className="flex items-center justify-between space-x-2 py-4">
                 <div className="text-sm text-muted-foreground">
                     {data?.count ? (
@@ -265,7 +257,6 @@ export default function CategoriesPage() {
         </CardContent>
       </Card>
 
-      {/* --- EDIT DIALOG --- */}
       <Dialog open={!!editingCategory} onOpenChange={(open) => !open && setEditingCategory(null)}>
         <DialogContent>
             <DialogHeader>
@@ -287,7 +278,6 @@ export default function CategoriesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* --- DELETE DIALOG --- */}
       <Dialog open={!!deletingCategory} onOpenChange={(open) => !open && setDeletingCategory(null)}>
         <DialogContent>
             <DialogHeader>
@@ -298,8 +288,8 @@ export default function CategoriesPage() {
                 <Label>Reason for Deletion (Required)</Label>
                 <Textarea placeholder="Why is this being deleted?" value={reason} onChange={e => setReason(e.target.value)} />
                 <DialogFooter>
-                     <Button variant="outline" onClick={() => setDeletingCategory(null)}>Cancel</Button>
-                     <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending || !reason.trim()}>
+                      <Button variant="outline" onClick={() => setDeletingCategory(null)}>Cancel</Button>
+                      <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending || !reason.trim()}>
                         {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete Permanently
                     </Button>
                 </DialogFooter>
