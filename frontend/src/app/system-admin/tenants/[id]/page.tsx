@@ -15,6 +15,9 @@ import { Label } from '@/components/ui/label';
 import { Loader2, ArrowLeft, Building, User, Power, ShieldAlert, Users, Clock, Calendar, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
+// ✅ Import the Training Card
+import { TenantTrainingCard } from '@/components/admin/tenant-training-card';
+
 export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params); // Unwrap params for Next.js 15
@@ -220,6 +223,10 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </CardContent>
         </Card>
+
+        {/* ✅ NEW: AI MODEL TRAINING CARD */}
+        <TenantTrainingCard tenantId={tenant.id.toString()} tenantName={tenant.name} />
+
       </div>
 
       {/* TABS (Audit Logs & Billing) */}

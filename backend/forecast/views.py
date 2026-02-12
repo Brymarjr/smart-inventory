@@ -15,11 +15,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAdminUser
 from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
 from core.mixins import TenantFilteredViewSet 
 from .models import Forecast, InventoryAnomaly
 from .serializers import ForecastDashboardSerializer, InventoryAnomalySerializer
-from .tasks import run_analytics_for_all
-
+from .tasks import run_analytics_for_all, train_and_detect_anomalies, generate_daily_forecasts
+from tenants.models import Tenant
 
 class ForecastViewSet(TenantFilteredViewSet):
     """
@@ -89,4 +90,25 @@ class TrainModelsView(APIView):
         return Response({
             "status": "success", 
             "message": "Global Forecast & Anomaly Detection triggered successfully."
+        })
+        
+        
+class TrainSingleTenantView(APIView):
+    """
+    Trigger AI training for a SPECIFIC tenant only.
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, tenant_id):
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        
+        print(f"🧠 [System Admin] Training model for: {tenant.name}...")
+        
+        # Trigger tasks for THIS tenant only
+        train_and_detect_anomalies.delay(tenant.id)
+        generate_daily_forecasts.delay(tenant.id)
+        
+        return Response({
+            "status": "success", 
+            "message": f"Training started for {tenant.name}."
         })
