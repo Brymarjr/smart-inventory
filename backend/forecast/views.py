@@ -17,7 +17,7 @@ from rest_framework.permissions import IsAdminUser
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from core.mixins import TenantFilteredViewSet 
-from .models import Forecast, InventoryAnomaly
+from .models import Forecast, InventoryAnomaly, ForecastModel
 from .serializers import ForecastDashboardSerializer, InventoryAnomalySerializer
 from .tasks import run_analytics_for_all, train_and_detect_anomalies, generate_daily_forecasts
 from tenants.models import Tenant
@@ -98,6 +98,21 @@ class TrainSingleTenantView(APIView):
     Trigger AI training for a SPECIFIC tenant only.
     """
     permission_classes = [IsAdminUser]
+    
+    def get(self, request, tenant_id):
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        
+        # Fetch the latest model info
+        latest_model = ForecastModel.objects.filter(
+            tenant=tenant, 
+            model_type='evolutionary_v1'
+        ).first()
+        
+        return Response({
+            "tenant": tenant.name,
+            # Return null if never trained
+            "last_trained_at": latest_model.trained_at if latest_model else None 
+        })
 
     def post(self, request, tenant_id):
         tenant = get_object_or_404(Tenant, id=tenant_id)

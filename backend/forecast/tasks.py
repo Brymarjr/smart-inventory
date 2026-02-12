@@ -90,7 +90,7 @@ def train_and_detect_anomalies(self, tenant_id):
         
     ForecastModel.objects.update_or_create(
         tenant=tenant, model_type='evolutionary_v1',
-        defaults={'file_path': model_path, 'version': 4}
+        defaults={'file_path': model_path, 'version': 4, 'trained_at': timezone.now()}
     )
 
 def _detect_anomalies(tenant, product, df, model_info):
