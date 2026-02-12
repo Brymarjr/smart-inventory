@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from sklearn.linear_model import LinearRegression
 
 from tenants.models import Tenant
@@ -154,7 +155,7 @@ def generate_daily_forecasts(self, tenant_id):
     except ForecastModel.DoesNotExist:
         return "No brain found."
 
-    today = date.today()
+    today = timezone.now().date()
     
     with transaction.atomic():
         Forecast.objects.filter(tenant=tenant, prediction_date__lt=today).delete()

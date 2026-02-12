@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import date, timedelta
 from django.db.models import Sum
 from sales.models import SaleItem
+from django.utils import timezone
 
 def get_clean_sales_data(tenant, product, days=90):
     """
@@ -10,6 +11,8 @@ def get_clean_sales_data(tenant, product, days=90):
     CRITICAL FIX: Do NOT smooth out zeros. We need the AI to see the zeros 
     to detect 'Ghost Stock' and the raw spikes for 'Velocity Spike'.
     """
+    today = timezone.now().date()
+    
     # 1. Fetch Sales
     sales_qs = SaleItem.objects.filter(
         product=product, 
