@@ -33,3 +33,13 @@ c. Run these commands in the different backend terminals:
    wsl --shutdown
 
    wait for some seconds, reopen vscode and connect to wsl once again
+
+
+6. Git and version control:
+   
+   git add .    (To commit all changes to local repo on your laptop)
+
+   git commit -m "Your commit message goes here!"    (To add a commit message)
+
+   git push origin frontend-features      (To push to github so other users can pull your changes)
+

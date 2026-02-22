@@ -195,12 +195,14 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 class TenantAwareTokenObtainPairSerializer(serializers.Serializer):
     tenant = serializers.CharField(required=True)
-    username = serializers.CharField(required=True)
+    # We keep the field name as 'username' so your API contract doesn't break,
+    # but the frontend will send the user's Email into this field.
+    username = serializers.CharField(required=True) 
     password = serializers.CharField(required=True, write_only=True)
 
     def validate(self, attrs):
         tenant_name = attrs.get("tenant")
-        username = attrs.get("username")
+        login_identifier = attrs.get("username") # This is now the email
         password = attrs.get("password")
 
         try:
@@ -208,15 +210,17 @@ class TenantAwareTokenObtainPairSerializer(serializers.Serializer):
         except Tenant.DoesNotExist:
             raise serializers.ValidationError({"tenant": "Invalid tenant name"})
 
-        tenant_prefixed_username = f"{tenant.id}__{username}"
-
+        # --- THE ONLY CHANGE IS HERE ---
         try:
+            # Look up the user by EMAIL and TENANT
+            # (Using iexact makes it case-insensitive, so Admin@store.com works)
             user = User.objects.get(
-                username=tenant_prefixed_username,
+                email__iexact=login_identifier,
                 tenant=tenant
             )
         except User.DoesNotExist:
             raise serializers.ValidationError({"detail": "Invalid credentials"})
+        # -------------------------------
 
         if not user.check_password(password):
             raise serializers.ValidationError({"detail": "Invalid credentials"})
@@ -225,18 +229,22 @@ class TenantAwareTokenObtainPairSerializer(serializers.Serializer):
             raise serializers.ValidationError({"detail": "User account is inactive"})
 
         refresh = RefreshToken.for_user(user)
+        
+        # Clean the old prefixed username just for the frontend response
+        raw_username = user.username
+        clean_username = raw_username.split('__')[-1] if '__' in raw_username else raw_username
 
         return {
             "refresh": str(refresh),
             "access": str(refresh.access_token),
             "user": {
                 "id": user.id,
-                "username": username,  # clean username
+                "username": clean_username,  
+                "email": user.email,         # Added email to the response payload
                 "tenant": tenant.name,
                 "role": user.role.name if user.role else None,
                 "is_superuser": user.is_superuser,
                 "must_change_password": getattr(user, "must_change_password", False),
-                # ToS fields here for instant login check
                 "tos_accepted_at": user.tos_accepted_at,
                 "tos_version": user.tos_version,
             },

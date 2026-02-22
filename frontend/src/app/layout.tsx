@@ -1,45 +1,80 @@
 'use client';
 
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { AuthProvider } from "@/lib/auth-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "sonner"; 
-import { useState } from "react";
-import { ThemeProvider } from "@/components/theme-provider";
-import { LegalGuard } from "@/components/auth/legal-guard"; // ✅ Import the Guard
+import { Plus_Jakarta_Sans } from 'next/font/google'; // Switched from Inter to Plus Jakarta Sans
+import './globals.css';
+import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
+import { useState, ReactNode } from 'react';
+import { ThemeProvider } from '@/components/theme-provider';
+import { LegalGuard } from '@/components/auth/legal-guard';
 
-const inter = Inter({ subsets: ["latin"] });
+// Configured Plus Jakarta Sans for a softer, more premium SME feel
+const jakarta = Plus_Jakarta_Sans({ 
+  subsets: ['latin'],
+  variable: '--font-jakarta', 
+});
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Create client once per session to avoid re-initializing on re-renders
+// ----------------------
+// Guard Wrapper for Auth-Only Pages
+// ----------------------
+function AuthWrapper({ children }: { children: ReactNode }) {
+  const { isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-background">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-bold text-primary animate-pulse">Initializing ForeTrack...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <LegalGuard>{children}</LegalGuard>;
+}
+
+// ----------------------
+// RootLayout
+// ----------------------
+export default function RootLayout({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning className={jakarta.variable}>
+      <body className={`${jakarta.className} antialiased`}>
         <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
+          attribute="class"
+          defaultTheme="light" // Defaulting to light for SME visibility
+          enableSystem
+          disableTransitionOnChange
         >
-            <QueryClientProvider client={queryClient}>
-                <AuthProvider>
-                    {/* ✅ LegalGuard is placed here so it can access the user from AuthProvider */}
-                    <LegalGuard>
-                        {children}
-                    </LegalGuard>
-                    
-                    <Toaster />
-                </AuthProvider>
-            </QueryClientProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              {/* ✅ Only wrap pages that need authentication */}
+              {childrenWithAuth(children)}
+              <Toaster richColors position="top-right" />
+            </AuthProvider>
+          </QueryClientProvider>
         </ThemeProvider>
       </body>
     </html>
   );
+}
+
+// ----------------------
+// Helper: Wrap only protected pages with AuthWrapper
+// ----------------------
+function childrenWithAuth(children: ReactNode) {
+  const protectedRoutes = ['/dashboard', '/system-admin']; 
+
+  if (typeof window !== 'undefined') {
+    const path = window.location.pathname;
+    if (protectedRoutes.some(route => path.startsWith(route))) {
+      return <AuthWrapper>{children}</AuthWrapper>;
+    }
+  }
+
+  return children;
 }
