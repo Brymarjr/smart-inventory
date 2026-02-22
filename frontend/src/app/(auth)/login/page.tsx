@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/lib/auth-context';
-import Link from 'next/link';
+import Link from 'next/link'; 
+import { useSearchParams } from 'next/navigation'; // ✅ Import SearchParams
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,93 +17,59 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { AlertCircle, Building2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Eye, EyeOff, Building2, PackageSearch, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-// Nomenclature updated from username to email
-const loginSchema = z.object({
+const tenantSchema = z.object({
   tenant: z.string().min(1, 'Organization ID is required'),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
-export default function LoginPage() {
+// ✅ Separate component to safely use searchParams
+function LoginForm() {
   const { loginTenant } = useAuth();
+  const searchParams = useSearchParams();
+  
+  // ✅ AUTO-FILL: Check URL for ?tenant=xxx&username=yyy
+  const defaultTenant = searchParams.get('tenant') || '';
+  const defaultUser = searchParams.get('username') || '';
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
-  const form = useForm<z.infer<typeof loginSchema>>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { tenant: '', email: '', password: '' },
+  const tenantForm = useForm<z.infer<typeof tenantSchema>>({
+    resolver: zodResolver(tenantSchema),
+    defaultValues: { 
+        tenant: defaultTenant, 
+        username: defaultUser, 
+        password: '' 
+    },
   });
 
-  async function onSubmit(values: z.infer<typeof loginSchema>) {
+  async function onTenantSubmit(values: z.infer<typeof tenantSchema>) {
     setIsLoading(true);
     setError('');
     try {
-      // Logic updated to pass email instead of username
-      await loginTenant(values.tenant, values.email, values.password);
-      
-      toast.success('Authentication Successful', {
-        description: `Accessing workspace: ${values.tenant}`,
-      });
-      
+      await loginTenant(values.tenant, values.username, values.password);
+      toast.success('Welcome back!');
     } catch (err: any) {
-      const serverMsg = err.response?.data?.detail || 'Invalid credentials.';
-      const errorMessage = Array.isArray(serverMsg) ? serverMsg[0] : serverMsg;
-      setError(errorMessage);
-      toast.error('Login Failed', {
-        description: errorMessage,
-      });
+      console.error(err);
+      const serverMsg = err.response?.data?.detail || err.response?.data?.tenant || 'Invalid Organization ID or credentials.';
+      setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
+      toast.error("Login Failed");
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <div className="h-screen flex flex-col lg:flex-row bg-white overflow-hidden">
-      
-      {/* LEFT PANEL - Professional Branding */}
-      <div className="hidden lg:flex w-full lg:w-5/12 bg-[#1A1B4B] text-white p-12 flex-col justify-between relative">
-        <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#2D31FA] opacity-10 rounded-full blur-3xl"></div>
-        
-        <div className="relative z-10 space-y-10">
-          <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group mb-10 w-fit">
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-black uppercase tracking-widest">Back to Home</span>
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <div className="bg-[#2D31FA] p-2 rounded-lg">
-              <PackageSearch className="w-8 h-8 text-white" />
-            </div>
-            <span className="text-3xl font-bold tracking-tight">ForeTrack</span>
-          </div>
-          
-          <div className="space-y-6">
-            <h1 className="text-6xl font-black leading-tight">
-              Precision Stock <br />
-              <span className="text-[#2D31FA]">Management.</span>
-            </h1>
-            <div className="space-y-4 max-w-md">
-              <p className="text-slate-400 text-xl leading-relaxed max-w-sm font-light">
-                ForeTrack transforms complex inventory data into simple, actionable insights. 
-                Built specifically for the logistical challenges of modern Nigerian enterprises.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-10 border-t border-white/10 pt-6">
-          <div className="flex items-center gap-6 text-xs font-semibold tracking-widest uppercase text-slate-500">
-            <span>Optimized</span>
-            <span className="w-1 h-1 bg-[#2D31FA] rounded-full"></span>
-            <span>Automated</span>
-            <span className="w-1 h-1 bg-[#2D31FA] rounded-full"></span>
-            <span>Scalable</span>
+    <Card className="w-full max-w-md shadow-xl border-slate-200">
+        <CardHeader className="text-center pb-6">
+          <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-4">
+            <Building2 className="w-8 h-8 text-primary" />
           </div>
         </div>
       </div>
@@ -203,34 +170,29 @@ export default function LoginPage() {
                   )}
                 />
 
-                <Button
-                  type="submit"
-                  className="w-full h-16 text-xl font-black bg-[#2D31FA] hover:bg-[#1A1B4B] text-white rounded-2xl shadow-2xl shadow-[#2D31FA]/20 transition-all tracking-widest mt-2 flex items-center justify-center gap-3"
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                      VERIFYING...
-                    </>
-                  ) : (
-                    'SIGN IN'
-                  )}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-
-          <CardFooter className="flex justify-center border-t border-slate-100 mt-2 pt-4">
-            <p className="text-base text-slate-500 font-semibold">
-              New to ForeTrack?{' '}
-              <Link href="/register" className="text-[#2D31FA] font-black hover:text-[#1A1B4B]">
-                Register Business
-              </Link>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Authenticating...</> : 'Sign In'}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+        
+        <CardFooter className="flex justify-center border-t pt-4">
+            <p className="text-sm text-slate-500">
+              Don't have an account? <Link href="/register" className="text-primary font-medium hover:underline">Register your business</Link>
             </p>
-          </CardFooter>
-        </Card>
-      </div>
+        </CardFooter>
+      </Card>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+      {/* ✅ Suspense is required when using useSearchParams in Next.js App Router */}
+      <Suspense fallback={<div className="flex items-center gap-2"><Loader2 className="animate-spin" /> Loading...</div>}>
+         <LoginForm />
+      </Suspense>
     </div>
   );
 }

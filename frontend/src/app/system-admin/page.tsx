@@ -7,7 +7,7 @@ import { SystemTenant } from '@/lib/types';
 import Link from 'next/link';
 
 // UI Components
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 // Icons
 import { 
   Loader2, Search, Building2, ChevronLeft, ChevronRight, 
-  DollarSign, Ticket, TrendingUp, Activity
+  DollarSign, Ticket, TrendingUp, Activity, BrainCircuit, Play, CheckCircle2
 } from 'lucide-react';
 
 // Charts
@@ -39,8 +39,8 @@ interface AnalyticsData {
   active_tenants: number;
   global_revenue: number;
   open_tickets: number;
-  growth_rate: number; // ✅ REAL DATA
-  health: {            // ✅ REAL DATA
+  growth_rate: number; 
+  health: {            
     database: string;
     redis: string;
     api: string;
@@ -62,6 +62,10 @@ export default function SystemAdminDashboard() {
   const debouncedSearch = useDebounce(searchQuery, 500);
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [prevPage, setPrevPage] = useState<string | null>(null);
+
+  // --- STATE: AI TRAINING ---
+  const [isTraining, setIsTraining] = useState(false);
+  const [lastTrained, setLastTrained] = useState<string | null>(null);
 
   // --- 1. FETCH ANALYTICS (Once) ---
   useEffect(() => {
@@ -114,6 +118,25 @@ export default function SystemAdminDashboard() {
 
   const handleNext = () => { if (nextPage) fetchTenants(nextPage); };
   const handlePrev = () => { if (prevPage) fetchTenants(prevPage); };
+
+  // --- 3. HANDLE AI TRAINING TRIGGER ---
+  const handleTriggerTraining = async () => {
+      setIsTraining(true);
+      try {
+          // Calls the endpoint to train models -> TrainModelsView
+          await api.post('/api/admin/train-models/');
+          
+          toast.success("Training Initiated", {
+              description: "The ML engine is now reprocessing sales data."
+          });
+          setLastTrained(new Date().toLocaleTimeString());
+      } catch (error) {
+          console.error(error);
+          toast.error("Training Failed", { description: "Could not contact the ML service." });
+      } finally {
+          setIsTraining(false);
+      }
+  };
 
   if (isAnalyticsLoading && isListLoading) {
     return (
@@ -175,7 +198,6 @@ export default function SystemAdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* ✅ REAL DYNAMIC GROWTH RATE CARD */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Growth Rate</CardTitle>
@@ -211,7 +233,7 @@ export default function SystemAdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* ✅ REAL DYNAMIC SYSTEM HEALTH */}
+        {/* System Health */}
         <Card className="col-span-3">
           <CardHeader>
             <CardTitle>System Health</CardTitle>
@@ -261,6 +283,44 @@ export default function SystemAdminDashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* ---------------- SECTION 1.5: SYSTEM OPERATIONS (NEW) ---------------- */}
+      <div className="grid gap-4 md:grid-cols-1">
+          <Card className="border-l-4 border-l-purple-500 bg-slate-50/50">
+              <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                          <CardTitle className="text-base flex items-center gap-2">
+                              <BrainCircuit className="h-5 w-5 text-purple-600" />
+                              AI Model Operations
+                          </CardTitle>
+                          <CardDescription>
+                              Manually trigger retraining for Demand Forecasting models across all tenants.
+                          </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-4">
+                           {lastTrained && (
+                                <span className="text-xs text-muted-foreground flex items-center bg-white px-2 py-1 rounded border">
+                                    <CheckCircle2 className="h-3 w-3 text-green-500 mr-1" />
+                                    Last run: {lastTrained}
+                                </span>
+                           )}
+                           <Button 
+                                onClick={handleTriggerTraining} 
+                                disabled={isTraining}
+                                className="bg-purple-600 hover:bg-purple-700 text-white"
+                            >
+                                {isTraining ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Training...</>
+                                ) : (
+                                    <><Play className="mr-2 h-4 w-4" /> Start Training</>
+                                )}
+                            </Button>
+                      </div>
+                  </div>
+              </CardHeader>
+          </Card>
       </div>
 
       {/* ---------------- SECTION 2: TENANT MANAGEMENT ---------------- */}
@@ -333,7 +393,7 @@ export default function SystemAdminDashboard() {
                           <TableCell className="text-right">
                             <Button variant="outline" size="sm" asChild>
                                <Link href={`/system-admin/tenants/${tenant.id}`}>
-                                 View Data
+                                  View Data
                                </Link>
                             </Button>
                           </TableCell>

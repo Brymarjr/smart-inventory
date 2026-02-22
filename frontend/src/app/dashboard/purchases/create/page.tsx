@@ -2,42 +2,37 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Product, PaginatedResponse } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Trash2, Plus, Loader2 } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+
+// ✅ Import the new component
+import { ProductCombobox } from '@/components/shared/product-combobox';
 
 export default function CreatePurchasePage() {
   const router = useRouter();
   
-  // ✅ Cart State (Removed unit_cost)
+  // ✅ Identical State
   const [items, setItems] = useState<{product: string, quantity: number}[]>([
     { product: '', quantity: 1 }
   ]);
 
-  // Fetch Products
-  const { data: products } = useQuery({
-    queryKey: ['products'],
-    queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<Product>>('/api/products/');
-      return data.results;
-    },
-  });
-
+  // ✅ Identical Mutation Logic
   const createMutation = useMutation({
     mutationFn: async () => {
-        // ✅ Payload: Only Product ID and Quantity
+        // Simple validation to ensure no empty rows
+        const validItems = items.filter(i => i.product && i.quantity > 0);
+        if (validItems.length === 0) throw new Error("Please add at least one product");
+
         const payload = {
-            items: items.map(i => ({
+            items: validItems.map(i => ({
                 product: parseInt(i.product),
                 quantity: i.quantity
-                // No unit_cost sent here. Staff doesn't decide price.
             }))
         };
         await api.post('/api/purchases/', payload);
@@ -72,22 +67,16 @@ export default function CreatePurchasePage() {
             <div className="space-y-4">
                 {items.map((item, index) => (
                     <div key={index} className="flex gap-4 items-end border p-4 rounded-md bg-slate-50">
+                        
+                        {/* ✅ REPLACED: <Select> with <ProductCombobox> */}
                         <div className="flex-1 space-y-2">
                             <Label>Product</Label>
-                            <Select 
-                                value={item.product} 
-                                onValueChange={(val) => updateItem(index, 'product', val)}
-                            >
-                                <SelectTrigger className="bg-white">
-                                    <SelectValue placeholder="Select Product" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {products?.map(p => (
-                                        <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <ProductCombobox 
+                                value={item.product}
+                                onSelect={(id) => updateItem(index, 'product', id)}
+                            />
                         </div>
+
                         <div className="w-32 space-y-2">
                             <Label>Quantity</Label>
                             <Input 
@@ -99,9 +88,7 @@ export default function CreatePurchasePage() {
                             />
                         </div>
                         
-                        {/* ✅ REMOVED: Est. Cost Input */}
-
-                        <Button variant="ghost" size="icon" className="text-red-500" onClick={() => removeItem(index)}>
+                        <Button variant="ghost" size="icon" className="text-red-500 mb-0.5" onClick={() => removeItem(index)}>
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>

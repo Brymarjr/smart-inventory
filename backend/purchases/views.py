@@ -67,7 +67,7 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
         """
         Creates a Draft PO.
         
-        Enforces the 'purchases' feature flag from the billing plan.
+        Enforces the 'purchases' feature flag from the billing plan feature.
         """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:

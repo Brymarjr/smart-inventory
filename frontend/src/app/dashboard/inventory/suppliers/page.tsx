@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -20,24 +20,27 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { 
-    Plus, Search, Loader2, Truck, Pencil, Trash2, MoreHorizontal, Mail, Phone,
-    ChevronLeft, ChevronRight // ✅ Added Arrows
+    Plus, Loader2, Truck, Pencil, Trash2, MoreHorizontal, Mail, Phone,
+    ChevronLeft, ChevronRight 
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// ✅ Import Debounced Input
+import { DebouncedInput } from '@/components/shared/debounced-input';
+
 export default function SuppliersPage() {
   const { user } = useAuth();
+  
+  // ✅ State holds final search term
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1); // ✅ Added Page State
+  const [page, setPage] = useState(1);
   
   const queryClient = useQueryClient();
 
-  // --- MODAL STATES ---
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
 
-  // --- FORM DATA ---
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -46,22 +49,22 @@ export default function SuppliersPage() {
 
   const canModify = user?.role === 'tenant_admin' || user?.role === 'manager';
 
-  // 1. Fetch Suppliers (Paginated)
-  const { data, isLoading } = useQuery({
-    queryKey: ['suppliers', search, page], // ✅ Update Key
+  // ✅ Reset page on search
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  // 1. Fetch Suppliers
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ['suppliers', search, page],
     queryFn: async () => {
-      const params = { 
-          search, 
-          page, 
-          page_size: 20 
-      };
+      const params = { search, page, page_size: 20 };
       const { data } = await api.get<PaginatedResponse<Supplier>>('/api/suppliers/', { params });
       return data;
     },
     placeholderData: (prev) => prev,
   });
 
-  // 2. CREATE Mutation
   const createMutation = useMutation({
     mutationFn: async () => {
       await api.post('/api/suppliers/', { name, email, phone, address });
@@ -75,7 +78,6 @@ export default function SuppliersPage() {
     onError: (error: any) => handleApiError(error),
   });
 
-  // 3. UPDATE Mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
         if (!editingSupplier) return;
@@ -90,7 +92,6 @@ export default function SuppliersPage() {
     onError: (error: any) => handleApiError(error),
   });
 
-  // 4. DELETE Mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
         if (!deletingSupplier) return;
@@ -126,11 +127,6 @@ export default function SuppliersPage() {
       setPhone(sup.phone || '');
       setAddress(sup.address || '');
       setReason('');
-  };
-
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearch(e.target.value);
-      setPage(1); // ✅ Reset Page
   };
 
   return (
@@ -173,15 +169,14 @@ export default function SuppliersPage() {
         <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
                 <CardTitle className="text-base">All Suppliers</CardTitle>
-                <div className="relative w-64">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Search..." 
-                        className="pl-8 h-9" 
-                        value={search}
-                        onChange={handleSearch} // ✅ Use updated handler
-                    />
-                </div>
+                
+                {/* ✅ FAST DEBOUNCED INPUT */}
+                <DebouncedInput 
+                    value={search}
+                    onChange={(val) => setSearch(val)}
+                    isLoading={isFetching && !isLoading}
+                    placeholder="Search..."
+                />
             </div>
         </CardHeader>
         <CardContent>
@@ -241,7 +236,6 @@ export default function SuppliersPage() {
                 </Table>
             </div>
 
-            {/* ✅ PAGINATION FOOTER */}
             <div className="flex items-center justify-between space-x-2 py-4">
                 <div className="text-sm text-muted-foreground">
                     {data?.count ? (
@@ -276,7 +270,6 @@ export default function SuppliersPage() {
         </CardContent>
       </Card>
 
-      {/* --- EDIT DIALOG --- */}
       <Dialog open={!!editingSupplier} onOpenChange={(open) => !open && setEditingSupplier(null)}>
         <DialogContent>
             <DialogHeader>
@@ -300,7 +293,6 @@ export default function SuppliersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* --- DELETE DIALOG --- */}
       <Dialog open={!!deletingSupplier} onOpenChange={(open) => !open && setDeletingSupplier(null)}>
         <DialogContent>
             <DialogHeader>
@@ -311,8 +303,8 @@ export default function SuppliersPage() {
                 <Label>Reason for Deletion</Label>
                 <Textarea placeholder="Why is this being deleted?" value={reason} onChange={e => setReason(e.target.value)} />
                 <DialogFooter>
-                     <Button variant="outline" onClick={() => setDeletingSupplier(null)}>Cancel</Button>
-                     <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending || !reason.trim()}>
+                      <Button variant="outline" onClick={() => setDeletingSupplier(null)}>Cancel</Button>
+                      <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending || !reason.trim()}>
                         {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Delete
                     </Button>
                 </DialogFooter>

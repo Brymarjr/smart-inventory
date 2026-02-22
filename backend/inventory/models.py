@@ -3,6 +3,7 @@ from core.models import TenantAwareModel   #  Import tenant base
 from core.managers import TenantManager
 from django.conf import settings # To get the User model
 from tenants.models import Tenant
+from django.contrib.postgres.indexes import GinIndex
 
 class Category(TenantAwareModel):
     name = models.CharField(max_length=100)
@@ -52,6 +53,18 @@ class Product(TenantAwareModel):
 
     class Meta:
         unique_together = ("tenant", "sku")
+        
+        indexes = [
+            # Fast exact lookup for SKU (e.g. Barcode scanning)
+            models.Index(fields=['sku'], name='sku_idx'),
+            
+            # "Google-Style" Fuzzy Search for Name (e.g. "sam" finds "Samsung")
+            GinIndex(
+                fields=['name'], 
+                name='product_name_gin', 
+                opclasses=['gin_trgm_ops']
+            )
+        ]
 
     def __str__(self):
         return self.name

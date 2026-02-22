@@ -1,9 +1,13 @@
 Steps in starting the system up:
 
 1. Open up your vscode and connect to wsl
+
 2. Open up 5 terminals (4 for backend 1 for the frontend)
+
 3. On the backend terminals do the following;
+
 a. Activate the virtual environments for all the backend terminals with this command :  source venv/bin/activate
+
 b. Run these commands in the same backend terminal : 
 
    sudo service postgresql start

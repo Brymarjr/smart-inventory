@@ -12,10 +12,15 @@ Key Components:
 
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAdminUser
 from django.db.models import Count, Q
+from django.shortcuts import get_object_or_404
 from core.mixins import TenantFilteredViewSet 
-from .models import Forecast, InventoryAnomaly
+from .models import Forecast, InventoryAnomaly, ForecastModel
 from .serializers import ForecastDashboardSerializer, InventoryAnomalySerializer
+from .tasks import run_analytics_for_all, train_and_detect_anomalies, generate_daily_forecasts
+from tenants.models import Tenant
 
 class ForecastViewSet(TenantFilteredViewSet):
     """
@@ -67,4 +72,58 @@ class ForecastViewSet(TenantFilteredViewSet):
             "summary": stats,  # <--- Counters for the colored dashboard cards
             "forecasts": ForecastDashboardSerializer(forecasts, many=True).data,
             "alerts": InventoryAnomalySerializer(anomalies, many=True).data
+        })
+        
+        
+class TrainModelsView(APIView):
+    """
+    Manual Trigger for the AI Forecasting Engine.
+    """
+    permission_classes = [IsAdminUser] # Only System Admins
+
+    def post(self, request):
+        print("🧠 [System Admin] Manually triggering global forecast training...")
+        
+        # Trigger the Celery Task asynchronously
+        run_analytics_for_all.delay(sync=False)
+        
+        return Response({
+            "status": "success", 
+            "message": "Global Forecast & Anomaly Detection triggered successfully."
+        })
+        
+        
+class TrainSingleTenantView(APIView):
+    """
+    Trigger AI training for a SPECIFIC tenant only.
+    """
+    permission_classes = [IsAdminUser]
+    
+    def get(self, request, tenant_id):
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        
+        # Fetch the latest model info
+        latest_model = ForecastModel.objects.filter(
+            tenant=tenant, 
+            model_type='evolutionary_v1'
+        ).first()
+        
+        return Response({
+            "tenant": tenant.name,
+            # Return null if never trained
+            "last_trained_at": latest_model.trained_at if latest_model else None 
+        })
+
+    def post(self, request, tenant_id):
+        tenant = get_object_or_404(Tenant, id=tenant_id)
+        
+        print(f"🧠 [System Admin] Training model for: {tenant.name}...")
+        
+        # Trigger tasks for THIS tenant only
+        train_and_detect_anomalies.delay(tenant.id)
+        generate_daily_forecasts.delay(tenant.id)
+        
+        return Response({
+            "status": "success", 
+            "message": f"Training started for {tenant.name}."
         })

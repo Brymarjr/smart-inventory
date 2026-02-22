@@ -33,55 +33,94 @@ const getAuthHeaders = () => {
     return { Authorization: `Bearer ${token}` };
 };
 
-// 2. PULL: Download updates
-export const pullData = async () => {
+// 2. PULL: Download updates (Recursive Pagination)
+export const pullData = async (page = 1): Promise<{ success: boolean; error?: any }> => {
   try {
-    // 1. Safety Check
     const headers = getAuthHeaders();
-    if (!headers.Authorization) {
-        console.warn("⏸️ Sync Pull Skipped: No Auth Token available.");
-        return { success: false, error: "No token" };
-    }
+    if (!headers.Authorization) return { success: false, error: "No token" };
 
-    const meta = await db.meta.get('last_sync');
-    const lastSync = meta?.value || null;
+    // Only read from DB on the first page
+    let lastSync = null;
+    if (page === 1) {
+        const meta = await db.meta.get('last_sync');
+        lastSync = meta?.value || null;
+    } 
+    
     const deviceId = getDeviceId();
+    console.log(`⬇️ Sync Pull: Page ${page}...`);
 
-    console.log("⬇️ Starting Sync Pull...");
-
-    // 2. Request
     const response = await api.get('/api/sync/download/', {
-      params: { 
-        device_id: deviceId, 
-        last_sync: lastSync 
-      },
-      headers: headers // Explicitly attach the found token
+      params: { device_id: deviceId, last_sync: lastSync, page: page },
+      headers: headers
     });
 
     const { data, synced_at, has_more } = response.data;
 
-    // 3. Save to DB (Using array [] to fix arguments error)
+    // 3. Save to DB with SANITIZATION
     await db.transaction('rw', [db.products, db.categories, db.sales, db.saleItems, db.meta], async () => {
       
-      if (data?.products && Array.isArray(data.products)) await db.products.bulkPut(data.products);
-      if (data?.categories && Array.isArray(data.categories)) await db.categories.bulkPut(data.categories);
+      const rawProducts = data?.product || data?.products || [];
+      const rawCategories = data?.category || data?.categories || [];
+      const rawSales = data?.sale || data?.sales || [];
+      const rawSaleItems = data?.saleitem || data?.saleitems || [];
+
+      // --- 1. Clean Products ---
+      if (rawProducts.length > 0) {
+          const cleanProducts = rawProducts.map((p: any) => {
+              const clean: any = { ...p };
+              if (!clean.sku || clean.sku.trim() === "") delete clean.sku; 
+              clean.price = parseFloat(p.price) || 0;
+              clean.quantity = parseInt(p.quantity) || 0;
+              return clean;
+          });
+          await db.products.bulkPut(cleanProducts);
+      }
       
-      if (data?.product && Array.isArray(data.product)) await db.products.bulkPut(data.product);
-      if (data?.category && Array.isArray(data.category)) await db.categories.bulkPut(data.category);
+      // --- 2. Clean Categories ---
+      if (rawCategories.length > 0) {
+          await db.categories.bulkPut(rawCategories);
+      }
 
-      if (data?.sales && Array.isArray(data.sales)) await db.sales.bulkPut(data.sales);
-      if (data?.saleitems && Array.isArray(data.saleitems)) await db.saleItems.bulkPut(data.saleitems);
+      // --- 3. Clean Sales ---
+      if (rawSales.length > 0) {
+          const cleanSales = rawSales.map((s: any) => ({
+              ...s,
+              total_amount: parseFloat(s.total_amount) || 0,
+              // Ensure dates are strings for Dexie
+              created_at: s.created_at ? new Date(s.created_at).toISOString() : new Date().toISOString()
+          }));
+          await db.sales.bulkPut(cleanSales);
+      }
 
-      await db.meta.put({ key: 'last_sync', value: synced_at });
+      // --- 4. Clean SaleItems (THE FIX FOR YOUR ERROR) ---
+      if (rawSaleItems.length > 0) {
+          const cleanItems = rawSaleItems.map((i: any) => ({
+              ...i,
+              quantity: parseInt(i.quantity) || 1,
+              unit_price: parseFloat(i.unit_price) || 0,
+              subtotal: parseFloat(i.subtotal) || 0,
+              // Remove null IDs if they exist
+              id: i.id ? i.id : undefined 
+          }));
+          console.log(`💾 Saving ${cleanItems.length} items...`);
+          await db.saleItems.bulkPut(cleanItems);
+      }
+
+      // Only update the timestamp if we are DONE.
+      if (!has_more) {
+         await db.meta.put({ key: 'last_sync', value: synced_at });
+         console.log(`✅ Sync Complete! Updated timestamp to: ${synced_at}`);
+      }
     });
 
-    console.log(`✅ Sync Pull Success: ${synced_at}`);
-    
+    // 4. Recursion
     if (has_more) {
-        await pullData();
+        await new Promise(r => setTimeout(r, 50));
+        return await pullData(page + 1); 
     }
 
-    return { success: true, hasMore: has_more };
+    return { success: true };
+
   } catch (error) {
     console.error("❌ Sync Pull Failed:", error);
     return { success: false, error };

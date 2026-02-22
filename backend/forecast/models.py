@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.db import models
 from django.conf import settings
 from inventory.models import Product
@@ -10,7 +11,7 @@ class ForecastModel(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
     model_type = models.CharField(max_length=50) # e.g., 'trend_seasonality'
     file_path = models.CharField(max_length=255) 
-    trained_at = models.DateTimeField(auto_now_add=True)
+    trained_at = models.DateTimeField(default=timezone.now)
     version = models.IntegerField(default=1)
     
     # Store global metrics for the tenant's data quality

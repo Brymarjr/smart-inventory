@@ -9,11 +9,12 @@ Key Components:
 1.  **Device Management:** Authenticates and tracks physical POS terminals.
 2.  **Upload (Push):** Receives a batch of offline actions (e.g., Sales created offline)
     and processes them transactionally.
-3.  **Download (Pull):** Sends only *changed* data (Delta Sync) back to the client
-    to keep local databases up to date.
+3.  **Download (Pull):** Sends only *changed* data (Delta Sync) back to the client.
+    **OPTIMIZED:** Limits initial historical data sync to 30 days.
 """
 
 import datetime
+from datetime import timedelta
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
@@ -23,7 +24,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.generics import GenericAPIView
-from rest_framework_simplejwt.authentication import JWTAuthentication  # ✅ REQUIRED for Token Auth
+from rest_framework_simplejwt.authentication import JWTAuthentication  
 from django.conf import settings
 from django.apps import apps
 from . import models as sync_models
@@ -34,39 +35,24 @@ from .tasks import _apply_sync_operation_preflight, process_sync_job
 from .notifications import notify_device_unblocked
 import logging
 
-# ✅ PRODUCTION LOGGING SETUP
+# PRODUCTION LOGGING SETUP
 logger = logging.getLogger(__name__)
-logger.info("🚀 NEW SYNC VIEW CODE LOADED - JWT Auth Active")
 
 class DeviceViewSet(TenantFilteredViewSet, viewsets.ModelViewSet):
     """
     Manages physical Point of Sale (POS) devices.
-
-    Used to:
-    - Register new terminals.
-    - Monitor "Blocked" devices (security mechanism for failed sync spam).
-    - Manually Unblock devices via Admin UI.
     """
     queryset = sync_models.Device.objects.all()
     serializer_class = sync_serializers.DeviceSerializer
     permission_classes = [IsAuthenticated]
     
     def get_permissions(self):
-        """
-        Standard users can list devices, but ONLY Tenant Admins can unblock them.
-        """
         if self.action in ["unblock"]:
             return [IsAuthenticated(), IsTenantAdmin()]
         return super().get_permissions()
 
     @action(detail=True, methods=["post"])
     def unblock(self, request, pk=None):
-        """
-        Manually resets a blocked device.
-        
-        Resets `consecutive_failures` to 0 and sets `is_blocked=False`.
-        Triggers a notification to the staff using that device.
-        """
         device = self.get_object()
         if not device.is_blocked:
             return Response({"detail": "Device is not blocked."}, status=status.HTTP_400_BAD_REQUEST)
@@ -80,12 +66,6 @@ class DeviceViewSet(TenantFilteredViewSet, viewsets.ModelViewSet):
 
 
 class SyncJobViewSet(TenantFilteredViewSet, viewsets.ReadOnlyModelViewSet):
-    """
-    Read-Only view of Sync History.
-    
-    Allows admins to audit past sync attempts, see which succeeded, 
-    and debug why specific jobs failed.
-    """
     queryset = sync_models.SyncJob.objects.all().select_related("submitted_by", "device")
     serializer_class = sync_serializers.SyncJobSerializer
     permission_classes = [IsAuthenticated]
@@ -94,18 +74,8 @@ class SyncJobViewSet(TenantFilteredViewSet, viewsets.ReadOnlyModelViewSet):
 class SyncUploadView(GenericAPIView):
     """
     The Core "Push" Endpoint (Client -> Server).
-
-    Accepts a JSON payload containing a list of operations performed offline
-    (e.g., Created Sale #1, Updated Product #5).
-
-    Key Logic:
-    1.  **Auto-Provisioning:** Creates a Device record if it doesn't exist.
-    2.  **Transactional Write:** All operations are saved to a `SyncJob` container first.
-    3.  **Preflight Check:** Validates data integrity before queuing.
-    4.  **Temp ID Mapping:** Resolves temporary offline IDs (e.g., 'temp_123') 
-        to real Database IDs if the object was already synced previously.
     """
-    authentication_classes = [JWTAuthentication] # ✅ FORCE TOKEN AUTH
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = sync_serializers.SyncUploadSerializer
     
@@ -174,7 +144,6 @@ class SyncUploadView(GenericAPIView):
                     noop_id = preflight.get("noop_map_existing_id")
                     tmp_id = op_data["payload"].get("tmp_id") or op_data.get("client_change_id")
                     
-                    # If this temp_id was already synced before, map it to the real ID
                     if noop_id and tmp_id:
                         job.tmp_id_map[tmp_id] = noop_id
 
@@ -211,19 +180,26 @@ class SyncDownloadView(APIView):
     """
     The Core "Pull" Endpoint (Server -> Client).
 
-    Implements **Delta Sync**:
-    - The client sends `last_sync` timestamp.
-    - The server returns ONLY records updated *after* that timestamp.
-    
-    This ensures we don't re-download the entire database every time.
+    Implements **Delta Sync** & **Smart Historical Partitioning**:
+    - If `last_sync` is NULL (Fresh Install), restricts historical data (Sales/Stock Logs) 
+      to the last 30 days to prevent massive payloads.
+    - If `last_sync` is provided, sends everything since that date.
     """
-    authentication_classes = [JWTAuthentication] # ✅ FORCE TOKEN AUTH
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
+
+    # Models that get the "30 Day Limit" on fresh syncs
+    LIMITED_HISTORY_MODELS = [
+        'Sale', 
+        'SaleItem', 
+        'PurchaseOrder', 
+        'PurchaseItem', 
+        'AuditLog'
+    ]
 
     def _get_tenant_filter(self, model, tenant):
         """
         Dynamically determines how to filter a model by Tenant.
-        Handles direct relationships (model.tenant) and indirect ones (SaleItem.sale.tenant).
         """
         field_names = [f.name for f in model._meta.get_fields()]
         if 'tenant' in field_names: return {'tenant': tenant}
@@ -232,11 +208,14 @@ class SyncDownloadView(APIView):
         return None
 
     def get(self, request, *args, **kwargs):
-        # 🔍 DEBUG: Log user identity
-        logger.info(f"🔍 SyncDownload Request by User: {request.user}")
-        
         device_id = request.query_params.get("device_id")
         last_sync = request.query_params.get("last_sync")
+        
+        # ✅ Get Page Number (Default to 1)
+        try:
+            page = int(request.query_params.get("page", 1))
+        except ValueError:
+            page = 1
 
         if not device_id:
             return Response({"detail": "device_id is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -250,19 +229,23 @@ class SyncDownloadView(APIView):
         if device.is_blocked:
             return Response({"detail": "Device blocked."}, status=status.HTTP_403_FORBIDDEN)
 
+        # 1. Determine Sync Start Date
+        is_fresh_sync = False
         try:
             if last_sync and last_sync != "null":
                 last_sync_dt = datetime.datetime.fromisoformat(last_sync)
             else:
                 last_sync_dt = timezone.make_aware(datetime.datetime.min)
+                is_fresh_sync = True 
         except Exception:
             return Response({"detail": "Invalid last_sync format"}, status=status.HTTP_400_BAD_REQUEST)
 
         updated_data = {}
         has_more_data = False
-        limit_per_model = 1000
+        limit = 2000 # Batch size
+        offset = (page - 1) * limit # ✅ Calculate Offset
 
-        # Iterate over all models defined in settings.SYNCED_MODELS
+        # Iterate over all models
         for model_path in getattr(settings, "SYNCED_MODELS", []):
             try:
                 app_label, model_name = model_path.split(".")
@@ -272,27 +255,34 @@ class SyncDownloadView(APIView):
 
             serializer_name = f"{model.__name__}Serializer"
             serializer_class = getattr(sync_serializers, serializer_name, None)
-            
             if not serializer_class: continue
 
             tenant_filter = self._get_tenant_filter(model, request.user.tenant)
             if tenant_filter is None: continue
 
+            # --- SMART HISTORY FILTERING ---
+            query_start_date = last_sync_dt
+            if is_fresh_sync and model_name in self.LIMITED_HISTORY_MODELS:
+                thirty_days_ago = timezone.now() - timedelta(days=30)
+                query_start_date = thirty_days_ago
+
             field_names = [f.name for f in model._meta.get_fields()]
             
-            # Filter logic: Get items newer than last_sync
+            # Construct Query
             if 'updated_at' in field_names:
-                qs = model.objects.filter(**tenant_filter, updated_at__gt=last_sync_dt).order_by('updated_at')
+                qs = model.objects.filter(**tenant_filter, updated_at__gt=query_start_date).order_by('updated_at')
+            elif 'created_at' in field_names:
+                qs = model.objects.filter(**tenant_filter, created_at__gt=query_start_date).order_by('created_at')
             else:
                 qs = model.objects.filter(**tenant_filter).order_by('id')
 
-            # Pagination Logic (Limit 1000 per model)
-            qs = qs[:limit_per_model + 1]
-            records = list(qs)
+            # ✅ Apply Pagination Slice
+            # We fetch 'limit + 1' to check if there is a next page
+            records = list(qs[offset : offset + limit + 1])
             
-            if len(records) > limit_per_model:
+            if len(records) > limit:
                 has_more_data = True
-                records = records[:limit_per_model]
+                records = records[:limit] # Trim the extra one
 
             if records:
                 updated_data[model_name.lower()] = serializer_class(records, many=True).data
@@ -304,5 +294,6 @@ class SyncDownloadView(APIView):
             "device_id": device.device_id,
             "synced_at": timezone.now().isoformat(),
             "has_more": has_more_data,
+            "page": page,
             "data": updated_data
         }, status=status.HTTP_200_OK)

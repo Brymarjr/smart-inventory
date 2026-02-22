@@ -17,9 +17,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox'; // Ensure you have this shadcn component
-import { CheckCircle, Rocket, PackageSearch, Loader2, ArrowLeft } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Rocket } from 'lucide-react';
 import { toast } from 'sonner';
 
 const registerSchema = z.object({
@@ -43,7 +42,6 @@ type RegisterValues = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
 
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -70,48 +68,33 @@ export default function RegisterPage() {
         password: values.password,
       });
       
-      setIsSuccess(true);
-      toast.success('Account created successfully!', {
-        description: `Your workspace for ${values.tenant_name} is live.`,
+      // ✅ SUCCESS FEEDBACK
+      toast.success('Registration Successful!', {
+        description: 'Redirecting to login...',
+        duration: 2000,
       });
+
+      // ✅ SMART REDIRECT: Send the tenant name to the login page
+      setTimeout(() => {
+        const tenantSlug = values.tenant_name.toLowerCase().replace(/\s+/g, '-');
+        router.push(`/login?tenant=${tenantSlug}&username=${values.username}`);
+      }, 1500);
       
     } catch (error: any) {
       const data = error.response?.data;
+      
+      // Map specific field errors
       if (data?.tenant_name) form.setError('tenant_name', { message: data.tenant_name[0] });
       else if (data?.username) form.setError('username', { message: data.username[0] });
       else if (data?.email) form.setError('email', { message: data.email[0] });
       else {
-        toast.error('Registration failed. Please check your inputs.');
+        toast.error('Registration failed', {
+            description: 'Please check your inputs and try again.'
+        });
       }
     } finally {
       setIsLoading(false);
     }
-  }
-
-  if (isSuccess) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-[#1A1B4B] p-6">
-        <Card className="w-full max-w-lg text-center shadow-2xl rounded-[2.5rem] p-10 bg-white border-none">
-          <CardHeader>
-            <div className="mx-auto bg-green-100 p-5 rounded-full w-fit mb-4">
-              <CheckCircle className="h-14 w-14 text-green-600 animate-in zoom-in duration-300" />
-            </div>
-            <CardTitle className="text-4xl font-black text-[#1A1B4B]">Workspace Ready!</CardTitle>
-            <p className="text-slate-500 text-lg mt-2 font-medium">
-              Your organization <span className="text-[#2D31FA] font-black">{form.getValues('tenant_name')}</span> is live.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <Button 
-              className="w-full h-20 text-xl font-black bg-[#2D31FA] hover:bg-[#1A1B4B] rounded-2xl transition-all shadow-xl shadow-[#2D31FA]/20" 
-              onClick={() => router.push('/login')}
-            >
-              Sign In to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
   }
 
   return (
@@ -190,58 +173,64 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input placeholder="John" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormMessage className="text-xs font-bold" />
+                      <FormDescription className="text-xs">
+                        This will be your Organization ID.
+                      </FormDescription>
+                      <FormMessage />
                     </FormItem>
-                  )} />
+                  )}
+                />
+              </div>
 
-                  <FormField control={form.control} name="last_name" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[#2D31FA] text-lg font-black">Last Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Doe" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
-                      </FormControl>
-                      <FormMessage className="text-xs font-bold" />
-                    </FormItem>
-                  )} />
+              {/* ADMIN USER SECTION */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider pt-2">Admin Account</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="first_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl><Input placeholder="John" {...field} disabled={isLoading} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="last_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl><Input placeholder="Doe" {...field} disabled={isLoading} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                  <FormField control={form.control} name="username" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[#2D31FA] text-lg font-black">Admin Username</FormLabel>
-                      <FormControl>
-                        <Input placeholder="johndoe" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
-                      </FormControl>
-                      <FormMessage className="text-xs font-bold" />
-                    </FormItem>
-                  )} />
-
-                  <FormField control={form.control} name="email" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[#2D31FA] text-lg font-black">Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="john@company.com" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
-                      </FormControl>
-                      <FormMessage className="text-xs font-bold" />
-                    </FormItem>
-                  )} />
-
-                  <FormField control={form.control} name="password" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[#2D31FA] text-lg font-black">Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
-                      </FormControl>
-                      <FormMessage className="text-xs font-bold" />
-                    </FormItem>
-                  )} />
-
-                  {/* Confirm Password Field */}
-                  <FormField control={form.control} name="confirmPassword" render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel className="text-[#2D31FA] text-lg font-black">Confirm Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
-                      </FormControl>
-                      <FormMessage className="text-xs font-bold" />
+                <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Admin Username</FormLabel>
+                        <FormControl><Input placeholder="johndoe" {...field} disabled={isLoading} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Work Email</FormLabel>
+                      <FormControl><Input type="email" placeholder="john@acme.com" {...field} disabled={isLoading} /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                 </div>
@@ -251,23 +240,10 @@ export default function RegisterPage() {
                   control={form.control}
                   name="terms"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 py-2">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          className="h-6 w-6 rounded-full border-2 border-[#1A1B4B] data-[state=checked]:bg-[#2D31FA] data-[state=checked]:border-[#2D31FA]"
-                        />
-                      </FormControl>
-                      <div className="leading-none">
-                        <FormLabel className="text-base font-bold text-slate-600">
-                          I agree to the{' '}
-                          <Link href="/terms" className="text-[#2D31FA] hover:text-[#1A1B4B] transition-colors">Terms and Conditions</Link>
-                          {' '}and{' '}
-                          <Link href="/privacy" className="text-[#2D31FA] hover:text-[#1A1B4B] transition-colors">Privacy Policy</Link>.
-                        </FormLabel>
-                        <FormMessage className="text-[10px] font-bold" />
-                      </div>
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl><Input type="password" {...field} disabled={isLoading} /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />

@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { useRouter, usePathname } from 'next/navigation'; // ✅ Added usePathname for active state
-import Link from 'next/link'; // ✅ Added Link
-import { Loader2, ShieldAlert, LogOut, Moon, Sun, User, LifeBuoy, LayoutDashboard } from 'lucide-react'; // ✅ Added Icons
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { Loader2, ShieldAlert, LogOut, Moon, Sun, User, LifeBuoy, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -23,23 +23,51 @@ export default function SystemAdminLayout({
 }) {
   const { user, isLoading, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname(); // ✅ Get current URL to highlight active button
+  const pathname = usePathname();
   const { setTheme, theme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user || !user.is_superuser) {
-        router.push('/login?error=unauthorized');
-      }
-    }
-  }, [user, isLoading, router]);
+    // 1. Wait for Auth to load
+    if (isLoading) return;
 
-  if (isLoading) {
+    // 2. ✅ ALLOW ACCESS to the Admin Login page itself
+    // If we don't do this, the layout will block the login page, causing a loop.
+    if (pathname === '/system-admin/login') {
+        setIsAuthorized(true);
+        return;
+    }
+
+    // 3. If no user, send to ADMIN LOGIN (not tenant login)
+    if (!user) {
+      router.replace('/system-admin/login');
+      return;
+    }
+
+    // 4. If user exists but NOT a superuser, kick them out
+    if (!user.is_superuser) {
+      router.replace('/login?error=unauthorized_admin');
+      return;
+    }
+
+    // 5. Success
+    setIsAuthorized(true);
+
+  }, [user, isLoading, router, pathname]);
+
+  // --- LOADING STATES ---
+
+  // While checking auth...
+  if (isLoading || !isAuthorized) {
+    // If we are sitting on the login page, render it immediately (don't show spinner)
+    if (pathname === '/system-admin/login') return <>{children}</>;
+
+    // Otherwise show spinner
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -47,8 +75,13 @@ export default function SystemAdminLayout({
     );
   }
 
-  if (!user?.is_superuser) return null;
+  // --- IF ON LOGIN PAGE, RENDER WITHOUT HEADER ---
+  // We don't want the navigation bar showing on the login screen
+  if (pathname === '/system-admin/login') {
+      return <>{children}</>;
+  }
 
+  // --- MAIN LAYOUT (Only for logged in Admins) ---
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* --- TOP NAVIGATION BAR --- */}
@@ -64,18 +97,18 @@ export default function SystemAdminLayout({
               <div>
                   <h1 className="font-bold text-lg leading-none tracking-tight">System Core</h1>
                   <span className="text-[10px] uppercase font-semibold text-muted-foreground">
-                      {user.is_staff ? 'Full Access' : 'Read Only'}
+                      {user?.is_staff ? 'Full Access' : 'Read Only'}
                   </span>
               </div>
             </div>
 
-            {/* 2. ✅ NEW: MAIN NAVIGATION LINKS */}
+            {/* 2. MAIN NAVIGATION LINKS */}
             <nav className="hidden md:flex items-center gap-1 border-l pl-6 h-8">
                <Link href="/system-admin">
                  <Button 
-                    variant={pathname === '/system-admin' ? 'secondary' : 'ghost'} 
-                    size="sm"
-                    className="gap-2"
+                   variant={pathname === '/system-admin' ? 'secondary' : 'ghost'} 
+                   size="sm"
+                   className="gap-2"
                  >
                     <LayoutDashboard className="h-4 w-4" />
                     Tenants
@@ -84,9 +117,9 @@ export default function SystemAdminLayout({
 
                <Link href="/system-admin/support">
                  <Button 
-                    variant={pathname?.includes('/support') ? 'secondary' : 'ghost'} 
-                    size="sm"
-                    className="gap-2"
+                   variant={pathname?.includes('/support') ? 'secondary' : 'ghost'} 
+                   size="sm"
+                   className="gap-2"
                  >
                     <LifeBuoy className="h-4 w-4" />
                     Support Desk
@@ -114,7 +147,7 @@ export default function SystemAdminLayout({
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
                    <User className="h-4 w-4" />
-                   <span className="hidden md:inline">{user.username}</span>
+                   <span className="hidden md:inline">{user?.username}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
