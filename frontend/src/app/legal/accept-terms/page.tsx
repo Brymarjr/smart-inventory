@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth-context';
 export default function AcceptTermsPage() {
   const [agreed, setAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // We don't need router here anymore because LegalGuard handles the redirect itself after acceptance.
+  const router = useRouter(); 
   const { refreshUser } = useAuth(); 
 
   const handleAccept = async () => {
@@ -25,21 +25,20 @@ export default function AcceptTermsPage() {
       // 1. Send acceptance to backend
       await api.post('/api/users/accept-tos/');
       
-      // 2. Refresh the user profile
+      // 2. Refresh the user profile in AuthContext 
+      // We MUST await this so the 'user' object is updated before we move
       await refreshUser(); 
       
       toast.success("Terms Accepted. Entering Dashboard...");
       
-      // ✅ CHANGE 1: Stop the spinner so UI doesn't look frozen
-      setIsSubmitting(false);
-
-      // ✅ CHANGE 2: We REMOVED router.replace('/dashboard'); 
-      // The <LegalGuard> in layout.tsx will see the new user data 
-      // and automatically move us to the dashboard.
+      // 3. Explicitly redirect to trigger the layout guards
+      // Since refreshUser() is finished, the LegalGuard will see tos_accepted_at is now set
+      router.push('/dashboard');
       
     } catch (error) {
       console.error(error);
       toast.error("Failed to accept terms. Please try again.");
+    } finally {
       setIsSubmitting(false); 
     }
   };
@@ -62,39 +61,31 @@ export default function AcceptTermsPage() {
         
         <CardContent>
           <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-gray-50 text-sm leading-relaxed text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-            {/* LEGAL CONTENT START */}
             <h3 className="font-bold mb-2 text-foreground">1. Proprietary System</h3>
             <p className="mb-4">
               Smart Inventory ("The System") is a closed-source, proprietary enterprise platform. 
-              Unauthorized reproduction, distribution, or reverse-engineering of the source code, 
-              API, or synchronization protocols is strictly prohibited.
+              Unauthorized reproduction, distribution, or reverse-engineering is strictly prohibited.
             </p>
 
             <h3 className="font-bold mb-2 text-foreground">2. Authorized Access</h3>
             <p className="mb-4">
-              Access is granted strictly to authorized personnel of the subscribing Tenant. 
-              Sharing credentials or attempting to bypass security controls (including device blocks) 
-              will result in immediate termination of access.
+              Access is granted strictly to authorized personnel. Sharing credentials or attempting to bypass security controls will result in termination of access.
             </p>
 
             <h3 className="font-bold mb-2 text-foreground">3. Data Ownership</h3>
             <p className="mb-4">
               Your organization retains full ownership of all inventory and sales data uploaded to the System.
-              We process this data solely for the purpose of providing the service.
             </p>
 
             <h3 className="font-bold mb-2 text-foreground">4. Service Availability</h3>
             <p className="mb-4">
-              The System utilizes offline-first technology to maximize availability. However, 
-              we do not guarantee 100% uptime for cloud synchronization services.
+              The System utilizes offline-first technology. We do not guarantee 100% uptime for cloud synchronization services.
             </p>
 
             <h3 className="font-bold mb-2 text-foreground">5. Liability</h3>
             <p className="mb-4">
-              The Licensor is not liable for inventory discrepancies resulting from user error, 
-              hardware failure, or the misuse of the synchronization features.
+              The Licensor is not liable for inventory discrepancies resulting from user error or hardware failure.
             </p>
-            {/* LEGAL CONTENT END */}
           </ScrollArea>
         </CardContent>
 
@@ -107,14 +98,14 @@ export default function AcceptTermsPage() {
             />
             <label
               htmlFor="terms"
-              className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              className="text-sm font-medium leading-none cursor-pointer"
             >
               I accept the Terms of Service and adhere to the security protocols.
             </label>
           </div>
 
           <Button 
-            className="w-full bg-blue-600 hover:bg-blue-700" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
             size="lg" 
             disabled={!agreed || isSubmitting}
             onClick={handleAccept}

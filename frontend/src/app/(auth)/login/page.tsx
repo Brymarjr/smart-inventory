@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link'; 
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,6 +22,7 @@ import { AlertCircle, Building2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 
+// Schema updated to use email as per frontend-features requirement
 const tenantSchema = z.object({
   tenant: z.string().min(1, 'Organization ID is required'),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
@@ -31,14 +32,15 @@ const tenantSchema = z.object({
 function LoginForm() {
   const { loginTenant } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   
+  // Preserving the auto-fill logic from main
   const defaultTenant = searchParams.get('tenant') || '';
-  const defaultEmail = searchParams.get('email') || '';
+  const defaultEmail = searchParams.get('email') || searchParams.get('username') || '';
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Fixed: Variable named 'form' to match the JSX below
   const form = useForm<z.infer<typeof tenantSchema>>({
     resolver: zodResolver(tenantSchema),
     defaultValues: { 
@@ -52,12 +54,14 @@ function LoginForm() {
     setIsLoading(true);
     setError('');
     try {
-      // Fixed: Passing email instead of username
+      // Calling login with the updated email field
       await loginTenant(values.tenant, values.email, values.password);
       toast.success('Welcome back!');
+      // Trigger a refresh to ensure the Auth Guard picks up the new state
+      router.refresh();
     } catch (err: any) {
       console.error(err);
-      const serverMsg = err.response?.data?.detail || err.response?.data?.tenant || 'Invalid Organization ID or credentials.';
+      const serverMsg = err.response?.data?.detail || err.response?.data?.non_field_errors || 'Invalid Organization ID or credentials.';
       setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
       toast.error("Login Failed");
     } finally {
@@ -66,7 +70,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-slate-50 p-4 overflow-y-auto">
+    <div className="flex-1 flex items-center justify-center bg-slate-50 p-4 overflow-y-auto min-h-screen w-full">
       <Card className="w-full max-w-3xl border-none shadow-[0_20px_60px_rgba(0,0,0,0.12)] rounded-[2.5rem] p-4 lg:p-10 bg-white my-4">
         <CardHeader className="text-center space-y-3 pb-6">
           <div className="mx-auto bg-[#2D31FA]/10 p-4 rounded-3xl w-fit">
@@ -142,6 +146,7 @@ function LoginForm() {
                     <FormControl>
                       <Input 
                         type="password" 
+                        placeholder="••••••••"
                         {...field} 
                         disabled={isLoading} 
                         className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" 

@@ -16,10 +16,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription, // Added this missing import
+  FormDescription,
 } from '@/components/ui/form';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Rocket, ArrowLeft, PackageSearch } from 'lucide-react'; // Added missing icons
+import { Loader2, Rocket, ArrowLeft, PackageSearch } from 'lucide-react';
 import { toast } from 'sonner';
 
 const registerSchema = z.object({
@@ -30,7 +30,6 @@ const registerSchema = z.object({
   last_name: z.string().min(1, 'Last name is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
-  // Fixed Zod Literal syntax
   terms: z.literal(true, {
     message: 'You must accept the terms and conditions',
   }),
@@ -55,13 +54,14 @@ export default function RegisterPage() {
       last_name: '',
       password: '',
       confirmPassword: '',
-      terms: true, // Set to true by default for this UI style
+      terms: true, 
     },
   });
 
   async function onSubmit(values: RegisterValues) {
     setIsLoading(true);
     try {
+      // Reverted to full backend payload from main
       await api.post('/api/tenants/register/', {
         tenant_name: values.tenant_name,
         username: values.username,
@@ -78,10 +78,12 @@ export default function RegisterPage() {
 
       setTimeout(() => {
         const tenantSlug = values.tenant_name.toLowerCase().replace(/\s+/g, '-');
+        // Redirect logic using the new email parameter
         router.push(`/login?tenant=${tenantSlug}&email=${values.email}`);
       }, 1500);
       
     } catch (error: any) {
+      console.error(error);
       const data = error.response?.data;
       if (data?.tenant_name) form.setError('tenant_name', { message: data.tenant_name[0] });
       else if (data?.username) form.setError('username', { message: data.username[0] });
@@ -98,7 +100,7 @@ export default function RegisterPage() {
 
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-white overflow-hidden">
-      {/* LEFT PANEL */}
+      {/* LEFT PANEL - Full styling preserved from feature branch */}
       <div className="hidden lg:flex w-full lg:w-5/12 bg-[#1A1B4B] text-white p-12 flex-col justify-between relative">
         <div className="absolute top-[-5%] right-[-5%] w-64 h-64 bg-[#2D31FA] opacity-10 rounded-full blur-3xl"></div>
 
@@ -140,7 +142,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
+      {/* RIGHT PANEL - Full form grid preserved */}
       <div className="flex-1 flex items-center justify-center bg-slate-50 p-4 overflow-y-auto">
         <Card className="w-full max-w-3xl border-none shadow-[0_20px_60px_rgba(0,0,0,0.12)] rounded-[2.5rem] p-4 lg:p-10 bg-white my-4">
           <CardHeader className="text-center space-y-3 pb-6">
@@ -175,7 +177,7 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input placeholder="John" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs font-bold" />
                     </FormItem>
                   )} />
 
@@ -185,7 +187,7 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input placeholder="Doe" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs font-bold" />
                     </FormItem>
                   )} />
 
@@ -195,7 +197,7 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input placeholder="johndoe" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs font-bold" />
                     </FormItem>
                   )} />
 
@@ -205,7 +207,7 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input type="email" placeholder="john@acme.com" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs font-bold" />
                     </FormItem>
                   )} />
 
@@ -215,7 +217,7 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs font-bold" />
                     </FormItem>
                   )} />
 
@@ -225,7 +227,7 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormMessage />
+                      <FormMessage className="text-xs font-bold" />
                     </FormItem>
                   )} />
                 </div>
