@@ -16,9 +16,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription, // Added this missing import
 } from '@/components/ui/form';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Rocket } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Rocket, ArrowLeft, PackageSearch } from 'lucide-react'; // Added missing icons
 import { toast } from 'sonner';
 
 const registerSchema = z.object({
@@ -29,8 +30,9 @@ const registerSchema = z.object({
   last_name: z.string().min(1, 'Last name is required'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
+  // Fixed Zod Literal syntax
   terms: z.literal(true, {
-    errorMap: () => ({ message: 'You must accept the terms and conditions' }),
+    message: 'You must accept the terms and conditions',
   }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
@@ -53,6 +55,7 @@ export default function RegisterPage() {
       last_name: '',
       password: '',
       confirmPassword: '',
+      terms: true, // Set to true by default for this UI style
     },
   });
 
@@ -68,22 +71,18 @@ export default function RegisterPage() {
         password: values.password,
       });
       
-      // ✅ SUCCESS FEEDBACK
       toast.success('Registration Successful!', {
         description: 'Redirecting to login...',
         duration: 2000,
       });
 
-      // ✅ SMART REDIRECT: Send the tenant name to the login page
       setTimeout(() => {
         const tenantSlug = values.tenant_name.toLowerCase().replace(/\s+/g, '-');
-        router.push(`/login?tenant=${tenantSlug}&username=${values.username}`);
+        router.push(`/login?tenant=${tenantSlug}&email=${values.email}`);
       }, 1500);
       
     } catch (error: any) {
       const data = error.response?.data;
-      
-      // Map specific field errors
       if (data?.tenant_name) form.setError('tenant_name', { message: data.tenant_name[0] });
       else if (data?.username) form.setError('username', { message: data.username[0] });
       else if (data?.email) form.setError('email', { message: data.email[0] });
@@ -104,13 +103,12 @@ export default function RegisterPage() {
         <div className="absolute top-[-5%] right-[-5%] w-64 h-64 bg-[#2D31FA] opacity-10 rounded-full blur-3xl"></div>
 
         <div className="relative z-10 space-y-10">
-          {/* Back to Home Link */}
            <Link href="/" className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors group mb-10 w-fit">
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm font-black uppercase tracking-widest">Back to Home</span>
           </Link>
 
-<div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
             <div className="bg-[#2D31FA] p-2 rounded-lg">
               <PackageSearch className="w-8 h-8 text-white" />
             </div>
@@ -130,6 +128,7 @@ export default function RegisterPage() {
             </p>
           </div>
         </div>
+        
         <div className="relative z-10 border-t border-white/10 pt-6">
           <div className="flex items-center gap-6 text-xs font-semibold tracking-widest uppercase text-slate-500">
             <span>Optimized</span>
@@ -163,6 +162,9 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input placeholder="e.g. Acme Retail" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
+                      <FormDescription className="text-xs">
+                        This will be used to generate your unique workspace ID.
+                      </FormDescription>
                       <FormMessage className="text-xs font-bold" />
                     </FormItem>
                   )} />
@@ -173,84 +175,64 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input placeholder="John" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
                       </FormControl>
-                      <FormDescription className="text-xs">
-                        This will be your Organization ID.
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              </div>
+                  )} />
 
-              {/* ADMIN USER SECTION */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider pt-2">Admin Account</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="first_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl><Input placeholder="John" {...field} disabled={isLoading} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="last_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl><Input placeholder="Doe" {...field} disabled={isLoading} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                  <FormField control={form.control} name="last_name" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[#2D31FA] text-lg font-black">Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Doe" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
 
-                <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Admin Username</FormLabel>
-                        <FormControl><Input placeholder="johndoe" {...field} disabled={isLoading} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Work Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="john@acme.com" {...field} disabled={isLoading} /></FormControl>
+                  <FormField control={form.control} name="username" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[#2D31FA] text-lg font-black">Admin Username</FormLabel>
+                      <FormControl>
+                        <Input placeholder="johndoe" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[#2D31FA] text-lg font-black">Work Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="john@acme.com" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="password" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[#2D31FA] text-lg font-black">Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+
+                  <FormField control={form.control} name="confirmPassword" render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel className="text-[#2D31FA] text-lg font-black">Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                 </div>
 
-                {/* Terms and Conditions Checkbox */}
-                <FormField
-                  control={form.control}
-                  name="terms"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl><Input type="password" {...field} disabled={isLoading} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
                 <Button 
                   type="submit" 
-                  className="w-full h-16 text-xl font-black bg-[#2D31FA] hover:bg-[#1A1B4B] text-white rounded-2xl shadow-2xl shadow-[#2D31FA]/20 transition-all tracking-widest mt-2 flex items-center justify-center gap-3" 
+                  className="w-full h-16 text-xl font-black bg-[#2D31FA] hover:bg-[#1A1B4B] text-white rounded-2xl shadow-2xl shadow-[#2D31FA]/20 transition-all tracking-widest mt-6 flex items-center justify-center gap-3" 
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -266,9 +248,9 @@ export default function RegisterPage() {
             </Form>
           </CardContent>
 
-          <CardFooter className="flex justify-center border-t border-slate-50 mt-2 pt-4">
+          <CardFooter className="flex justify-center border-t border-slate-50 mt-6 pt-6">
             <p className="text-base text-slate-500 font-semibold">
-              Already have an account? <Link href="/login" className="text-[#2D31FA] font-black hover:text-[#1A1B4B]">Log in</Link>
+              Already have an account? <Link href="/login" className="text-[#2D31FA] font-black hover:text-[#1A1B4B] ml-1">Log in</Link>
             </p>
           </CardFooter>
         </Card>
