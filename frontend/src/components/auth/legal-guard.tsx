@@ -14,7 +14,7 @@ export function LegalGuard({ children }: { children: React.ReactNode }) {
     // 1. Wait for auth to load
     if (isLoading) return;
 
-    // 2. If not logged in, skip (The layout's AuthProvider or page protection handles login)
+    // 2. If not logged in, skip
     if (!user) return;
 
     const legalPath = '/legal/accept-terms';

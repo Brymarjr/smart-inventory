@@ -12,7 +12,6 @@ interface AuthContextType {
   loginTenant: (tenant: string, email: string, password: string) => Promise<void>;
   loginAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
-  // ✅ FIXED: Changed from Promise<void> to Promise<User | undefined> to match the function
   refreshUser: () => Promise<User | undefined>;
 }
 
@@ -41,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await api.get<User>('/api/users/me/');
       setUser(data);
-      return data; // Returning data for the Terms page to wait on
+      return data; 
     } catch (error: any) {
       if (error.response?.status === 401) {
         logout();
@@ -77,7 +76,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('tenant_slug', tenant);
 
       setUser(data.user);
-      router.push('/dashboard');
+
+      // ✅ NEW LOGIC: Conditional Redirect based on TOS status
+      if (!data.user.tos_accepted_at) {
+        router.push('/legal/accept-terms');
+      } else {
+        router.push('/dashboard');
+      }
+
       toast.success('Access Granted');
 
     } catch (error: any) {
