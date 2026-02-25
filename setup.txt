@@ -25,7 +25,7 @@ b. Run these commands in the same backend terminal :
 c. Run these commands in the different backend terminals:    
 
    python manage.py runserver    
-   celery -A smart_inventory worker --loglevel=info     
+   celery -A smart_inventory worker --loglevel=info    
    celery -A smart_inventory beat --loglevel=info
 
 4. For the frontend terminal simply run :

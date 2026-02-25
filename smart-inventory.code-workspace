@@ -4,6 +4,6 @@
     { "path": "backend" }
   ],
   "settings": {
-    "python.defaultInterpreterPath": "/home/brymar/projects/smart-inventory/backend/venv/bin/python"
+    "python.defaultInterpreterPath": "/home/chioma/smart-inventory/backend/venv/bin/python"
   }
 }

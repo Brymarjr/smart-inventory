@@ -155,7 +155,7 @@ export default function RegisterPage() {
 
           <CardContent className="pb-2">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} method="POST" className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4">
                   
                   <FormField control={form.control} name="tenant_name" render={({ field }) => (
