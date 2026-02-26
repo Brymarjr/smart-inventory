@@ -10,3 +10,8 @@ db.sqlite3
 # Ignore ML Models
 *.pkl
 *.joblib
+
+# Virtual Environments
+venv/
+env/
+.venv/
