@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api from './api';
-import { useRouter } from 'next/navigation';
 import { User, AuthResponse } from './types';
 import { toast } from 'sonner';
 
@@ -20,7 +19,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
 
   const logout = useCallback(() => {
     // Wipe EVERYTHING on logout
@@ -29,8 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
     setUser(null);
-    router.push('/login');
-  }, [router]);
+    window.location.href = '/login'; // 🛑 HARD REDIRECT
+  }, []);
 
   const fetchUserProfile = useCallback(async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -90,11 +88,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(data.user);
 
-      // 4. Smart Redirect
+      // 4. Smart Redirect (HARD NAVIGATION)
       if (!data.user.tos_accepted_at) {
-        router.push('/legal/accept-terms');
+        window.location.href = '/legal/accept-terms';
       } else {
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       }
 
       toast.success('Access Granted');
@@ -119,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('username', username); 
       setUser(userRes.data);
-      router.push('/system-admin');
+      window.location.href = '/system-admin'; // 🛑 HARD REDIRECT
     } catch (error: any) {
       throw new Error('Admin login failed');
     }

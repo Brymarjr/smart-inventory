@@ -37,14 +37,20 @@ const getAuthHeaders = () => {
 export const pullData = async (page = 1): Promise<{ success: boolean; error?: any }> => {
   try {
     const headers = getAuthHeaders();
-    if (!headers.Authorization) return { success: false, error: "No token" };
+    
+    // THE EMERGENCY BRAKE: If there is no token, throw a hard error 
+    // instead of returning false. This stops any retry loops dead in their tracks.
+    if (!headers.Authorization) {
+      console.warn("Sync aborted: User is not fully authenticated yet.");
+      return { success: false, error: "NO_TOKEN_ABORT" };
+    }
 
     // Only read from DB on the first page
     let lastSync = null;
     if (page === 1) {
         const meta = await db.meta.get('last_sync');
         lastSync = meta?.value || null;
-    } 
+    }
     
     const deviceId = getDeviceId();
     console.log(`⬇️ Sync Pull: Page ${page}...`);

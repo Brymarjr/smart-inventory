@@ -54,19 +54,24 @@ function LoginForm() {
     setIsLoading(true);
     setError('');
     try {
-      // Calling login with the updated email field
+      // 1. Call login
       await loginTenant(values.tenant, values.email, values.password);
+      
+      // 2. Show success toast
       toast.success('Welcome back!');
-      // Trigger a refresh to ensure the Auth Guard picks up the new state
-      router.refresh();
+      
+      // 🛑 DELETED router.refresh() - loginTenant handles the routing now!
+      // 🛑 DELETED the finally block - Let the button spin while navigating!
+
     } catch (err: any) {
       console.error(err);
       const serverMsg = err.response?.data?.detail || err.response?.data?.non_field_errors || 'Invalid Organization ID or credentials.';
       setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
       toast.error("Login Failed");
-    } finally {
+      
+      // ✅ ONLY turn off the loading spinner if they typed the wrong password
       setIsLoading(false);
-    }
+    } 
   }
 
   return (
