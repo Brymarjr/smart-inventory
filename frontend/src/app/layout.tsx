@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { useState, ReactNode } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { LegalGuard } from '@/components/auth/legal-guard';
+import { IdleTimeoutWrapper } from '@/components/auth/idle-timeout-wrapper';
 
 // Configured Plus Jakarta Sans for a softer, more premium SME feel
 const jakarta = Plus_Jakarta_Sans({ 
@@ -32,7 +33,14 @@ function AuthWrapper({ children }: { children: ReactNode }) {
     );
   }
 
-  return <LegalGuard>{children}</LegalGuard>;
+  // Now every protected page has an inactivity timer!
+  return (
+    <LegalGuard>
+      <IdleTimeoutWrapper>
+        {children}
+      </IdleTimeoutWrapper>
+    </LegalGuard>
+  );
 }
 
 // ----------------------
