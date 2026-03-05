@@ -1,5 +1,5 @@
-Smart Inventory
-Smart Inventory is a high-availability, multi-tenant inventory management and demand forecasting platform engineered for retail environments where operational continuity and data integrity are non-negotiable.
+ForeTrack
+Fore Track is a high-availability, multi-tenant inventory management and demand forecasting platform engineered for retail environments where operational continuity and data integrity are non-negotiable.
 
 The system is architected as a monolith-first application, emphasizing robust backend controls, role-based workflows, and a sophisticated offline-first synchronization engine designed to mitigate the risks of intermittent connectivity.
 
@@ -34,7 +34,7 @@ Tenant Admin: Complete oversight of the organization, managing subscriptions, sy
 
 Manager: Responsible for procurement workflows, product catalog management, operational approvals, and high-level inventory reporting.
 
-Sales: Front-facing role focused on transaction execution, offline POS operations, and customer interaction.
+Staff: Front-facing role focused on transaction execution, offline POS operations, and customer interaction.
 
 Machine Learning & Predictive Analytics
 Smart Inventory integrates demand forecasting as a core decision-support utility rather than a standalone feature.
