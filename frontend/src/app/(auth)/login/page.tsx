@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useState, Suspense } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useAuth } from '@/lib/auth-context';
-import Link from 'next/link'; 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, Suspense } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useAuth } from "@/lib/auth-context";
+import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -16,67 +16,76 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Card, CardContent, CardTitle, CardHeader, CardFooter } from '@/components/ui/card';
-import { AlertCircle, Building2, Loader2 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { toast } from 'sonner';
+} from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardTitle,
+  CardHeader,
+  CardFooter,
+} from "@/components/ui/card";
+import { AlertCircle, Building2, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 // Schema updated to use email as per frontend-features requirement
 const tenantSchema = z.object({
-  tenant: z.string().min(1, 'Organization ID is required'),
-  email: z.string().email('Invalid email address').min(1, 'Email is required'),
-  password: z.string().min(1, 'Password is required'),
+  tenant: z.string().min(1, "Organization ID is required"),
+  email: z.string().email("Invalid email address").min(1, "Email is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 function LoginForm() {
   const { loginTenant } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   // Preserving the auto-fill logic from main
-  const defaultTenant = searchParams.get('tenant') || '';
-  const defaultEmail = searchParams.get('email') || searchParams.get('username') || '';
+  const defaultTenant = searchParams.get("tenant") || "";
+  const defaultEmail =
+    searchParams.get("email") || searchParams.get("username") || "";
 
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const form = useForm<z.infer<typeof tenantSchema>>({
     resolver: zodResolver(tenantSchema),
-    defaultValues: { 
-        tenant: defaultTenant, 
-        email: defaultEmail, 
-        password: '' 
+    defaultValues: {
+      tenant: defaultTenant,
+      email: defaultEmail,
+      password: "",
     },
   });
 
   async function onSubmit(values: z.infer<typeof tenantSchema>) {
     setIsLoading(true);
-    setError('');
+    setError("");
     try {
       // 1. Call login
       await loginTenant(values.tenant, values.email, values.password);
-      
+
       // 2. Show success toast
-      toast.success('Welcome back!');
-      
+      toast.success("Welcome back!");
+
       // 🛑 DELETED router.refresh() - loginTenant handles the routing now!
       // 🛑 DELETED the finally block - Let the button spin while navigating!
-
     } catch (err: any) {
       console.error(err);
-      const serverMsg = err.response?.data?.detail || err.response?.data?.non_field_errors || 'Invalid Organization ID or credentials.';
+      const serverMsg =
+        err.response?.data?.detail ||
+        err.response?.data?.non_field_errors ||
+        "Invalid Organization ID or credentials.";
       setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
       toast.error("Login Failed");
-      
+
       // ✅ ONLY turn off the loading spinner if they typed the wrong password
       setIsLoading(false);
-    } 
+    }
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-slate-50 p-4 overflow-y-auto min-h-screen w-full">
-      <Card className="w-full max-w-3xl border-none shadow-[0_20px_60px_rgba(0,0,0,0.12)] rounded-[2.5rem] p-4 lg:p-10 bg-white my-4">
+    <div className="flex-1 flex items-center justify-center bg-muted p-4 overflow-y-auto min-h-screen w-full">
+      <Card className="w-full max-w-3xl border-none shadow-[0_20px_60px_rgba(0,0,0,0.12)] rounded-[2.5rem] p-4 lg:p-10 bg-card my-4">
         <CardHeader className="text-center space-y-3 pb-6">
           <div className="mx-auto bg-[#2D31FA]/10 p-4 rounded-3xl w-fit">
             <Building2 className="w-10 h-10 text-[#2D31FA]" />
@@ -94,21 +103,31 @@ function LoginForm() {
 
         <CardContent className="pb-2">
           {error && (
-            <Alert variant="destructive" className="mb-4 py-2 rounded-2xl border-2">
+            <Alert
+              variant="destructive"
+              className="mb-4 py-2 rounded-2xl border-2"
+            >
               <AlertCircle className="h-5 w-5" />
-              <AlertDescription className="text-sm font-semibold">{error}</AlertDescription>
+              <AlertDescription className="text-sm font-semibold">
+                {error}
+              </AlertDescription>
             </Alert>
           )}
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} method="POST" className="space-y-6">
-              
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              method="POST"
+              className="space-y-6"
+            >
               <FormField
                 control={form.control}
                 name="tenant"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <FormLabel className="text-[#2D31FA] text-lg font-black">Organization ID</FormLabel>
+                    <FormLabel className="text-[#2D31FA] text-lg font-black">
+                      Organization ID
+                    </FormLabel>
                     <FormControl>
                       <Input
                         placeholder="e.g. shoprite-ng"
@@ -127,7 +146,9 @@ function LoginForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <FormLabel className="text-[#2D31FA] text-lg font-black">Email</FormLabel>
+                    <FormLabel className="text-[#2D31FA] text-lg font-black">
+                      Email
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type="email"
@@ -147,19 +168,21 @@ function LoginForm() {
                 name="password"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <FormLabel className="text-[#2D31FA] text-lg font-black">Password</FormLabel>
+                    <FormLabel className="text-[#2D31FA] text-lg font-black">
+                      Password
+                    </FormLabel>
                     <FormControl>
-                      <Input 
-                        type="password" 
+                      <Input
+                        type="password"
                         placeholder="••••••••"
-                        {...field} 
-                        disabled={isLoading} 
-                        className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6" 
+                        {...field}
+                        disabled={isLoading}
+                        className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6"
                       />
                     </FormControl>
                     <div className="flex justify-end pt-1">
-                      <Link 
-                        href="/forgot-password" 
+                      <Link
+                        href="/forgot-password"
                         className="text-xs font-black text-[#2D31FA] hover:text-[#1A1B4B] uppercase tracking-tighter"
                       >
                         Forgot Password?
@@ -170,17 +193,34 @@ function LoginForm() {
                 )}
               />
 
-              <Button type="submit" className="w-full h-16 text-xl rounded-2xl bg-[#2D31FA] hover:bg-[#1A1B4B] font-black transition-all" disabled={isLoading}>
-                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Authenticating...</> : 'Sign In'}
+              <Button
+                type="submit"
+                className="w-full h-16 text-xl rounded-2xl bg-[#2D31FA] hover:bg-[#1A1B4B] font-black transition-all"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />{" "}
+                    Authenticating...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </Button>
             </form>
           </Form>
         </CardContent>
-        
+
         <CardFooter className="flex justify-center border-t pt-6 mt-4">
-            <p className="text-sm text-slate-500 font-medium">
-              Don't have an account? <Link href="/register" className="text-[#2D31FA] font-black hover:underline ml-1">Register your business</Link>
-            </p>
+          <p className="text-sm text-muted-foreground font-medium">
+            Don't have an account?{" "}
+            <Link
+              href="/register"
+              className="text-[#2D31FA] font-black hover:underline ml-1"
+            >
+              Register your business
+            </Link>
+          </p>
         </CardFooter>
       </Card>
     </div>
@@ -189,9 +229,15 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <Suspense fallback={<div className="flex items-center gap-2 font-bold text-[#2D31FA]"><Loader2 className="animate-spin" /> Loading Security...</div>}>
-         <LoginForm />
+    <div className="flex min-h-screen items-center justify-center bg-muted p-4">
+      <Suspense
+        fallback={
+          <div className="flex items-center gap-2 font-bold text-[#2D31FA]">
+            <Loader2 className="animate-spin" /> Loading Security...
+          </div>
+        }
+      >
+        <LoginForm />
       </Suspense>
     </div>
   );

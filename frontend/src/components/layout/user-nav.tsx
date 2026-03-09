@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from "next-themes";
+import { useState, useEffect } from "react"; // ✅ Added React hooks for mounting
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
@@ -24,6 +25,13 @@ import SupportDialog from "@/components/support/SupportDialog";
 export function UserNav() {
   const router = useRouter();
   const { setTheme, theme } = useTheme();
+  
+  // ✅ ADDED: Mounted state to prevent Next.js hydration mismatch freeze
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   const { user, logout } = useAuth(); 
 
@@ -97,17 +105,18 @@ export function UserNav() {
         <DropdownMenuSeparator />
         
         <DropdownMenuLabel className="text-xs text-muted-foreground">Theme</DropdownMenuLabel>
+        {/* ✅ UPDATED: Added the `mounted &&` check to the checkmarks */}
         <DropdownMenuItem onClick={() => setTheme("light")}>
            <Sun className="mr-2 h-4 w-4" /> Light
-           {theme === 'light' && <span className="ml-auto text-xs">✓</span>}
+           {mounted && theme === 'light' && <span className="ml-auto text-xs">✓</span>}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
            <Moon className="mr-2 h-4 w-4" /> Dark
-           {theme === 'dark' && <span className="ml-auto text-xs">✓</span>}
+           {mounted && theme === 'dark' && <span className="ml-auto text-xs">✓</span>}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("system")}>
            <Monitor className="mr-2 h-4 w-4" /> System
-           {theme === 'system' && <span className="ml-auto text-xs">✓</span>}
+           {mounted && theme === 'system' && <span className="ml-auto text-xs">✓</span>}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* Brand Colors (HSL) */
+    /* Brand Colors (HSL) - Light Mode */
     --background: 0 0% 100%;
     --foreground: 239 48% 20%;
     --card: 0 0% 100%;
@@ -27,6 +27,29 @@
 
     /* SME-style rounded corners - larger and softer */
     --radius: 1.25rem;
+  }
+
+  .dark {
+    /* Soft Slate Professional Dark Mode */
+    --background: 222.2 84% 4.9%; 
+    --foreground: 210 40% 98%; 
+    --card: 222.2 47.4% 11.2%; 
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 47.4% 11.2%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 239 96% 75%; 
+    --primary-foreground: 222.2 47.4% 11.2%; 
+    --secondary: 217.2 32.6% 17.5%; 
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%; 
+    --muted-foreground: 215 20.2% 65.1%; 
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%; 
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%; 
+    --input: 217.2 32.6% 17.5%;
+    --ring: 239 96% 75%;
   }
 }
 
@@ -52,7 +75,8 @@
 
 @layer components {
   .glass-nav {
-    @apply bg-white/80 backdrop-blur-md border-b border-white/10 sticky top-0 z-50;
+    /* Updated glass nav to support dark mode seamlessly */
+    @apply bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-border sticky top-0 z-50;
   }
 
   /* Big, bold SME inputs with soft focus */

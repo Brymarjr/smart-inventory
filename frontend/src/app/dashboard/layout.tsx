@@ -1,50 +1,54 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
-import { getDisplayUsername } from '@/lib/utils';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { getDisplayUsername } from "@/lib/utils";
 // ✅ IMPORT HOOK & ICONS
-import { useSync } from '@/hooks/use-sync';
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Truck, 
-  CreditCard, 
-  Users, 
+import { useSync } from "@/hooks/use-sync";
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Truck,
+  CreditCard,
+  Users,
   Menu,
   TrendingUp,
   Loader2, // Added
-  WifiOff  // Added
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetTrigger, 
+  WifiOff, // Added
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
   SheetTitle,
-  SheetDescription
-} from '@/components/ui/sheet';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge'; // Added
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge"; // Added
 
-import { NotificationsBell } from '@/components/layout/notifications-bell';
-import { UserNav } from '@/components/layout/user-nav';
+import { NotificationsBell } from "@/components/layout/notifications-bell";
+import { UserNav } from "@/components/layout/user-nav";
 
 const NAV_ITEMS = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: TrendingUp }, 
-  { name: 'Inventory', href: '/dashboard/inventory', icon: Package },
-  { name: 'Sales', href: '/dashboard/sales', icon: ShoppingCart },
-  { name: 'Purchases', href: '/dashboard/purchases', icon: Truck },
-  { name: 'Billing', href: '/dashboard/billing', icon: CreditCard },
-  { name: 'Users & Roles', href: '/dashboard/users', icon: Users },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Analytics", href: "/dashboard/analytics", icon: TrendingUp },
+  { name: "Inventory", href: "/dashboard/inventory", icon: Package },
+  { name: "Sales", href: "/dashboard/sales", icon: ShoppingCart },
+  { name: "Purchases", href: "/dashboard/purchases", icon: Truck },
+  { name: "Billing", href: "/dashboard/billing", icon: CreditCard },
+  { name: "Users & Roles", href: "/dashboard/users", icon: Users },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth(); 
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, isLoading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -55,12 +59,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
     if (user.must_change_password) {
-      if (pathname !== '/change-password') {
-        router.replace('/change-password');
+      if (pathname !== "/change-password") {
+        router.replace("/change-password");
       }
     }
   }, [user, isLoading, router, pathname]);
@@ -80,14 +84,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-gray-50/50">
-      
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden md:flex w-64 flex-col bg-white border-r">
+      <aside className="hidden md:flex w-64 flex-col bg-card border-r">
         <div className="h-16 flex items-center px-6 border-b">
           <Package className="w-6 h-6 text-primary mr-2" />
-          <span className="text-lg font-bold text-gray-900">Smart Inventory</span>
+          <span className="text-lg font-bold text-gray-900">
+            Smart Inventory
+          </span>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
@@ -96,12 +101,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={item.href}
                 href={item.href}
                 className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  isActive 
-                    ? 'bg-primary/10 text-primary' 
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
                 }`}
               >
-                <item.icon className={`mr-3 h-5 w-5 ${isActive ? 'text-primary' : 'text-slate-400'}`} />
+                <item.icon
+                  className={`mr-3 h-5 w-5 ${isActive ? "text-primary" : "text-slate-400"}`}
+                />
                 {item.name}
               </Link>
             );
@@ -110,20 +117,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="p-4 border-t bg-gray-50/50">
           <div className="flex items-center gap-3">
-             <Avatar className="h-9 w-9 border">
-                <AvatarImage src={`https://ui-avatars.com/api/?name=${user.username}&background=random`} />
-                <AvatarFallback>
-                  {getDisplayUsername(user.username).substring(0,2).toUpperCase()}
-                </AvatarFallback>
-             </Avatar>
-             <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                  {user.first_name || getDisplayUsername(user.username)}
-                </p>
-                <p className="text-xs text-gray-500 truncate capitalize">
-                  {user.is_superuser ? 'System Admin' : user.role || 'User'}
-                </p>
-             </div>
+            <Avatar className="h-9 w-9 border">
+              <AvatarImage
+                src={`https://ui-avatars.com/api/?name=${user.username}&background=random`}
+              />
+              <AvatarFallback>
+                {getDisplayUsername(user.username)
+                  .substring(0, 2)
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {user.first_name || getDisplayUsername(user.username)}
+              </p>
+              <p className="text-xs text-gray-500 truncate capitalize">
+                {user.is_superuser ? "System Admin" : user.role || "User"}
+              </p>
+            </div>
           </div>
         </div>
       </aside>
@@ -131,65 +142,70 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* --- MAIN CONTENT AREA --- */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="h-16 bg-white border-b flex items-center justify-between px-4 md:px-6">
+        <header className="h-16 bg-card border-b flex items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-4">
-              <div className="md:hidden">
-                  <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-                    <SheetTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <Menu className="h-6 w-6" />
-                      </Button>
-                    </SheetTrigger>
-                    <SheetContent side="left" className="w-64 p-0">
-                        <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
-                        <SheetDescription className="sr-only">Navigation links</SheetDescription>
-                        <div className="h-16 flex items-center px-6 border-b">
-                          <span className="text-lg font-bold">Smart Inventory</span>
-                        </div>
-                        <div className="py-4 px-3 space-y-1">
-                          {NAV_ITEMS.map((item) => (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setIsMobileOpen(false)}
-                              className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                                pathname === item.href ? 'bg-secondary' : 'hover:bg-secondary/50'
-                              }`}
-                            >
-                              <item.icon className="mr-3 h-5 w-5" />
-                              {item.name}
-                            </Link>
-                          ))}
-                        </div>
-                    </SheetContent>
-                  </Sheet>
-              </div>
+            <div className="md:hidden">
+              <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-6 w-6" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-64 p-0">
+                  <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Navigation links
+                  </SheetDescription>
+                  <div className="h-16 flex items-center px-6 border-b">
+                    <span className="text-lg font-bold">Smart Inventory</span>
+                  </div>
+                  <div className="py-4 px-3 space-y-1">
+                    {NAV_ITEMS.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setIsMobileOpen(false)}
+                        className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+                          pathname === item.href
+                            ? "bg-secondary"
+                            : "hover:bg-secondary/50"
+                        }`}
+                      >
+                        <item.icon className="mr-3 h-5 w-5" />
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
 
-              {/* ✅ GLOBAL SYNC STATUS (Visible on all pages) */}
-              {isSyncing && (
-                  <Badge variant="secondary" className="hidden md:flex gap-1 bg-blue-50 text-blue-700 border-blue-200">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Syncing Data...
-                  </Badge>
-              )}
-              {pendingCount > 0 && (
-                  <Badge variant="destructive" className="hidden md:flex gap-1">
-                      <WifiOff className="h-3 w-3" /> {pendingCount} Offline Actions
-                  </Badge>
-              )}
+            {/* ✅ GLOBAL SYNC STATUS (Visible on all pages) */}
+            {isSyncing && (
+              <Badge
+                variant="secondary"
+                className="hidden md:flex gap-1 bg-blue-50 text-blue-700 border-blue-200"
+              >
+                <Loader2 className="h-3 w-3 animate-spin" /> Syncing Data...
+              </Badge>
+            )}
+            {pendingCount > 0 && (
+              <Badge variant="destructive" className="hidden md:flex gap-1">
+                <WifiOff className="h-3 w-3" /> {pendingCount} Offline Actions
+              </Badge>
+            )}
           </div>
-          
+
           {/* Header Right Side */}
           <div className="flex items-center gap-4 ml-auto">
-              <NotificationsBell />
-              <UserNav />
+            <NotificationsBell />
+            <UserNav />
           </div>
         </header>
 
         {/* Page Content Injection */}
         <main className="flex-1 overflow-auto p-4 md:p-8">
-           <div className="max-w-7xl mx-auto">
-             {children}
-           </div>
+          <div className="max-w-7xl mx-auto">{children}</div>
         </main>
       </div>
     </div>

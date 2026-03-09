@@ -1,25 +1,43 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/lib/db';
-import { useReactToPrint } from 'react-to-print';
-import api from '@/lib/api';
-import { Product, CartItem } from '@/lib/types';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@/lib/db";
+import { useReactToPrint } from "react-to-print";
+import api from "@/lib/api";
+import { Product, CartItem } from "@/lib/types";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { 
-    Search, PackageOpen, LayoutGrid, List, Printer, CheckCircle2, 
-    History, ShoppingBag, Wifi, WifiOff, Loader2, ChevronLeft, ChevronRight 
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { PosCart } from './pos-cart';
-import { ReceiptTemplate } from '@/components/sales/receipt-template';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Search,
+  PackageOpen,
+  LayoutGrid,
+  List,
+  Printer,
+  CheckCircle2,
+  History,
+  ShoppingBag,
+  Wifi,
+  WifiOff,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { format } from "date-fns";
+import { PosCart } from "./pos-cart";
+import { ReceiptTemplate } from "@/components/sales/receipt-template";
 
 const PAGE_SIZE = 12;
 
@@ -34,27 +52,27 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function SalesPage() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 300); // ⏳ Wait 500ms before searching
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeTab, setActiveTab] = useState<'pos' | 'history'>('pos');
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeTab, setActiveTab] = useState<"pos" | "history">("pos");
   const [page, setPage] = useState(1);
   const [isOnline, setIsOnline] = useState(true);
 
   // Network Listener
   useEffect(() => {
-    if (typeof navigator !== 'undefined') {
-        setIsOnline(navigator.onLine);
-        const handleOnline = () => setIsOnline(true);
-        const handleOffline = () => setIsOnline(false);
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
+    if (typeof navigator !== "undefined") {
+      setIsOnline(navigator.onLine);
+      const handleOnline = () => setIsOnline(true);
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      };
     }
   }, []);
 
@@ -62,67 +80,72 @@ export default function SalesPage() {
     setPage(1);
   }, [debouncedSearch]);
 
-  const [selectedSale, setSelectedSale] = useState<any>(null); 
+  const [selectedSale, setSelectedSale] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({ contentRef: printRef });
 
   // 1. Settings
   const { data: settings } = useQuery({
-      queryKey: ['settings'],
-      queryFn: async () => (await api.get('/api/settings/')).data,
-      staleTime: Infinity
+    queryKey: ["settings"],
+    queryFn: async () => (await api.get("/api/settings/")).data,
+    staleTime: Infinity,
   });
 
   // ✅ 2A. ONLINE QUERY (Live API)
   const { data: apiProductData, isLoading: isApiLoading } = useQuery({
-    queryKey: ['products', debouncedSearch, page],
+    queryKey: ["products", debouncedSearch, page],
     queryFn: async () => {
-        if (!navigator.onLine) return null;
-        // ✅ Corrected URL matches backend configuration
-        const params = { search: debouncedSearch, page, page_size: PAGE_SIZE };
-        const { data } = await api.get('/api/products/', { params });
-        return data;
+      if (!navigator.onLine) return null;
+      // ✅ Corrected URL matches backend configuration
+      const params = { search: debouncedSearch, page, page_size: PAGE_SIZE };
+      const { data } = await api.get("/api/products/", { params });
+      return data;
     },
     enabled: isOnline,
-    placeholderData: (prev) => prev
+    placeholderData: (prev) => prev,
   });
 
   // ✅ 2B. OFFLINE QUERY (Local Dexie DB)
-  const localProductData = useLiveQuery(
-    async () => {
-      if (isOnline) return null;
-      let collection;
-      if (!debouncedSearch) {
-        collection = db.products.toCollection();
-      } else {
-        const lower = debouncedSearch.toLowerCase();
-        collection = db.products.filter(p => 
-            p.name.toLowerCase().includes(lower) || 
-            (p.sku || "").toLowerCase().includes(lower)
-        );
-      }
-      const total = await collection.count();
-      const items = await collection.offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE).toArray();
-      return { results: items, count: total };
-    },
-    [debouncedSearch, page, isOnline]
-  );
+  const localProductData = useLiveQuery(async () => {
+    if (isOnline) return null;
+    let collection;
+    if (!debouncedSearch) {
+      collection = db.products.toCollection();
+    } else {
+      const lower = debouncedSearch.toLowerCase();
+      collection = db.products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lower) ||
+          (p.sku || "").toLowerCase().includes(lower),
+      );
+    }
+    const total = await collection.count();
+    const items = await collection
+      .offset((page - 1) * PAGE_SIZE)
+      .limit(PAGE_SIZE)
+      .toArray();
+    return { results: items, count: total };
+  }, [debouncedSearch, page, isOnline]);
 
   // ✅ SMART SELECTION
-  const products = isOnline ? apiProductData?.results : localProductData?.results;
-  const totalProducts = isOnline ? apiProductData?.count : localProductData?.count;
+  const products = isOnline
+    ? apiProductData?.results
+    : localProductData?.results;
+  const totalProducts = isOnline
+    ? apiProductData?.count
+    : localProductData?.count;
   const isLoading = isOnline ? isApiLoading : !localProductData;
   const totalPages = Math.ceil((totalProducts || 0) / PAGE_SIZE);
 
   // 3. History
   const { data: salesHistory, isLoading: isHistoryLoading } = useQuery({
-    queryKey: ['sales', debouncedSearch], 
+    queryKey: ["sales", debouncedSearch],
     queryFn: async () => {
-       const params = { search: debouncedSearch }; 
-       const { data } = await api.get('/api/sales/', { params });
-       return data;
+      const params = { search: debouncedSearch };
+      const { data } = await api.get("/api/sales/", { params });
+      return data;
     },
-    enabled: activeTab === 'history' 
+    enabled: activeTab === "history",
   });
 
   // --- Handlers (Same as before) ---
@@ -132,32 +155,41 @@ export default function SalesPage() {
       const existing = prev.find((item) => item.productId === product.id);
       if (existing) {
         if (existing.quantity < product.quantity) {
-             return prev.map((item) =>
-                item.productId === product.id ? { ...item, quantity: item.quantity + 1 } : item
-             );
+          return prev.map((item) =>
+            item.productId === product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item,
+          );
         }
         return prev;
       }
-      return [...prev, {
-          productId: product.id, 
-          name: product.name, 
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          name: product.name,
           price: parseFloat(product.price as any),
-          quantity: 1, 
+          quantity: 1,
           maxStock: product.quantity,
-      }];
+        },
+      ];
     });
   };
 
-  const removeFromCart = (id: number) => setCart((prev) => prev.filter((item) => item.productId !== id));
-  
+  const removeFromCart = (id: number) =>
+    setCart((prev) => prev.filter((item) => item.productId !== id));
+
   const updateQuantity = (id: number, delta: number) => {
-    setCart((prev) => prev.map((item) => {
+    setCart((prev) =>
+      prev.map((item) => {
         if (item.productId === id) {
-            const newQty = item.quantity + delta;
-            if (newQty > 0 && newQty <= item.maxStock) return { ...item, quantity: newQty };
+          const newQty = item.quantity + delta;
+          if (newQty > 0 && newQty <= item.maxStock)
+            return { ...item, quantity: newQty };
         }
         return item;
-    }));
+      }),
+    );
   };
 
   return (
@@ -165,134 +197,250 @@ export default function SalesPage() {
       {/* Left Content */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="flex items-center justify-between mb-4 gap-4 shrink-0">
-            <div className="flex gap-2">
-                <Button variant={activeTab === 'pos' ? "default" : "outline"} onClick={() => setActiveTab('pos')} className="gap-2">
-                    <ShoppingBag className="w-4 h-4" /> POS
-                </Button>
-                <Button variant={activeTab === 'history' ? "default" : "outline"} onClick={() => setActiveTab('history')} className="gap-2">
-                    <History className="w-4 h-4" /> History
-                </Button>
-            </div>
+          <div className="flex gap-2">
+            <Button
+              variant={activeTab === "pos" ? "default" : "outline"}
+              onClick={() => setActiveTab("pos")}
+              className="gap-2"
+            >
+              <ShoppingBag className="w-4 h-4" /> POS
+            </Button>
+            <Button
+              variant={activeTab === "history" ? "default" : "outline"}
+              onClick={() => setActiveTab("history")}
+              className="gap-2"
+            >
+              <History className="w-4 h-4" /> History
+            </Button>
+          </div>
 
-            {/* Connection Status */}
-            <div className="flex items-center gap-2">
-                {isOnline ? (
-                    <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-200">
-                        <Wifi className="h-3 w-3" /> Online
-                    </span>
-                ) : (
-                    <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
-                        <WifiOff className="h-3 w-3" /> Offline Mode
-                    </span>
-                )}
-            </div>
-
-            <div className="relative flex-1 max-w-xs">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="Search products..." 
-                    className="pl-8" 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)} 
-                />
-            </div>
-            
-            {activeTab === 'pos' && (
-                <div className="flex gap-1 border rounded-md p-1 bg-white">
-                    <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewMode('grid')}><LayoutGrid className="h-4 w-4" /></Button>
-                    <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setViewMode('list')}><List className="h-4 w-4" /></Button>
-                </div>
+          {/* Connection Status */}
+          <div className="flex items-center gap-2">
+            {isOnline ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-200">
+                <Wifi className="h-3 w-3" /> Online
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full border border-amber-200">
+                <WifiOff className="h-3 w-3" /> Offline Mode
+              </span>
             )}
+          </div>
+
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          {activeTab === "pos" && (
+            <div className="flex gap-1 border rounded-md p-1 bg-card">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode("grid")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 flex flex-col min-h-0 bg-white rounded-lg border shadow-sm overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
-                {activeTab === 'pos' && (
-                    <div className="flex flex-col h-full">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center flex-1">
-                                <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+        <div className="flex-1 flex flex-col min-h-0 bg-card rounded-lg border shadow-sm overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
+            {activeTab === "pos" && (
+              <div className="flex flex-col h-full">
+                {isLoading ? (
+                  <div className="flex items-center justify-center flex-1">
+                    <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+                  </div>
+                ) : !products || products.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+                    <PackageOpen className="h-12 w-12 mb-2 opacity-20" />
+                    <p>No products found.</p>
+                  </div>
+                ) : (
+                  <div
+                    className={
+                      viewMode === "grid"
+                        ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                        : "space-y-2"
+                    }
+                  >
+                    {products.map((product: any) => {
+                      const inCart =
+                        cart.find((c) => c.productId === product.id)
+                          ?.quantity || 0;
+                      const remaining = product.quantity - inCart;
+                      const isOutOfStock = remaining <= 0;
+                      return (
+                        <Card
+                          key={product.id}
+                          className={`cursor-pointer hover:border-primary/50 ${isOutOfStock ? "opacity-50" : ""}`}
+                          onClick={() => !isOutOfStock && addToCart(product)}
+                        >
+                          <CardContent
+                            className={
+                              viewMode === "grid"
+                                ? "p-4"
+                                : "p-3 flex justify-between"
+                            }
+                          >
+                            <div>
+                              <h3 className="font-semibold text-sm line-clamp-2">
+                                {product.name}
+                              </h3>
+                              <p className="text-xs text-muted-foreground">
+                                {product.sku}
+                              </p>
                             </div>
-                        ) : !products || products.length === 0 ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-                                <PackageOpen className="h-12 w-12 mb-2 opacity-20" />
-                                <p>No products found.</p>
+                            <div className="text-right">
+                              <Badge
+                                variant={
+                                  isOutOfStock ? "destructive" : "secondary"
+                                }
+                                className="text-[10px]"
+                              >
+                                {isOutOfStock ? "Out" : `${remaining} Left`}
+                              </Badge>
+                              <div className="font-bold text-primary">
+                                ₦{parseFloat(product.price).toLocaleString()}
+                              </div>
                             </div>
-                        ) : (
-                            <div className={viewMode === 'grid' ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
-                                {products.map((product: any) => {
-                                    const inCart = cart.find(c => c.productId === product.id)?.quantity || 0;
-                                    const remaining = product.quantity - inCart;
-                                    const isOutOfStock = remaining <= 0;
-                                    return (
-                                       <Card key={product.id} className={`cursor-pointer hover:border-primary/50 ${isOutOfStock ? 'opacity-50' : ''}`} onClick={() => !isOutOfStock && addToCart(product)}>
-                                         <CardContent className={viewMode === 'grid' ? "p-4" : "p-3 flex justify-between"}>
-                                              <div>
-                                                  <h3 className="font-semibold text-sm line-clamp-2">{product.name}</h3>
-                                                  <p className="text-xs text-muted-foreground">{product.sku}</p>
-                                              </div>
-                                              <div className="text-right">
-                                                  <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="text-[10px]">{isOutOfStock ? 'Out' : `${remaining} Left`}</Badge>
-                                                  <div className="font-bold text-primary">₦{parseFloat(product.price).toLocaleString()}</div>
-                                              </div>
-                                         </CardContent>
-                                       </Card>
-                                    );
-                                })}
-                            </div>
-                        )}
-                        {totalProducts > PAGE_SIZE && (
-                            <div className="mt-4 flex justify-between border-t pt-4">
-                                <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={page === 1}><ChevronLeft className="h-4 w-4" /></Button>
-                                    <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 )}
-                {/* Sales History Table (Same logic) */}
-                {activeTab === 'history' && (
-                    <div className="h-full">
-                        {isHistoryLoading ? <Loader2 className="animate-spin mx-auto mt-10" /> : (
-                            <Table>
-                                <TableHeader><TableRow><TableHead>Ref</TableHead><TableHead>Total</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {salesHistory?.results?.map((sale: any) => (
-                                        <TableRow key={sale.id}>
-                                            <TableCell>{sale.reference}</TableCell>
-                                            <TableCell>₦{Number(sale.total_amount).toLocaleString()}</TableCell>
-                                            <TableCell>{format(new Date(sale.created_at), "MMM d, HH:mm")}</TableCell>
-                                            <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}><Printer className="w-3 h-3 mr-1" /> Print</Button></TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
+                {totalProducts > PAGE_SIZE && (
+                  <div className="mt-4 flex justify-between border-t pt-4">
+                    <span className="text-xs text-muted-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => p - 1)}
+                        disabled={page === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => p + 1)}
+                        disabled={page >= totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
+                  </div>
                 )}
-            </div>
+              </div>
+            )}
+            {/* Sales History Table (Same logic) */}
+            {activeTab === "history" && (
+              <div className="h-full">
+                {isHistoryLoading ? (
+                  <Loader2 className="animate-spin mx-auto mt-10" />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ref</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {salesHistory?.results?.map((sale: any) => (
+                        <TableRow key={sale.id}>
+                          <TableCell>{sale.reference}</TableCell>
+                          <TableCell>
+                            ₦{Number(sale.total_amount).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            {format(new Date(sale.created_at), "MMM d, HH:mm")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedSale(sale)}
+                            >
+                              <Printer className="w-3 h-3 mr-1" /> Print
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Right Side Cart & Dialog */}
-      {activeTab === 'pos' && (
-          <div className="w-full md:w-[400px] shrink-0 h-[500px] md:h-auto">
-            <PosCart cart={cart} onRemove={removeFromCart} onUpdateQty={updateQuantity} onClear={() => setCart([])} onSaleSuccess={(saleData) => { setSelectedSale(saleData); setCart([]); }} />
-          </div>
+      {activeTab === "pos" && (
+        <div className="w-full md:w-[400px] shrink-0 h-[500px] md:h-auto">
+          <PosCart
+            cart={cart}
+            onRemove={removeFromCart}
+            onUpdateQty={updateQuantity}
+            onClear={() => setCart([])}
+            onSaleSuccess={(saleData) => {
+              setSelectedSale(saleData);
+              setCart([]);
+            }}
+          />
+        </div>
       )}
-      <Dialog open={!!selectedSale} onOpenChange={(open) => !open && setSelectedSale(null)}>
+      <Dialog
+        open={!!selectedSale}
+        onOpenChange={(open) => !open && setSelectedSale(null)}
+      >
         <DialogContent className="max-w-[400px]">
-             <div className="text-center p-4">
-                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h2 className="text-xl font-bold">Receipt Ready</h2>
-                <div className="hidden"><ReceiptTemplate ref={printRef} sale={selectedSale} settings={settings} /></div>
-                <div className="flex flex-col gap-3 mt-4">
-                    <Button onClick={() => handlePrint()} className="w-full"><Printer className="mr-2 h-4 w-4" /> Print</Button>
-                    <Button variant="outline" onClick={() => setSelectedSale(null)} className="w-full">Close</Button>
-                </div>
-             </div>
+          <div className="text-center p-4">
+            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold">Receipt Ready</h2>
+            <div className="hidden">
+              <ReceiptTemplate
+                ref={printRef}
+                sale={selectedSale}
+                settings={settings}
+              />
+            </div>
+            <div className="flex flex-col gap-3 mt-4">
+              <Button onClick={() => handlePrint()} className="w-full">
+                <Printer className="mr-2 h-4 w-4" /> Print
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedSale(null)}
+                className="w-full"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

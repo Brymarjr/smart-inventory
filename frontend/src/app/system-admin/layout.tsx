@@ -1,11 +1,20 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useAuth } from '@/lib/auth-context';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { Loader2, ShieldAlert, LogOut, Moon, Sun, User, LifeBuoy, LayoutDashboard } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import {
+  Loader2,
+  ShieldAlert,
+  LogOut,
+  Moon,
+  Sun,
+  User,
+  LifeBuoy,
+  LayoutDashboard,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,26 +47,25 @@ export default function SystemAdminLayout({
 
     // 2. ✅ ALLOW ACCESS to the Admin Login page itself
     // If we don't do this, the layout will block the login page, causing a loop.
-    if (pathname === '/system-admin/login') {
-        setIsAuthorized(true);
-        return;
+    if (pathname === "/system-admin/login") {
+      setIsAuthorized(true);
+      return;
     }
 
     // 3. If no user, send to ADMIN LOGIN (not tenant login)
     if (!user) {
-      router.replace('/system-admin/login');
+      router.replace("/system-admin/login");
       return;
     }
 
     // 4. If user exists but NOT a superuser, kick them out
     if (!user.is_superuser) {
-      router.replace('/login?error=unauthorized_admin');
+      router.replace("/login?error=unauthorized_admin");
       return;
     }
 
     // 5. Success
     setIsAuthorized(true);
-
   }, [user, isLoading, router, pathname]);
 
   // --- LOADING STATES ---
@@ -65,11 +73,11 @@ export default function SystemAdminLayout({
   // While checking auth...
   if (isLoading || !isAuthorized) {
     // If we are sitting on the login page, render it immediately (don't show spinner)
-    if (pathname === '/system-admin/login') return <>{children}</>;
+    if (pathname === "/system-admin/login") return <>{children}</>;
 
     // Otherwise show spinner
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="flex h-screen items-center justify-center bg-muted dark:bg-slate-900">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -77,83 +85,92 @@ export default function SystemAdminLayout({
 
   // --- IF ON LOGIN PAGE, RENDER WITHOUT HEADER ---
   // We don't want the navigation bar showing on the login screen
-  if (pathname === '/system-admin/login') {
-      return <>{children}</>;
+  if (pathname === "/system-admin/login") {
+    return <>{children}</>;
   }
 
   // --- MAIN LAYOUT (Only for logged in Admins) ---
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-muted dark:bg-slate-950">
       {/* --- TOP NAVIGATION BAR --- */}
       <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-16 items-center px-6 justify-between">
-          
           <div className="flex items-center gap-8">
             {/* 1. BRAND LOGO */}
             <div className="flex items-center gap-2">
               <div className="bg-primary/10 p-2 rounded-lg">
-                  <ShieldAlert className="h-6 w-6 text-primary" />
+                <ShieldAlert className="h-6 w-6 text-primary" />
               </div>
               <div>
-                  <h1 className="font-bold text-lg leading-none tracking-tight">System Core</h1>
-                  <span className="text-[10px] uppercase font-semibold text-muted-foreground">
-                      {user?.is_staff ? 'Full Access' : 'Read Only'}
-                  </span>
+                <h1 className="font-bold text-lg leading-none tracking-tight">
+                  System Core
+                </h1>
+                <span className="text-[10px] uppercase font-semibold text-muted-foreground">
+                  {user?.is_staff ? "Full Access" : "Read Only"}
+                </span>
               </div>
             </div>
 
             {/* 2. MAIN NAVIGATION LINKS */}
             <nav className="hidden md:flex items-center gap-1 border-l pl-6 h-8">
-               <Link href="/system-admin">
-                 <Button 
-                   variant={pathname === '/system-admin' ? 'secondary' : 'ghost'} 
-                   size="sm"
-                   className="gap-2"
-                 >
-                    <LayoutDashboard className="h-4 w-4" />
-                    Tenants
-                 </Button>
-               </Link>
+              <Link href="/system-admin">
+                <Button
+                  variant={pathname === "/system-admin" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="gap-2"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  Tenants
+                </Button>
+              </Link>
 
-               <Link href="/system-admin/support">
-                 <Button 
-                   variant={pathname?.includes('/support') ? 'secondary' : 'ghost'} 
-                   size="sm"
-                   className="gap-2"
-                 >
-                    <LifeBuoy className="h-4 w-4" />
-                    Support Desk
-                 </Button>
-               </Link>
+              <Link href="/system-admin/support">
+                <Button
+                  variant={
+                    pathname?.includes("/support") ? "secondary" : "ghost"
+                  }
+                  size="sm"
+                  className="gap-2"
+                >
+                  <LifeBuoy className="h-4 w-4" />
+                  Support Desk
+                </Button>
+              </Link>
             </nav>
           </div>
 
           {/* 3. RIGHT ACTIONS */}
           <div className="flex items-center gap-4">
-            
             {/* Theme Toggle */}
             {mounted && (
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                >
-                    {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              >
+                {theme === "dark" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
+              </Button>
             )}
 
             {/* User Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="gap-2">
-                   <User className="h-4 w-4" />
-                   <span className="hidden md:inline">{user?.username}</span>
+                  <User className="h-4 w-4" />
+                  <span className="hidden md:inline">{user?.username}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-red-600 cursor-pointer">
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="text-red-600 cursor-pointer"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
@@ -164,9 +181,7 @@ export default function SystemAdminLayout({
       </header>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="p-6 md:p-8 max-w-7xl mx-auto">
-        {children}
-      </main>
+      <main className="p-6 md:p-8 max-w-7xl mx-auto">{children}</main>
     </div>
   );
 }

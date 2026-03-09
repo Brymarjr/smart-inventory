@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   return (
     <html lang="en" suppressHydrationWarning className={jakarta.variable}>
-      <body className={`${jakarta.className} antialiased`}>
+      <body className={`${jakarta.className} antialiased bg-background text-foreground`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light" // Defaulting to light for SME visibility

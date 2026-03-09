@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import Link from "next/link";
 import {
@@ -12,35 +12,45 @@ import {
   Database,
   LineChart,
   ShieldAlert,
-  Layers
+  Layers,
 } from "lucide-react";
 
 export default function ForeTrackLanding() {
   return (
-    <div className="text-[#1A1B4B] bg-white scroll-smooth selection:bg-[#2D31FA] selection:text-white">
-
+    <div className="text-[#1A1B4B] bg-card scroll-smooth selection:bg-[#2D31FA] selection:text-white">
       {/* 1. Navigation Bar - All links and buttons to the far right */}
       <header className="bg-[#1A1B4B] text-white sticky top-0 z-50 shadow-md">
         <div className="w-full flex items-center justify-between px-8 py-5">
-
           {/* Left: Logo only */}
           <div className="flex items-center gap-3">
             <div className="bg-[#2D31FA] p-2 rounded-xl">
               <PackageSearch size={26} className="text-white" />
             </div>
-            <span className="text-2xl font-black tracking-tighter text-white">ForeTrack</span>
+            <span className="text-2xl font-black tracking-tighter text-white">
+              ForeTrack
+            </span>
           </div>
 
           {/* Right: Nav Links + Buttons */}
           <div className="flex items-center gap-10">
             <nav className="hidden xl:flex items-center gap-10 text-xs font-bold uppercase tracking-[0.15em] text-slate-300">
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="#insights" className="hover:text-white transition-colors">Operational Insights</a>
+              <a
+                href="#features"
+                className="hover:text-white transition-colors"
+              >
+                Features
+              </a>
+              <a
+                href="#insights"
+                className="hover:text-white transition-colors"
+              >
+                Operational Insights
+              </a>
             </nav>
 
             <div className="flex items-center gap-4 border-l border-white/10 pl-10">
               <Link href="/login">
-                <button className="px-6 py-2.5 rounded-xl border border-white/20 hover:bg-white hover:text-[#1A1B4B] transition-all font-black text-xs uppercase tracking-widest">
+                <button className="px-6 py-2.5 rounded-xl border border-white/20 hover:bg-card hover:text-[#1A1B4B] transition-all font-black text-xs uppercase tracking-widest">
                   Login
                 </button>
               </Link>
@@ -66,8 +76,10 @@ export default function ForeTrackLanding() {
             <span className="text-[#2D31FA]">Predict Demand.</span>
           </h1>
 
-          <p className="text-slate-500 text-xl md:text-2xl max-w-2xl mx-auto mb-14 leading-relaxed font-medium tracking-tight">
-            Stop reacting to stockouts. ForeTrack uses smart analytics to help you manage inventory with total precision and grow your business with confidence.
+          <p className="text-muted-foreground text-xl md:text-2xl max-w-2xl mx-auto mb-14 leading-relaxed font-medium tracking-tight">
+            Stop reacting to stockouts. ForeTrack uses smart analytics to help
+            you manage inventory with total precision and grow your business
+            with confidence.
           </p>
 
           <div className="flex justify-center">
@@ -84,7 +96,9 @@ export default function ForeTrackLanding() {
       <section id="features" className="py-28 bg-[#F8FAFC] px-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-20">
-            <h2 className="text-4xl font-black tracking-tighter uppercase text-[#1A1B4B]">Key System Features</h2>
+            <h2 className="text-4xl font-black tracking-tighter uppercase text-[#1A1B4B]">
+              Key System Features
+            </h2>
             <div className="h-2 w-20 bg-[#2D31FA] mt-4 rounded-full"></div>
           </div>
 
@@ -123,7 +137,7 @@ export default function ForeTrackLanding() {
             ].map((feature, index) => (
               <div
                 key={index}
-                className="bg-white p-12 rounded-[3rem] shadow-sm border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group"
+                className="bg-card p-12 rounded-[3rem] shadow-sm border border-slate-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group"
               >
                 <div className="text-[#2D31FA] mb-8 bg-[#2D31FA]/5 w-fit p-5 rounded-2xl group-hover:bg-[#2D31FA] group-hover:text-white transition-colors duration-500">
                   {feature.icon}
@@ -131,7 +145,7 @@ export default function ForeTrackLanding() {
                 <h3 className="text-xl font-black mb-4 uppercase tracking-tighter text-[#1A1B4B]">
                   {feature.title}
                 </h3>
-                <p className="text-slate-500 text-base leading-relaxed font-medium">
+                <p className="text-muted-foreground text-base leading-relaxed font-medium">
                   {feature.desc}
                 </p>
               </div>
@@ -141,46 +155,50 @@ export default function ForeTrackLanding() {
       </section>
 
       {/* 3. Operational Insights - Strategy & Data Management */}
-      <section id="insights" className="py-28 bg-white px-6">
+      <section id="insights" className="py-28 bg-card px-6">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-5xl font-black text-[#1A1B4B] tracking-tight uppercase">Operational Insights</h2>
-            <p className="text-slate-500 font-medium text-lg mt-4">Understanding how ForeTrack powers your enterprise.</p>
+            <h2 className="text-5xl font-black text-[#1A1B4B] tracking-tight uppercase">
+              Operational Insights
+            </h2>
+            <p className="text-muted-foreground font-medium text-lg mt-4">
+              Understanding how ForeTrack powers your enterprise.
+            </p>
           </div>
 
           <div className="space-y-6">
             {[
               {
                 q: "How does the system securely manage and store my business data?",
-                a: "Data integrity is our priority. ForeTrack uses a modular architecture where each store's records are strictly filtered at the database level. Your inventory, financial history, and user logs are encrypted and completely isolated from any other organization on the platform."
+                a: "Data integrity is our priority. ForeTrack uses a modular architecture where each store's records are strictly filtered at the database level. Your inventory, financial history, and user logs are encrypted and completely isolated from any other organization on the platform.",
               },
               {
                 q: "How does the optimization logic help prevent capital waste?",
-                a: "By analyzing your sales turnover, the system identifies reorder points that prevent you from tying up capital in slow-moving stock, while simultaneously ensuring high-demand items never run out."
+                a: "By analyzing your sales turnover, the system identifies reorder points that prevent you from tying up capital in slow-moving stock, while simultaneously ensuring high-demand items never run out.",
               },
               {
                 q: "What measures ensure staff accountability in the system?",
-                a: "Role-Based Access Control (RBAC) creates a clear audit trail. Every sale recorded or stock adjustment made is tagged to the specific staff member, while sensitive financial approvals remain restricted to managers."
+                a: "Role-Based Access Control (RBAC) creates a clear audit trail. Every sale recorded or stock adjustment made is tagged to the specific staff member, while sensitive financial approvals remain restricted to managers.",
               },
               {
                 q: "How does the system handle rapid demand surges?",
-                a: "We utilize high-speed caching and background processing to manage surges in data. This ensures that even during your busiest sales hours, the system remains responsive and stock updates happen in real-time."
-              }
+                a: "We utilize high-speed caching and background processing to manage surges in data. This ensures that even during your busiest sales hours, the system remains responsive and stock updates happen in real-time.",
+              },
             ].map((item, i) => (
-              <details 
-                key={i} 
+              <details
+                key={i}
                 className="group py-8 border-b border-slate-100 last:border-0 transition-all duration-300"
               >
                 <summary className="flex justify-between items-center cursor-pointer list-none">
                   <span className="text-2xl font-bold text-[#1A1B4B] group-open:text-[#2D31FA] transition-colors duration-300 pr-6 tracking-tight">
                     {item.q}
                   </span>
-                  <div className="flex-shrink-0 bg-slate-50 group-open:bg-[#2D31FA]/10 p-3 rounded-full transition-colors duration-300">
+                  <div className="flex-shrink-0 bg-muted group-open:bg-[#2D31FA]/10 p-3 rounded-full transition-colors duration-300">
                     <ChevronDown className="w-6 h-6 text-[#1A1B4B] group-open:text-[#2D31FA] group-open:rotate-180 transition-transform duration-300" />
                   </div>
                 </summary>
                 <div className="overflow-hidden">
-                  <p className="pt-8 pb-4 text-slate-500 text-xl leading-relaxed font-medium max-w-3xl">
+                  <p className="pt-8 pb-4 text-muted-foreground text-xl leading-relaxed font-medium max-w-3xl">
                     {item.a}
                   </p>
                 </div>
@@ -195,19 +213,20 @@ export default function ForeTrackLanding() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
           <div className="flex items-center gap-3">
             <PackageSearch size={30} className="text-[#2D31FA]" />
-            <span className="text-2xl font-black tracking-tight text-white">ForeTrack</span>
+            <span className="text-2xl font-black tracking-tight text-white">
+              ForeTrack
+            </span>
           </div>
           <p className="text-sm font-medium text-slate-400">
             © 2026 ForeTrack Systems. Optimized SME Management.
           </p>
-          <div className="flex gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+          <div className="flex gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
             <span>Secure</span>
             <span>Scalable</span>
             <span>Intelligent</span>
           </div>
         </div>
       </footer>
-
     </div>
   );
 }

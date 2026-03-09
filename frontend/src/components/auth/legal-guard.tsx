@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
-import { Loader2 } from 'lucide-react';
+import { useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { Loader2 } from "lucide-react";
 
 export function LegalGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -17,7 +17,7 @@ export function LegalGuard({ children }: { children: React.ReactNode }) {
     // 2. If not logged in, skip
     if (!user) return;
 
-    const legalPath = '/legal/accept-terms';
+    const legalPath = "/legal/accept-terms";
 
     // 3. CHECK: Has user accepted ToS?
     if (!user.tos_accepted_at) {
@@ -28,7 +28,7 @@ export function LegalGuard({ children }: { children: React.ReactNode }) {
     } else {
       // If ALREADY accepted, and trying to view legal page -> Send to Dashboard
       if (pathname === legalPath) {
-        router.replace('/dashboard');
+        router.replace("/dashboard");
       }
     }
   }, [user, isLoading, pathname, router]);
@@ -36,7 +36,7 @@ export function LegalGuard({ children }: { children: React.ReactNode }) {
   // Show loading spinner while checking status to prevent "flash" of content
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-white dark:bg-black">
+      <div className="h-screen w-full flex items-center justify-center bg-card dark:bg-black">
         <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
       </div>
     );
