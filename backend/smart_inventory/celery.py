@@ -21,4 +21,11 @@ app.conf.beat_schedule = {
         'schedule': crontab(hour=2, minute=0),  # 2:00 AM
         'args': (), 
     },
+    
+    # 2. THE BOUNCER: Sweeps for expired subscriptions every hour
+    'sweep-expired-subscriptions-hourly': {
+        'task': 'billing.tasks.sweep_expired_subscriptions_task', 
+        'schedule': crontab(minute=0),  # Runs at minute 0 of every hour
+        'args': (), 
+    },
 }

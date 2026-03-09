@@ -35,15 +35,15 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
             title="Total Revenue"
-            value={formatMoney(stats?.revenue.value || 0)}
+            value={formatMoney(stats?.revenue?.value || 0)}
             icon={DollarSign}
-            trend={stats?.revenue.trend}
+            trend={stats?.revenue?.trend}
         />
         <StatCard 
             title="Total Profit"
-            value={formatMoney(stats?.profit.value || 0)}
+            value={stats?.profit?.value !== undefined ? formatMoney(stats.profit.value) : " 🔒 Pro Feature"}
             icon={TrendingUp}
-            trend={stats?.profit.trend}
+            trend={stats?.profit?.trend}
         />
         <StatCard 
             title="Active Products"

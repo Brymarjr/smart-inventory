@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Loader2, Search, Filter, CheckCircle, AlertCircle, Clock, Building, Send, Lock } from 'lucide-react';
+import { Loader2, Search, Filter, CheckCircle, AlertCircle, Clock, Building, Send, Lock, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function AdminSupportPage() {
@@ -48,7 +48,6 @@ export default function AdminSupportPage() {
       const refreshedList = await supportApi.getAllTickets();
       setTickets(refreshedList);
       
-      // ✅ FIXED: Added type annotation (t: SupportTicket)
       const refreshedTicket = refreshedList.find((t: SupportTicket) => t.id === selectedTicket.id);
       if (refreshedTicket) setSelectedTicket(refreshedTicket);
     } catch (error) {
@@ -62,25 +61,20 @@ export default function AdminSupportPage() {
     if (!selectedTicket || !replyMessage.trim()) return;
     setIsUpdating(true);
     try {
-      // 1. Send to server and get the new comment object back
       const newComment = await supportApi.replyToTicket(selectedTicket.id, replyMessage);
       
       toast.success("Reply sent");
       setReplyMessage('');
       
-      // 2. Update the Dialog (Instant Chat UI)
       setSelectedTicket((prev) => {
         if (!prev) return null;
         return {
           ...prev,
           comments: [...(prev.comments || []), newComment],
-          // Optional: Update timestamp to now so it looks fresh
           updated_at: new Date().toISOString()
         };
       });
 
-      // 3. Update the Background List (Table Data)
-      // This ensures if you close the dialog, the table also knows about the update
       setTickets((prevTickets) => 
         prevTickets.map((t) => 
           t.id === selectedTicket.id 
@@ -93,9 +87,6 @@ export default function AdminSupportPage() {
         )
       );
 
-      // ❌ REMOVED: await supportApi.getAllTickets();
-      // We don't need to ask the server. We know what we just sent.
-
     } catch (error) {
       toast.error("Failed to send reply");
     } finally {
@@ -103,10 +94,13 @@ export default function AdminSupportPage() {
     }
   };
 
-  const filteredTickets = tickets.filter(ticket => 
-    ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ticket.tenant_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // ✅ ENFORCING PRIORITY: Filter first, then Sort VIPs to the very top
+  const filteredTickets = tickets
+    .filter(ticket => 
+      ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.tenant_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => Number(b.is_vip_tenant || false) - Number(a.is_vip_tenant || false));
 
   const getPriorityColor = (p: string) => {
     switch(p) {
@@ -179,7 +173,19 @@ export default function AdminSupportPage() {
                        ticket.status === 'closed' ? <Badge variant="secondary" className="text-slate-500">Closed</Badge> :
                        <Badge variant="outline" className="capitalize">{ticket.status}</Badge>}
                     </TableCell>
-                    <TableCell className="font-medium">{ticket.subject}</TableCell>
+                    
+                    {/* ✅ UI BADGE: Gold VIP indicator injected into the Subject cell */}
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {ticket.is_vip_tenant && (
+                          <Badge className="bg-amber-400 hover:bg-amber-500 text-amber-950 border-none flex items-center gap-1 px-1.5 shadow-sm">
+                            <Star className="h-3 w-3 fill-current" /> VIP
+                          </Badge>
+                        )}
+                        <span className="truncate max-w-[200px] md:max-w-[300px]">{ticket.subject}</span>
+                      </div>
+                    </TableCell>
+
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <Building className="h-3 w-3" />
@@ -203,7 +209,15 @@ export default function AdminSupportPage() {
         <DialogContent className="sm:max-w-[700px] h-[80vh] flex flex-col p-0 gap-0">
           <DialogHeader className="p-6 pb-2 border-b">
             <DialogTitle className="flex justify-between items-center pr-8">
-              <span>{selectedTicket?.subject}</span>
+              {/* ✅ DIALOG BADGE: Ensure the admin sees it in the chat view too */}
+              <span className="flex items-center gap-2">
+                {selectedTicket?.subject}
+                {selectedTicket?.is_vip_tenant && (
+                  <Badge className="bg-amber-400 text-amber-950 border-none ml-2">
+                    <Star className="h-3 w-3 fill-current mr-1" /> VIP
+                  </Badge>
+                )}
+              </span>
               {selectedTicket && <Badge variant="outline" className={getPriorityColor(selectedTicket.priority)}>{selectedTicket.priority}</Badge>}
             </DialogTitle>
             <DialogDescription className="flex items-center gap-2 pt-1">
@@ -228,7 +242,7 @@ export default function AdminSupportPage() {
                 </div>
             )}
 
-            {selectedTicket?.comments?.map((comment) => (
+            {selectedTicket?.comments?.map((comment: any) => (
                 <div key={comment.id} className={`flex flex-col gap-1 ${comment.is_superuser ? 'items-end' : 'items-start'}`}>
                     <div className={`flex items-center gap-2 text-xs text-slate-500 ${comment.is_superuser ? 'mr-1' : 'ml-1'}`}>
                         <span className={`font-semibold ${comment.is_superuser ? 'text-primary' : 'text-slate-700'}`}>{comment.user_name} {comment.is_superuser ? '(Support)' : ''}</span>

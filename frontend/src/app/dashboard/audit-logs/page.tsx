@@ -19,6 +19,9 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
+// ✅ IMPORT THE NEW PAYWALL COMPONENT
+import { PremiumPaywall } from '@/components/billing/premium-paywall';
+
 interface AuditLogEntry {
   id: number;
   actor_name: string;
@@ -42,14 +45,22 @@ export default function AuditLogsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['audit-logs', page, search],
     queryFn: async () => {
-      const { data } = await api.get<PaginatedResponse<AuditLogEntry>>('/api/audit-logs/', { 
-          params: { 
-              page, 
-              page_size: 20,
-              search 
-          } 
-      });
-      return data;
+      // ✅ ADDED TRY/CATCH TO HANDLE THE 403 BILLING LOCK
+      try {
+          const { data } = await api.get<any>('/api/audit-logs/', { 
+              params: { 
+                  page, 
+                  page_size: 20,
+                  search 
+              } 
+          });
+          return data;
+      } catch (error: any) {
+          if (error.response?.status === 403) {
+              return { isLocked: true, message: error.response.data?.detail };
+          }
+          throw error;
+      }
     },
     enabled: isAuthorized,
     placeholderData: (prev) => prev, 
@@ -78,9 +89,14 @@ export default function AuditLogsPage() {
         
         link.remove();
         toast.success("Audit log exported successfully");
-    } catch (error) {
-        console.error(error);
-        toast.error("Failed to export logs");
+    } catch (error: any) {
+        // ✅ Gracefully handle export blocks as well
+        if (error.response?.status === 403) {
+            toast.error("Premium Feature", { description: "Upgrading is required to export logs." });
+        } else {
+            console.error(error);
+            toast.error("Failed to export logs");
+        }
     } finally {
         setIsExporting(false);
     }
@@ -103,6 +119,18 @@ export default function AuditLogsPage() {
               <h2 className="text-2xl font-bold">Access Denied</h2>
               <p className="text-muted-foreground">Only Admins and Managers can view Audit Logs.</p>
               <Button onClick={() => router.push('/dashboard')}>Go Back</Button>
+          </div>
+      );
+  }
+
+  // ✅ DISPLAY THE PAYWALL IF LOCKED
+  if (data?.isLocked) {
+      return (
+          <div className="p-6">
+              <PremiumPaywall 
+                  title="Premium Security Logs" 
+                  message={data.message || "Track every user action, product update, and system change with immutable audit logs. Upgrade to unlock."} 
+              />
           </div>
       );
   }
@@ -146,7 +174,7 @@ export default function AuditLogsPage() {
         <CardContent>
           {isLoading ? (
              <div className="h-48 flex items-center justify-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
-          ) : data?.results.length === 0 ? (
+          ) : data?.results?.length === 0 ? (
              <div className="h-48 flex flex-col items-center justify-center text-muted-foreground">
                 <ShieldAlert className="h-10 w-10 mb-2 opacity-20" />
                 <p>No matching logs found.</p>
@@ -165,7 +193,7 @@ export default function AuditLogsPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {data?.results.map((log) => (
+                    {data?.results?.map((log: AuditLogEntry) => (
                     <TableRow key={log.id}>
                         <TableCell>
                             <div className="flex items-center gap-2">

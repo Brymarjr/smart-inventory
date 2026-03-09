@@ -33,6 +33,7 @@ from core.mixins import TenantFilteredViewSet
 from users.permissions import IsTenantAdmin
 from .tasks import _apply_sync_operation_preflight, process_sync_job
 from .notifications import notify_device_unblocked
+from billing.utils import check_plan_limit
 import logging
 
 # PRODUCTION LOGGING SETUP
@@ -86,12 +87,26 @@ class SyncUploadView(GenericAPIView):
         data = serializer.validated_data
         device_id = data["device_id"]
 
-        # 2. Auto-Provision Device
-        device, created = sync_models.Device.objects.get_or_create(
+        # 2. Auto-Provision Device (WITH BILLING LIMITS)
+        # Try to find the device first WITHOUT creating it
+        device = sync_models.Device.objects.filter(
             tenant=request.user.tenant,
-            device_id=device_id,
-            defaults={"user": request.user, "name": f"POS-{device_id[:8]}"}
-        )
+            device_id=device_id
+        ).first()
+
+        # If it's a brand new device, check the billing limits BEFORE creating it
+        if not device:
+            current_device_count = sync_models.Device.objects.filter(tenant=request.user.tenant).count()
+            check_plan_limit(request.user.tenant, "max_sync_devices", current_device_count)
+            
+            # If the check passes, create the device
+            device = sync_models.Device.objects.create(
+                tenant=request.user.tenant,
+                device_id=device_id,
+                user=request.user,
+                name=f"POS-{device_id[:8]}"
+            )
+
         if device.user != request.user:
             device.user = request.user
             device.save(update_fields=["user"])
@@ -220,11 +235,22 @@ class SyncDownloadView(APIView):
         if not device_id:
             return Response({"detail": "device_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        device, created = sync_models.Device.objects.get_or_create(
+        # Auto-Provision Device (WITH BILLING LIMITS)
+        device = sync_models.Device.objects.filter(
             tenant=request.user.tenant,
-            device_id=device_id,
-            defaults={"user": request.user, "name": f"POS-{device_id[:8]}"}
-        )
+            device_id=device_id
+        ).first()
+
+        if not device:
+            current_device_count = sync_models.Device.objects.filter(tenant=request.user.tenant).count()
+            check_plan_limit(request.user.tenant, "max_sync_devices", current_device_count)
+
+            device = sync_models.Device.objects.create(
+                tenant=request.user.tenant,
+                device_id=device_id,
+                user=request.user,
+                name=f"POS-{device_id[:8]}"
+            )
         
         if device.is_blocked:
             return Response({"detail": "Device blocked."}, status=status.HTTP_403_FORBIDDEN)

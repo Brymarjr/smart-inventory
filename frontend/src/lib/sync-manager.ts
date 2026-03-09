@@ -34,7 +34,7 @@ const getAuthHeaders = () => {
 };
 
 // 2. PULL: Download updates (Recursive Pagination)
-export const pullData = async (page = 1): Promise<{ success: boolean; error?: any }> => {
+export const pullData = async (page = 1): Promise<{ success: boolean; halted?: boolean; error?: any }> => {
   try {
     const headers = getAuthHeaders();
     
@@ -127,14 +127,20 @@ export const pullData = async (page = 1): Promise<{ success: boolean; error?: an
 
     return { success: true };
 
-  } catch (error) {
+  } catch (error: any) {
+    // ✅ Catch Billing Limits Gracefully
+    if (error.response?.status === 402 || error.response?.status === 403) {
+      console.warn(`[SYNC HALTED] Billing Limit Reached: ${error.response.data?.detail}`);
+      return { success: false, halted: true, error: error.response.data?.detail }; 
+    }
+
     console.error("❌ Sync Pull Failed:", error);
     return { success: false, error };
   }
 };
 
 // 3. PUSH: Upload Local Changes
-export const pushData = async () => {
+export const pushData = async (): Promise<{ success: boolean; count?: number; halted?: boolean; error?: any }> => {
   try {
     const headers = getAuthHeaders();
     if (!headers.Authorization) return { success: false, error: "No token" };
@@ -162,7 +168,13 @@ export const pushData = async () => {
     console.log(`✅ Pushed ${pendingItems.length} changes to server.`);
     return { success: true, count: pendingItems.length };
 
-  } catch (error) {
+  } catch (error: any) {
+    // ✅ Catch Billing Limits Gracefully on Push too
+    if (error.response?.status === 402 || error.response?.status === 403) {
+      console.warn(`[SYNC HALTED] Billing Limit Reached on Push: ${error.response.data?.detail}`);
+      return { success: false, halted: true, error: error.response.data?.detail }; 
+    }
+
     console.error("❌ Push Failed:", error);
     return { success: false, error };
   }

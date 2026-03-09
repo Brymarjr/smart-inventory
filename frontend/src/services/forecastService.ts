@@ -32,8 +32,21 @@ export interface DashboardData {
 }
 
 export const forecastService = {
-  async getDashboard(): Promise<DashboardData> {
-    const response = await api.get('/api/forecasts/dashboard/');
-    return response.data;
+  // ✅ Updated to allow returning the locked state
+  async getDashboard(): Promise<DashboardData | { isLocked: true; message: string }> {
+    try {
+      const response = await api.get('/api/forecasts/dashboard/');
+      return response.data;
+    } catch (error: any) {
+      // ✅ Catch the billing lock specifically
+      if (error.response?.status === 403) {
+        return { 
+          isLocked: true, 
+          message: error.response.data?.detail || "You need to upgrade to access this feature."
+        };
+      }
+      // Throw actual network/server errors
+      throw error;
+    }
   }
 };

@@ -1,50 +1,73 @@
+"""
+Billing Constants for ForeTrack.
+Defines the exact feature flags and limits based on the existing modules:
+Inventory, Sales, Purchases, Forecasting, Sync, Support, and Audit.
+"""
 
 PLAN_FEATURES = {
     'free': [
-        'inventory_view',
-        'sales_view',
-        'low_stock_alerts',
+        # Basic survival features
+        'inventory_basic',      # Can view/create products & categories
+        'sales_basic',          # Can process sales at the POS
+        'dashboard_basic',      # Sees Revenue, Top Sellers, Low Stock
+        'sync_basic',           # Allowed 1 offline sync device
+        'support_standard',     # Can submit basic support tickets
     ],
+    
     'pro': [
-        'inventory_view',
-        'sales_view',
-        'purchases',
-        'vendor_emails',
-        'reports_basic',
-        'low_stock_alerts',
-        'sync_limited',
+        # Everything in Free, plus operational management
+        'inventory_basic',
+        'sales_basic',
+        'dashboard_basic',
+        'sync_basic',
+        'support_standard',
+        
+        # PRO EXCLUSIVES
+        'inventory_advanced',   # Access to Suppliers and Purchase Orders
+        'dashboard_advanced',   # Sees Profit margins and growth Trends
+        'sync_pro',             # Allowed up to 5 offline sync devices
+        'audit_logs',           # Access to view system Audit Logs
     ],
+    
     'enterprise': [
-        'inventory_view',
-        'sales_view',
-        'purchases',
-        'vendor_emails',
-        'reports_advanced',
-        'ml_forecasting',
-        'sync_full',
-        'multi_store',
-        'priority_support',
-        'custom_branding',
+        # Everything in Pro, plus AI and unlimited scale
+        'inventory_basic',
+        'sales_basic',
+        'dashboard_basic',
+        'sync_basic',
+        'support_standard',
+        'inventory_advanced',
+        'dashboard_advanced',
+        'sync_pro',
+        'audit_logs',
+        
+        # ENTERPRISE EXCLUSIVES
+        'ml_forecasting',       # Access to AI demand forecasting & anomalies
+        'sync_unlimited',       # Unlimited offline POS devices
+        'support_priority',     # Priority queue for support tickets
     ],
 }
 
 PLAN_LIMITS = {
     'free': {
-        'max_users': 5,
+        'max_users': 3,         # 1 Admin, 2 other roles
         'max_products': 50,
-        'max_categories': 10,
-        'max_suppliers': 10,
+        'max_categories': 5,
+        'max_suppliers': 3,     # Maximum of 3 suppliers 
+        'max_sync_devices': 1,  # 1 register allowed offline
     },
     'pro': {
-        'max_users': 25,
-        'max_products': 500,
-        'max_categories': 100,
-        'max_suppliers': 50,
+        'max_users': 15,
+        'max_products': 1000,
+        'max_categories': 50,
+        'max_suppliers': 25,
+        'max_sync_devices': 5,
     },
     'enterprise': {
-        'max_users': None,
+        'max_users': None,      # Unlimited
         'max_products': None,
         'max_categories': None,
         'max_suppliers': None,
+        'max_sync_devices': None,
     },
 }

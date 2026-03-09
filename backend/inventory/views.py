@@ -108,7 +108,7 @@ class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
@@ -116,14 +116,14 @@ class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
         Create a new category.
         
         Enforces:
-        1. Feature presence ('inventory_view').
+        1. Feature presence ('inventory_basic').
         2. Plan Usage Limits ('max_categories').
         """
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
 
         current_count = Category.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_categories", current_count)
@@ -158,7 +158,7 @@ class SupplierViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
         return super().list(request, *args, **kwargs)
 
 
@@ -172,7 +172,7 @@ class SupplierViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
 
         current_count = Supplier.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_suppliers", current_count)
@@ -238,7 +238,7 @@ class ProductViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
@@ -250,7 +250,7 @@ class ProductViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
 
         current_count = Product.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_products", current_count)

@@ -27,8 +27,19 @@ export function useSync() {
     setIsSyncing(true);
 
     try {
-        await pushData();
-        await pullData();
+        const pushResult = await pushData();
+        // ✅ Stop if Billing Limit reached
+        if (pushResult?.halted) {
+            setIsSyncing(false);
+            return;
+        }
+
+        const pullResult = await pullData();
+        // ✅ Stop if Billing Limit reached
+        if (pullResult?.halted) {
+            setIsSyncing(false);
+            return;
+        }
         
         const meta = await db.meta.get('last_sync');
         setLastSyncTime(meta?.value);

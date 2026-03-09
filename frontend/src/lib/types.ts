@@ -165,6 +165,7 @@ export interface SupportTicket {
   created_at: string;
   updated_at: string;
   comments: TicketComment[]; // array
+  is_vip_tenant?: boolean;
 }
 
 export interface ContactAdminPayload {

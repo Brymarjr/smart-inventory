@@ -167,8 +167,6 @@ def notify_subscription_cancellation_task(subscription_id):
         logger.info(f"🔔 Cancellation notification sent to tenant '{tenant.slug}' user {user.id}")
 
 
-
-
 # -------------------------------------------------------------------
 #  Verify Paystack transaction asynchronously
 # -------------------------------------------------------------------
@@ -242,3 +240,25 @@ def notify_manual_billing_alert(
         f"✅ Manual billing alert sent to tenant '{tenant.slug}' "
         f"({recipients.count()} users)"
     )
+
+# -------------------------------------------------------------------
+# Sweep and update expired subscriptions
+# -------------------------------------------------------------------
+@shared_task
+def sweep_expired_subscriptions_task():
+    """
+    Runs periodically via Celery Beat (e.g., hourly/daily).
+    Finds all 'active' subscriptions where time has run out,
+    and permanently changes their DB status to 'expired'.
+    """
+    now = timezone.now()
+    
+    expired_subs = Subscription.objects.filter(
+        status='active', 
+        expires_at__lt=now
+    )
+    
+    count = expired_subs.update(status='expired')
+    if count > 0:
+        logger.info(f"🧹 Swept and permanently expired {count} stale subscriptions.")
+    return count

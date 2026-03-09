@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Ticket, TicketComment
+from billing.utils import has_feature  
 
 class TicketCommentSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
@@ -17,6 +18,9 @@ class TicketSerializer(serializers.ModelSerializer):
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     created_by_email = serializers.EmailField(source='created_by.email', read_only=True)
     comments = TicketCommentSerializer(many=True, read_only=True) # Nested comments
+    
+    #  Add the dynamic VIP flag
+    is_vip_tenant = serializers.SerializerMethodField() 
 
     class Meta:
         model = Ticket
@@ -24,9 +28,20 @@ class TicketSerializer(serializers.ModelSerializer):
             'id', 'tenant', 'tenant_name', 
             'created_by', 'created_by_name', 'created_by_email',
             'subject', 'message', 'status', 'priority', 'comments',
-            'internal_notes', 'created_at', 'updated_at'
+            'internal_notes', 'created_at', 'updated_at',
+            'is_vip_tenant'
         ]
         read_only_fields = ['tenant', 'created_by', 'internal_notes', 'created_at', 'updated_at']
+
+    # Evaluate the feature flag from constants.py
+    def get_is_vip_tenant(self, obj):
+        """
+        Dynamically checks if the tenant who owns this ticket 
+        pays for Priority Support (Enterprise Plan).
+        """
+        if not obj.tenant:
+            return False
+        return has_feature(obj.tenant, 'support_priority')
 
 
 class ContactTenantAdminSerializer(serializers.Serializer):

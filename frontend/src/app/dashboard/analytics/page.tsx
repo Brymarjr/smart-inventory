@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation'; //  Import Router for linking
+import Link from 'next/link'; // ✅ IMPORT LINK FOR THE PAYWALL
 import { forecastService, DashboardData, AnomalyAlert } from '@/services/forecastService';
 import { 
   TrendingUp, 
@@ -16,7 +17,8 @@ import {
   CheckCircle2,
   ClipboardList,
   X,
-  ExternalLink 
+  ExternalLink,
+  Lock // ✅ IMPORT LOCK ICON
 } from 'lucide-react'; 
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,6 +36,10 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // ✅ State for Premium Lock
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState("");
+
   // State for Filters & Modal
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedAlert, setSelectedAlert] = useState<AnomalyAlert | null>(null);
@@ -42,7 +48,15 @@ export default function AnalyticsPage() {
     setLoading(true);
     try {
       const result = await forecastService.getDashboard();
-      setData(result);
+      
+      // ✅ Check if the backend locked us out
+      if ('isLocked' in result && result.isLocked) {
+          setIsLocked(true);
+          setLockMessage(result.message);
+          return; // Stop processing and show paywall
+      }
+
+      setData(result as DashboardData);
       setError('');
     } catch (err) {
       console.error(err);
@@ -79,13 +93,33 @@ export default function AnalyticsPage() {
     }
   };
 
-  if (loading && !data) {
+  if (loading && !data && !isLocked) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <span className="ml-2 text-muted-foreground">Loading Intelligence...</span>
       </div>
     );
+  }
+
+  // ✅ THE PAYWALL UI
+  if (isLocked) {
+      return (
+          <div className="flex flex-col items-center justify-center h-[70vh] text-center max-w-md mx-auto animate-in fade-in duration-500">
+              <div className="bg-primary/10 p-6 rounded-full mb-6">
+                  <Lock className="w-12 h-12 text-primary" />
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900 mb-3">Enterprise Intelligence</h2>
+              <p className="text-slate-500 mb-8 leading-relaxed">
+                  {lockMessage || "Unlock AI-driven demand forecasting, anomaly detection, and advanced inventory insights by upgrading your plan."}
+              </p>
+              <Link href="/dashboard/billing">
+                  <Button size="lg" className="w-full font-bold text-md h-12 rounded-xl">
+                      Upgrade to Enterprise
+                  </Button>
+              </Link>
+          </div>
+      );
   }
 
   if (error) {
@@ -325,7 +359,7 @@ function StatWidget({ title, value, icon: Icon, className, tooltip, onClick, isA
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           {title}
           
-          {/*  FIXED TOOLTIP: Uses simple group-hover logic */}
+          {/* FIXED TOOLTIP: Uses simple group-hover logic */}
           {tooltip && (
              <div className="relative group/info ml-1 z-50">
                 <Info className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
