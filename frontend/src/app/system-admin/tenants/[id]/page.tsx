@@ -57,12 +57,21 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     fetchData();
   }, [id, router]);
 
-  // 2. Fetch Audit Logs
+// 2. Fetch Audit Logs
   useEffect(() => {
     const fetchLogs = async () => {
       try {
         const data = await adminApi.getTenantAuditLogs(id);
-        setLogs(data.results);
+        
+        // ✅ TYPE GUARD: Prove to TypeScript that we handle the lock state
+        if ('isLocked' in data && data.isLocked) {
+            setLogs([]); // Default to empty if they are locked out
+        } 
+        // ✅ Safely access results now that we know it exists
+        else if ('results' in data) {
+            setLogs(data.results);
+        }
+        
       } catch (error) {
         console.error("Failed to load audit logs");
       } finally {
