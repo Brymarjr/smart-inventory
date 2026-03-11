@@ -61,7 +61,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Only retry if 401 Unauthorized
+// Only retry if 401 Unauthorized
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
@@ -81,14 +81,22 @@ api.interceptors.response.use(
           return api(originalRequest);
         } catch (refreshError) {
           if (typeof window !== 'undefined') {
-             localStorage.clear();
+             // ✅ THE SNIPER FIX: Only remove auth credentials, leave device_id intact!
+             localStorage.removeItem('access_token');
+             localStorage.removeItem('refresh_token');
+             localStorage.removeItem('tenant_slug');
+             localStorage.removeItem('username');
              window.location.href = '/login';
           }
         }
       } else {
         if (typeof window !== 'undefined') {
-            localStorage.clear();
-            window.location.href = '/login';
+             // ✅ THE SNIPER FIX: Only remove auth credentials, leave device_id intact!
+             localStorage.removeItem('access_token');
+             localStorage.removeItem('refresh_token');
+             localStorage.removeItem('tenant_slug');
+             localStorage.removeItem('username');
+             window.location.href = '/login';
          }
       }
     }
