@@ -51,7 +51,7 @@ export interface MetaItem {
 }
 
 // Database Class
-export class SmartInventoryDB extends Dexie {
+export class ForeTrackDB extends Dexie {
   products!: Table<Product, number>;
   categories!: Table<Category, number>;
   sales!: Table<Sale, number>;          // ✅ Added
@@ -60,7 +60,7 @@ export class SmartInventoryDB extends Dexie {
   meta!: Table<MetaItem, string>;
 
   constructor() {
-    super('SmartInventoryDB');
+    super('ForeTrackDB');
     this.version(1).stores({
       products: '++id, name, sku, category_id',
       categories: '++id, name',
@@ -72,4 +72,4 @@ export class SmartInventoryDB extends Dexie {
   }
 }
 
-export const db = new SmartInventoryDB();
+export const db = new ForeTrackDB();
