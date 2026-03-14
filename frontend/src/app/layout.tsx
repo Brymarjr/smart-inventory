@@ -51,6 +51,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   return (
     <html lang="en" suppressHydrationWarning className={jakarta.variable}>
+      <head>
+        {/* ✅ This links your PWA manifest without breaking the 'use client' directive */}
+        <link rel="manifest" href="/manifest.json" />
+        <title>ForeTrack</title>
+        <meta name="description" content="Smart POS and Inventory Management" />
+      </head>
       <body className={`${jakarta.className} antialiased bg-background text-foreground`}>
         <ThemeProvider
           attribute="class"
@@ -79,6 +85,12 @@ function childrenWithAuth(children: ReactNode) {
 
   if (typeof window !== 'undefined') {
     const path = window.location.pathname;
+    
+    // Explicitly exempt the system admin login page!
+    if (path === '/system-admin/login') {
+      return children;
+    }
+
     if (protectedRoutes.some(route => path.startsWith(route))) {
       return <AuthWrapper>{children}</AuthWrapper>;
     }

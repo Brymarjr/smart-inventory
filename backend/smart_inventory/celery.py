@@ -28,4 +28,10 @@ app.conf.beat_schedule = {
         'schedule': crontab(minute=0),  # Runs at minute 0 of every hour
         'args': (), 
     },
+    
+    'send-weekly-sales-reports': {
+        'task': 'sales.tasks.send_weekly_reports',
+        # This triggers every Friday at 5:00 PM (17:00)
+        'schedule': crontab(day_of_week='fri', hour=17, minute=0), 
+    },
 }

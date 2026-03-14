@@ -80,6 +80,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'tenants.middleware.TenantMiddleware',
     'tenants.auth_middleware.TenantAttachAfterJWTMiddleware',
+    'tenants.middleware.GlobalTenantSuspensionMiddleware',
     'tenants.middleware.BlockWriteIfSubscriptionExpiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -194,8 +195,8 @@ REST_FRAMEWORK = {
         # 1. Check for Support Restrictions first
         'core.permissions.IsSupportReadOnly',
         
-        # 2. Then check Tenant Subscription status
-        'tenants.permissions.IsTenantActiveOrReadOnly',
+        # 2. Then check Tenant active status
+        'tenants.permissions.IsTenantActivePermission',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',

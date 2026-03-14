@@ -61,7 +61,15 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-// Only retry if 401 Unauthorized
+    // ✅ GLOBAL SUSPENSION HANDLER: Catch Suspended Tenants (403)
+    if (error.response?.status === 403 && error.response.data?.detail === 'tenant_suspended') {
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/suspended')) {
+        window.location.href = '/suspended';
+      }
+      return Promise.reject(error);
+    }
+
+    // Only retry if 401 Unauthorized
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
@@ -81,25 +89,34 @@ api.interceptors.response.use(
           return api(originalRequest);
         } catch (refreshError) {
           if (typeof window !== 'undefined') {
-             // ✅ THE SNIPER FIX: Only remove auth credentials, leave device_id intact!
+             // Only remove auth credentials, leave device_id intact!
              localStorage.removeItem('access_token');
              localStorage.removeItem('refresh_token');
              localStorage.removeItem('tenant_slug');
              localStorage.removeItem('username');
-             window.location.href = '/login';
+             
+             // Only redirect if they aren't already on a login page
+             if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+             }
           }
         }
       } else {
         if (typeof window !== 'undefined') {
-             // ✅ THE SNIPER FIX: Only remove auth credentials, leave device_id intact!
+             // Only remove auth credentials, leave device_id intact!
              localStorage.removeItem('access_token');
              localStorage.removeItem('refresh_token');
              localStorage.removeItem('tenant_slug');
              localStorage.removeItem('username');
-             window.location.href = '/login';
+             
+             // Only redirect if they aren't already on a login page
+             if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+             }
          }
       }
-    }
+    } 
+
     return Promise.reject(error);
   }
 );
