@@ -299,7 +299,14 @@ class SyncDownloadView(APIView):
                 qs = model.objects.filter(**tenant_filter, updated_at__gt=query_start_date).order_by('updated_at')
             elif 'created_at' in field_names:
                 qs = model.objects.filter(**tenant_filter, created_at__gt=query_start_date).order_by('created_at')
+            elif 'timestamp' in field_names: 
+                # Catch AuditLogs
+                qs = model.objects.filter(**tenant_filter, timestamp__gt=query_start_date).order_by('timestamp')
+            elif model_name == 'SaleItem': 
+                # Catch SaleItems using their parent's date!
+                qs = model.objects.filter(**tenant_filter, sale__created_at__gt=query_start_date).order_by('sale__created_at')
             else:
+                # Catch small tables like Categories and Suppliers
                 qs = model.objects.filter(**tenant_filter).order_by('id')
 
             # ✅ Apply Pagination Slice
