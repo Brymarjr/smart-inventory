@@ -16,8 +16,8 @@ import {
   Users,
   Menu,
   TrendingUp,
-  Loader2, // Added
-  WifiOff, // Added
+  Loader2,
+  WifiOff, 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +28,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge"; // Added
+import { Badge } from "@/components/ui/badge"; 
 
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { UserNav } from "@/components/layout/user-nav";
@@ -53,8 +53,26 @@ export default function DashboardLayout({
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  // ✅ GLOBAL SYNC ENGINE (Runs once, persists across pages)
+  // ✅ GLOBAL SYNC ENGINE 
   const { isSyncing, pendingCount } = useSync();
+  
+  // NEW STATE: Controls if the delayed badge should actually show
+  const [showDelayedPending, setShowDelayedPending] = useState(false);
+
+  // THE SMART DELAY: Waits 3 seconds before showing the offline badge
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    
+    if (pendingCount > 0) {
+      timeout = setTimeout(() => {
+        setShowDelayedPending(true);
+      }, 3000); // 3000ms = 3 seconds
+    } else {
+      setShowDelayedPending(false);
+    }
+
+    return () => clearTimeout(timeout);
+  }, [pendingCount]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -189,7 +207,9 @@ export default function DashboardLayout({
                 <Loader2 className="h-3 w-3 animate-spin" /> Syncing Data...
               </Badge>
             )}
-            {pendingCount > 0 && (
+            
+            {/* UPDATED TO USE THE DELAYED STATE */}
+            {showDelayedPending && (
               <Badge variant="destructive" className="hidden md:flex gap-1">
                 <WifiOff className="h-3 w-3" /> {pendingCount} Offline Actions
               </Badge>

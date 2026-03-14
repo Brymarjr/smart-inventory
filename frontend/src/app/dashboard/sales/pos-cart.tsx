@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
 import { queueOperation } from "@/lib/sync-manager";
 import { db } from "@/lib/db";
+import { useAuth } from "@/lib/auth-context";
 
 interface PosCartProps {
   cart: CartItem[];
@@ -33,6 +34,7 @@ export function PosCart({
   onClear,
   onSaleSuccess,
 }: PosCartProps) {
+  const { user } = useAuth();
   // Checkout Form State
   const [customerName, setCustomerName] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<
@@ -103,7 +105,9 @@ export function PosCart({
       const receiptData = {
         id: saleTmpId,
         receipt_id: reference,
-        is_offline: !isOnline, // ✅ Flag for the receipt printer
+        is_offline: !isOnline, 
+        // Build the real name, or fallback to username
+        cashier_name: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.username,
         customer_name: customerName,
         total_amount: totalAmount,
         created_at: new Date().toISOString(),

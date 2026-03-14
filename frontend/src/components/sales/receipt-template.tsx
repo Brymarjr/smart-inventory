@@ -12,11 +12,11 @@ interface SaleItem {
 }
 
 interface SaleData {
-  id: number;
+  id: number | string;
   receipt_id?: string;
   created_at: string;
   total_amount: number | string;
-  payment_method: string;
+  payment_method?: string;
   cashier_name?: string;
   items: SaleItem[];
 }
@@ -36,6 +36,22 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
   ({ sale, settings }, ref) => {
     // Safety check: ensure sale and items exist before rendering
     if (!sale || !sale.items) return null;
+
+    // --- SMART FALLBACKS FOR OFFLINE RECEIPTS ---
+    
+    // 1. Grab cashier from local storage if the backend hasn't provided it yet
+    const localCashier = typeof window !== 'undefined' ? localStorage.getItem('username') : "Admin";
+    const displayCashier = sale.cashier_name || localCashier;
+
+    // 2. Default to CASH if payment method is missing in offline payload
+    const displayPaymentMethod = sale.payment_method || "CASH";
+
+    // 3. Clean up the ugly Dexie "OFF-" timestamp ID to look like a real receipt
+    let displayReceiptId = sale.receipt_id || sale.id?.toString();
+    if (displayReceiptId && displayReceiptId.toString().startsWith("OFF-")) {
+        // Turns "OFF-1773492952756" into "POS-52756"
+        displayReceiptId = "POS-" + displayReceiptId.toString().slice(-5);
+    }
 
     return (
       <div
@@ -60,11 +76,11 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
           </div>
           <div className="flex justify-between">
             <span>Receipt #:</span>
-            <span>{sale.receipt_id || sale.id}</span>
+            <span>{displayReceiptId}</span>
           </div>
           <div className="flex justify-between">
             <span>Cashier:</span>
-            <span>{sale.cashier_name || "Admin"}</span>
+            <span className="capitalize">{displayCashier}</span>
           </div>
         </div>
 
@@ -80,14 +96,9 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
             </thead>
             <tbody>
               {sale.items.map((item, index) => {
-                // ✅ SAFETY LOGIC: Handle missing fields
                 const name = item.product_name || item.name || "Unknown Item";
-
-                // Handle price (might be string or number, might be 'price' or 'unit_price')
                 const rawPrice = item.unit_price ?? item.price ?? 0;
                 const price = parseFloat(rawPrice.toString());
-
-                // Calculate total if missing
                 const rawTotal = item.total_price ?? price * item.quantity;
                 const lineTotal = parseFloat(rawTotal.toString());
 
@@ -120,7 +131,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
           </div>
           <div className="flex justify-between text-xs">
             <span>Paid via:</span>
-            <span className="uppercase">{sale.payment_method}</span>
+            <span className="uppercase">{displayPaymentMethod}</span>
           </div>
         </div>
 

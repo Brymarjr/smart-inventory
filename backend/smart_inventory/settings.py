@@ -127,6 +127,19 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 if 'rediss://' in CELERY_BROKER_URL:
     CELERY_REDIS_BACKEND_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
     CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
+    
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+
+CELERY_TASK_ROUTES = {
+    # THE VIP LANE: Syncs process instantly on their own thread
+    'sync.tasks.process_sync_job': {'queue': 'high_priority'},
+    
+    # THE SLOW LANE: Emails go here so they don't block the checkout line
+    'notifications.tasks.send_notification_email': {'queue': 'emails'},
+    'sales.tasks.notify_low_stock': {'queue': 'emails'},
+    'sales.tasks.send_weekly_reports': {'queue': 'emails'},
+    'users.tasks.send_password_reset_email': {'queue': 'emails'},
+}
 
 # --- EMAIL SETTINGS ---
 # Uses SMTP by default. If EMAIL_HOST is missing, it crashes (good for catching errors).
