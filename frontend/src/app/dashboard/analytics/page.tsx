@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation"; //  Import Router for linking
-import Link from "next/link"; // ✅ IMPORT LINK FOR THE PAYWALL
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   forecastService,
   DashboardData,
@@ -22,7 +22,7 @@ import {
   ClipboardList,
   X,
   ExternalLink,
-  Lock, // ✅ IMPORT LOCK ICON
+  Lock,
 } from "lucide-react";
 
 import {
@@ -53,7 +53,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ✅ State for Premium Lock
+  // State for Premium Lock
   const [isLocked, setIsLocked] = useState(false);
   const [lockMessage, setLockMessage] = useState("");
 
@@ -66,11 +66,11 @@ export default function AnalyticsPage() {
     try {
       const result = await forecastService.getDashboard();
 
-      // ✅ Check if the backend locked us out
+      // Check if the backend locked us out
       if ("isLocked" in result && result.isLocked) {
         setIsLocked(true);
         setLockMessage(result.message);
-        return; // Stop processing and show paywall
+        return; 
       }
 
       setData(result as DashboardData);
@@ -102,7 +102,6 @@ export default function AnalyticsPage() {
     });
   };
 
-  // Helper for Title
   const getFilterTitle = () => {
     switch (activeFilter) {
       case "critical":
@@ -127,7 +126,6 @@ export default function AnalyticsPage() {
     );
   }
 
-  // ✅ THE PAYWALL UI
   if (isLocked) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] text-center max-w-md mx-auto animate-in fade-in duration-500">
@@ -168,7 +166,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (!data) return null;
+  if (!data) return <></>;
 
   const { summary, forecasts } = data;
   const filteredAlerts = getFilteredAlerts();
@@ -178,9 +176,7 @@ export default function AnalyticsPage() {
       {/* --- HEADER --- */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Intelligence Center
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight">Intelligence Center</h1>
           <p className="text-muted-foreground">
             {activeFilter === "all"
               ? "Overview of system health and AI predictions."
@@ -199,7 +195,6 @@ export default function AnalyticsPage() {
             </Button>
           )}
 
-          {/* ✅ FIXED REFRESH BUTTON: Spins when loading */}
           <Button
             onClick={loadData}
             variant="outline"
@@ -252,14 +247,14 @@ export default function AnalyticsPage() {
           title="Velocity Spikes"
           value={summary.velocity_spikes}
           icon={TrendingUp}
-          tooltip="Unusual sales volume in a single day. Could be a bulk buyer, or a cashier typing error (e.g. 100 instead of 1)."
+          tooltip="Unusual sales volume in a single day. Could be a bulk buyer, or a cashier typing error."
           isActive={activeFilter === "velocity_spike"}
           onClick={() => setActiveFilter("velocity_spike")}
         />
       </div>
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-        {/* --- 2. DYNAMIC ANOMALY FEED (Left Column) --- */}
+        {/* --- 2. DYNAMIC ANOMALY FEED --- */}
         <Card
           className={`lg:col-span-1 border-l-4 transition-colors ${
             activeFilter === "ghost_stock"
@@ -301,7 +296,7 @@ export default function AnalyticsPage() {
               filteredAlerts.map((alert) => (
                 <div
                   key={alert.id}
-                  onClick={() => setSelectedAlert(alert)} // OPEN MODAL
+                  onClick={() => setSelectedAlert(alert)}
                   className="group flex flex-col space-y-1 rounded-lg border p-3 bg-card shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
@@ -340,7 +335,7 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* --- 3. FORECAST TABLE (Right 2 Columns) --- */}
+        {/* --- 3. FORECAST TABLE --- */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center text-lg">
@@ -398,12 +393,12 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* --- 4. INVESTIGATION MODAL (Connected to Router) --- */}
+      {/* --- 4. INVESTIGATION MODAL --- */}
       {selectedAlert && (
         <InvestigationModal
           alert={selectedAlert}
           onClose={() => setSelectedAlert(null)}
-          router={router} // Pass router to modal
+          router={router}
         />
       )}
     </div>
@@ -433,16 +428,13 @@ function StatWidget({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           {title}
-
-          {/* FIXED TOOLTIP: Uses simple group-hover logic */}
+          
           {tooltip && (
             <div className="relative group/info ml-1 z-50">
               <Info className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
-
-              {/* Tooltip Content */}
+              
               <div className="absolute hidden group-hover/info:block bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 bg-slate-900 text-white text-xs rounded shadow-lg z-50 pointer-events-none">
                 {tooltip}
-                {/* Small arrow */}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
               </div>
             </div>
@@ -473,7 +465,6 @@ function ActionBadge({ action }: { action: string }) {
   );
 }
 
-// --- SMART MODAL WITH REAL LINKS ---
 function InvestigationModal({
   alert,
   onClose,
@@ -483,10 +474,8 @@ function InvestigationModal({
   onClose: () => void;
   router: any;
 }) {
-  // Logic to determine steps based on anomaly type
   const getSteps = () => {
     if (alert.anomaly_type === "shrinkage") {
-      // Ghost Stock
       return [
         "Go to the physical location of this product.",
         "Perform a manual count of items on the shelf.",
@@ -499,7 +488,7 @@ function InvestigationModal({
         "Go to 'Sales History' for the date of the spike.",
         "Look for a single transaction with unusually high quantity.",
         "Verify if this was a legitimate bulk order.",
-        "If it looks like a typo (e.g., scanned once, entered '200'), void the transaction.",
+        "If it looks like a typo, void the transaction.",
         "Contact the cashier who processed the sale for confirmation.",
       ];
     }
@@ -507,25 +496,15 @@ function InvestigationModal({
   };
 
   const steps = getSteps();
-  const title =
-    alert.anomaly_type === "shrinkage"
-      ? "Ghost Stock Resolution"
-      : "Velocity Spike Audit";
-  const colorClass =
-    alert.anomaly_type === "shrinkage"
-      ? "text-purple-600 bg-purple-50"
-      : "text-blue-600 bg-blue-50";
+  const title = alert.anomaly_type === "shrinkage" ? "Ghost Stock Resolution" : "Velocity Spike Audit";
+  const colorClass = alert.anomaly_type === "shrinkage" ? "text-purple-600 bg-purple-50" : "text-blue-600 bg-blue-50";
 
-  //  DYNAMIC BUTTON TEXT & ACTION (Links to Real Pages)
-  const btnText =
-    alert.anomaly_type === "shrinkage"
-      ? "Go to Inventory"
-      : "View Sales History";
+  const btnText = alert.anomaly_type === "shrinkage" ? "Go to Inventory" : "View Sales History";
   const btnAction = () => {
     if (alert.anomaly_type === "shrinkage") {
-      router.push("/dashboard/inventory"); //  Link to Inventory
+      router.push("/dashboard/inventory"); 
     } else {
-      router.push("/dashboard/sales/history"); //  Link to Sales history (Transactions)
+      router.push("/dashboard/sales/history"); 
     }
     onClose();
   };
@@ -533,10 +512,7 @@ function InvestigationModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-card rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div
-          className={`p-4 border-b flex justify-between items-center ${colorClass}`}
-        >
+        <div className={`p-4 border-b flex justify-between items-center ${colorClass}`}>
           <div className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
             <h2 className="font-bold text-lg">{title}</h2>
@@ -549,9 +525,7 @@ function InvestigationModal({
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6 space-y-6">
-          {/* Context */}
           <div className="bg-muted p-3 rounded-md border border-slate-100">
             <h3 className="text-sm font-semibold text-foreground mb-1">
               Why was this flagged?
@@ -559,7 +533,6 @@ function InvestigationModal({
             <p className="text-sm text-slate-600">{alert.description}</p>
           </div>
 
-          {/* Checklist */}
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center">
               <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
@@ -578,7 +551,6 @@ function InvestigationModal({
           </div>
         </div>
 
-        {/* Footer Actions */}
         <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>
             Close

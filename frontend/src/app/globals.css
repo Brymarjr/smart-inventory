@@ -6,61 +6,57 @@
   :root {
     /* Brand Colors (HSL) - Light Mode */
     --background: 0 0% 100%;
-    --foreground: 239 48% 20%;
+    --foreground: 239 48% 15%; /* Deep Navy Text */
     --card: 0 0% 100%;
-    --card-foreground: 239 48% 20%;
+    --card-foreground: 239 48% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 239 48% 20%;
-    --primary: 239 96% 58%; /* Deep Indigo */
+    --popover-foreground: 239 48% 15%;
+    --primary: 239 96% 58%; 
     --primary-foreground: 210 40% 98%;
-    --secondary: 239 48% 20%; /* Dark Purple */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary: 239 10% 96%;
+    --secondary-foreground: 239 48% 15%;
+    --muted: 239 10% 96%;
+    --muted-foreground: 239 10% 45%;
     --accent: 239 96% 58%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 239 48% 20%; 
+    --border: 239 20% 90%;
+    --input: 239 20% 90%;
     --ring: 239 96% 58%;
-
-    /* SME-style rounded corners - larger and softer */
     --radius: 1.25rem;
   }
 
   .dark {
-    /* Soft Slate Professional Dark Mode */
-    --background: 222.2 84% 4.9%; 
-    --foreground: 210 40% 98%; 
-    --card: 222.2 47.4% 11.2%; 
+    /* --- BRAND NAVY DARK MODE --- */
+    --background: 239 48% 6%;         /* Darkest Navy (Base) */
+    --foreground: 210 40% 98%;        /* Off-white text */
+    --card: 239 48% 10%;              /* Slightly lighter Navy (Cards/Sidebar) */
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 47.4% 11.2%;
+    --popover: 239 48% 10%;
     --popover-foreground: 210 40% 98%;
-    --primary: 239 96% 75%; 
-    --primary-foreground: 222.2 47.4% 11.2%; 
-    --secondary: 217.2 32.6% 17.5%; 
+    --primary: 239 90% 66%;           /* Brighter Indigo for contrast */
+    --primary-foreground: 239 48% 6%;
+    --secondary: 239 30% 15%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%; 
-    --muted-foreground: 215 20.2% 65.1%; 
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 239 30% 12%;
+    --muted-foreground: 239 10% 65%;
+    --accent: 239 90% 66%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%; 
+    --destructive: 0 62% 30%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%; 
-    --input: 217.2 32.6% 17.5%;
-    --ring: 239 96% 75%;
+    --border: 239 30% 18%;            /* Subtle blue-tinted borders */
+    --input: 239 30% 18%;
+    --ring: 239 90% 66%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border outline-none;
+    @apply border-border;
   }
-  
   body {
-    /* "font-sans" here will pull the soft font we define in layout.tsx */
-    @apply bg-background text-foreground font-sans antialiased tracking-tight;
+    @apply bg-background text-foreground font-sans antialiased tracking-tight transition-colors duration-300;
     /* Ensuring the project doesn't feel blocky */
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;

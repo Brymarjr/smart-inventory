@@ -1,24 +1,20 @@
 'use client';
 
-import { Plus_Jakarta_Sans } from 'next/font/google'; // Switched from Inter to Plus Jakarta Sans
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { useState, ReactNode } from 'react';
+import { useState, ReactNode, useEffect } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { LegalGuard } from '@/components/auth/legal-guard';
 import { IdleTimeoutWrapper } from '@/components/auth/idle-timeout-wrapper';
 
-// Configured Plus Jakarta Sans for a softer, more premium SME feel
 const jakarta = Plus_Jakarta_Sans({ 
   subsets: ['latin'],
   variable: '--font-jakarta', 
 });
 
-// ----------------------
-// Guard Wrapper for Auth-Only Pages
-// ----------------------
 function AuthWrapper({ children }: { children: ReactNode }) {
   const { isLoading } = useAuth();
 
@@ -33,7 +29,6 @@ function AuthWrapper({ children }: { children: ReactNode }) {
     );
   }
 
-  // Now every protected page has an inactivity timer!
   return (
     <LegalGuard>
       <IdleTimeoutWrapper>
@@ -43,16 +38,37 @@ function AuthWrapper({ children }: { children: ReactNode }) {
   );
 }
 
-// ----------------------
-// RootLayout
-// ----------------------
 export default function RootLayout({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Updated Helper: Handles route protection and hydration safety
+  const renderChildren = () => {
+    const protectedRoutes = ['/dashboard', '/system-admin']; 
+
+    if (mounted && typeof window !== 'undefined') {
+      const path = window.location.pathname;
+
+      // Explicitly exempt the system admin login page from the wrapper
+      if (path === '/system-admin/login') {
+        return children;
+      }
+
+      if (protectedRoutes.some(route => path.startsWith(route))) {
+        return <AuthWrapper>{children}</AuthWrapper>;
+      }
+    }
+
+    return children;
+  };
 
   return (
     <html lang="en" suppressHydrationWarning className={jakarta.variable}>
       <head>
-        {/* ✅ This links your PWA manifest without breaking the 'use client' directive */}
         <link rel="manifest" href="/manifest.json" />
         <title>ForeTrack</title>
         <meta name="description" content="Smart POS and Inventory Management" />
@@ -60,14 +76,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className={`${jakarta.className} antialiased bg-background text-foreground`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="light" // Defaulting to light for SME visibility
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              {/* ✅ Only wrap pages that need authentication */}
-              {childrenWithAuth(children)}
+              {renderChildren()}
               <Toaster richColors position="top-right" />
             </AuthProvider>
           </QueryClientProvider>
@@ -75,26 +90,4 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </body>
     </html>
   );
-}
-
-// ----------------------
-// Helper: Wrap only protected pages with AuthWrapper
-// ----------------------
-function childrenWithAuth(children: ReactNode) {
-  const protectedRoutes = ['/dashboard', '/system-admin']; 
-
-  if (typeof window !== 'undefined') {
-    const path = window.location.pathname;
-    
-    // Explicitly exempt the system admin login page!
-    if (path === '/system-admin/login') {
-      return children;
-    }
-
-    if (protectedRoutes.some(route => path.startsWith(route))) {
-      return <AuthWrapper>{children}</AuthWrapper>;
-    }
-  }
-
-  return children;
 }

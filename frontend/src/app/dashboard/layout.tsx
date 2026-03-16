@@ -1,34 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
-import { getDisplayUsername } from "@/lib/utils";
-// ✅ IMPORT HOOK & ICONS
-import { useSync } from "@/hooks/use-sync";
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  Truck,
-  CreditCard,
-  Users,
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
+import { getDisplayUsername } from '@/lib/utils';
+import { useSync } from '@/hooks/use-sync';
+import { 
+  LayoutDashboard, 
+  Package, 
+  ShoppingCart, 
+  Truck, 
+  CreditCard, 
+  Users, 
   Menu,
   TrendingUp,
   Loader2,
-  WifiOff, 
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
+  WifiOff,
+  PackageSearch 
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetTrigger, 
   SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge"; 
+  SheetDescription
+} from '@/components/ui/sheet';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { UserNav } from "@/components/layout/user-nav";
@@ -52,11 +52,10 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
 
-  // ✅ GLOBAL SYNC ENGINE 
+  // GLOBAL SYNC ENGINE logic
   const { isSyncing, pendingCount } = useSync();
-  
-  // NEW STATE: Controls if the delayed badge should actually show
   const [showDelayedPending, setShowDelayedPending] = useState(false);
 
   // THE SMART DELAY: Waits 3 seconds before showing the offline badge
@@ -66,7 +65,7 @@ export default function DashboardLayout({
     if (pendingCount > 0) {
       timeout = setTimeout(() => {
         setShowDelayedPending(true);
-      }, 3000); // 3000ms = 3 seconds
+      }, 3000);
     } else {
       setShowDelayedPending(false);
     }
@@ -89,10 +88,10 @@ export default function DashboardLayout({
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen items-center justify-center bg-[#F8FAFF]">
         <div className="animate-pulse flex flex-col items-center">
-          <div className="h-12 w-12 bg-gray-200 rounded-full mb-4"></div>
-          <div className="h-4 w-32 bg-gray-200 rounded"></div>
+          <div className="h-12 w-12 bg-[#EEF2FF] rounded-full mb-4"></div>
+          <div className="h-4 w-32 bg-[#EEF2FF] rounded"></div>
         </div>
       </div>
     );
@@ -101,131 +100,141 @@ export default function DashboardLayout({
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-gray-50/50">
-      {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden md:flex w-64 flex-col bg-card border-r">
-        <div className="h-16 flex items-center px-6 border-b">
-          <Package className="w-6 h-6 text-primary mr-2" />
-          <span className="text-lg font-bold text-gray-900">
-            Smart Inventory
-          </span>
-        </div>
+    <div className="flex flex-col h-screen bg-[#F8FAFF] selection:bg-[#2D31FA] selection:text-white">
+      
+      {/* --- TOP NAVBAR (Branded Dark Theme) --- */}
+      <header className="h-16 bg-[#1A1B4B] text-white flex items-center justify-between px-4 z-30 shrink-0 shadow-md">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+            className="hidden md:flex text-white hover:bg-white/10 hover:text-white"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
 
-        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-foreground"
-                }`}
-              >
-                <item.icon
-                  className={`mr-3 h-5 w-5 ${isActive ? "text-primary" : "text-slate-400"}`}
-                />
-                {item.name}
-              </Link>
-            );
-          })}
-        </div>
+          <div className="md:hidden">
+            <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-white">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0 bg-[#1A1B4B] border-white/10 text-white">
+                <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
+                <SheetDescription className="sr-only">Navigation links</SheetDescription>
+                <div className="h-16 flex items-center px-6 border-b border-white/10">
+                    <div className="bg-[#2D31FA] p-1.5 rounded-lg mr-2">
+                      <PackageSearch size={20} className="text-white" />
+                    </div>
+                    <span className="text-xl font-black tracking-tighter uppercase">ForeTrack</span>
+                </div>
+                <div className="py-4 px-3 space-y-1">
+                  {NAV_ITEMS.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsMobileOpen(false)}
+                      className={`flex items-center px-3 py-2 text-sm font-bold uppercase tracking-widest rounded-md transition-colors ${
+                        pathname === item.href ? 'bg-[#2D31FA] text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <item.icon className="mr-3 h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
 
-        <div className="p-4 border-t bg-gray-50/50">
           <div className="flex items-center gap-3">
-            <Avatar className="h-9 w-9 border">
-              <AvatarImage
-                src={`https://ui-avatars.com/api/?name=${user.username}&background=random`}
-              />
-              <AvatarFallback>
-                {getDisplayUsername(user.username)
-                  .substring(0, 2)
-                  .toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {user.first_name || getDisplayUsername(user.username)}
-              </p>
-              <p className="text-xs text-gray-500 truncate capitalize">
-                {user.is_superuser ? "System Admin" : user.role || "User"}
-              </p>
+            <div className="bg-[#2D31FA] p-1.5 rounded-lg shadow-lg shadow-[#2D31FA]/20">
+              <PackageSearch size={22} className="text-white" />
             </div>
+            <span className="text-xl font-black tracking-tighter text-white uppercase">ForeTrack</span>
+          </div>
+
+          {/* SYNC ENGINE STATUS BADGES */}
+          <div className="flex gap-2 ml-4">
+            {isSyncing && (
+                <Badge variant="secondary" className="hidden lg:flex gap-1 bg-white/10 text-white border-none">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                </Badge>
+            )}
+            {showDelayedPending && (
+                <Badge variant="destructive" className="hidden lg:flex gap-1 bg-red-500 hover:bg-red-600">
+                    <WifiOff className="h-3 w-3" /> {pendingCount}
+                </Badge>
+            )}
           </div>
         </div>
-      </aside>
-
-      {/* --- MAIN CONTENT AREA --- */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="h-16 bg-card border-b flex items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-4">
-            <div className="md:hidden">
-              <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Menu className="h-6 w-6" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-64 p-0">
-                  <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
-                  <SheetDescription className="sr-only">
-                    Navigation links
-                  </SheetDescription>
-                  <div className="h-16 flex items-center px-6 border-b">
-                    <span className="text-lg font-bold">Smart Inventory</span>
-                  </div>
-                  <div className="py-4 px-3 space-y-1">
-                    {NAV_ITEMS.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                          pathname === item.href
-                            ? "bg-secondary"
-                            : "hover:bg-secondary/50"
-                        }`}
-                      >
-                        <item.icon className="mr-3 h-5 w-5" />
-                        {item.name}
-                      </Link>
-                    ))}
-                  </div>
-                </SheetContent>
-              </Sheet>
+        
+        <div className="flex items-center gap-4">
+            <div className="text-white scale-110 flex items-center justify-center opacity-100">
+              <NotificationsBell />
             </div>
+            <div className="[&_span]:text-[#1A1B4B] [&_div]:bg-white [&_div]:border-2 [&_div]:border-white [&_div]:shadow-sm">
+              <UserNav />
+            </div>
+        </div>
+      </header>
 
-            {/* ✅ GLOBAL SYNC STATUS (Visible on all pages) */}
-            {isSyncing && (
-              <Badge
-                variant="secondary"
-                className="hidden md:flex gap-1 bg-blue-50 text-blue-700 border-blue-200"
-              >
-                <Loader2 className="h-3 w-3 animate-spin" /> Syncing Data...
-              </Badge>
-            )}
-            
-            {/* UPDATED TO USE THE DELAYED STATE */}
-            {showDelayedPending && (
-              <Badge variant="destructive" className="hidden md:flex gap-1">
-                <WifiOff className="h-3 w-3" /> {pendingCount} Offline Actions
-              </Badge>
-            )}
+      <div className="flex flex-1 overflow-hidden">
+        {/* --- DESKTOP SIDEBAR --- */}
+        <aside 
+          className={`hidden md:flex flex-col bg-white border-r border-slate-200 transition-all duration-300 ease-in-out shrink-0 ${
+            isSidebarExpanded ? 'w-64' : 'w-20'
+          }`}
+        >
+          <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={!isSidebarExpanded ? item.name : ''}
+                  className={`flex items-center px-3 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
+                    isActive 
+                      ? 'bg-[#EEF2FF] text-[#2D31FA]' 
+                      : 'text-[#1A1B4B] hover:bg-slate-50 hover:text-[#2D31FA]'
+                  } ${!isSidebarExpanded ? 'justify-center' : ''}`}
+                >
+                  <item.icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-[#2D31FA]' : 'text-[#1A1B4B]'} ${isSidebarExpanded ? 'mr-3' : 'mr-0'}`} />
+                  {isSidebarExpanded && <span className="truncate">{item.name}</span>}
+                </Link>
+              );
+            })}
           </div>
 
-          {/* Header Right Side */}
-          <div className="flex items-center gap-4 ml-auto">
-            <NotificationsBell />
-            <UserNav />
+          <div className="p-4 border-t border-slate-100 bg-slate-50/50">
+            <div className={`flex items-center gap-3 ${!isSidebarExpanded ? 'justify-center' : ''}`}>
+               <Avatar className="h-9 w-9 border-2 border-white shadow-sm shrink-0">
+                  <AvatarImage src={`https://ui-avatars.com/api/?name=${user.username}&background=1A1B4B&color=fff`} />
+                  <AvatarFallback className="bg-[#1A1B4B] text-white">
+                    {getDisplayUsername(user.username).substring(0,2).toUpperCase()}
+                  </AvatarFallback>
+               </Avatar>
+               {isSidebarExpanded && (
+                 <div className="flex-1 overflow-hidden text-[#1A1B4B]">
+                    <p className="text-xs font-black truncate uppercase tracking-tight">
+                      {user.first_name || getDisplayUsername(user.username)}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-bold truncate uppercase tracking-widest">
+                      {user.is_superuser ? 'Admin' : user.role || 'User'}
+                    </p>
+                 </div>
+               )}
+            </div>
           </div>
-        </header>
+        </aside>
 
-        {/* Page Content Injection */}
-        <main className="flex-1 overflow-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 overflow-auto p-4 md:p-8 bg-[#F8FAFF]">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
         </main>
       </div>
     </div>

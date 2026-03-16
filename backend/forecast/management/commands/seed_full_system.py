@@ -84,7 +84,7 @@ class Command(BaseCommand):
     help = "The 'Layered Reality' Engine: Healthy History + Forced Anomalies"
 
     def handle(self, *args, **kwargs):
-        target_tenant_id = 1
+        target_tenant_id = 34
         self.stdout.write("🏗️  Initializing Naija Hypermarket Simulation (Layered Mode)...")
 
         # --- A. SETUP ---
@@ -166,7 +166,7 @@ class Command(BaseCommand):
 
         # --- E. THE TIME MACHINE (History Generation) ---
         # We generate a "Normal" healthy history first.
-        days_back = 730
+        days_back = 365
         end_date = timezone.now().date() # Use Date only for loop safety
         start_date = end_date - timedelta(days=days_back)
         current_date = start_date
