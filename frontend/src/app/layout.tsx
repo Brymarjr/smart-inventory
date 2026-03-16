@@ -1,23 +1,19 @@
 'use client';
 
-import { Plus_Jakarta_Sans } from 'next/font/google'; // Switched from Inter to Plus Jakarta Sans
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { useState, ReactNode } from 'react';
+import { useState, ReactNode, useEffect } from 'react'; // Added useEffect
 import { ThemeProvider } from '@/components/theme-provider';
 import { LegalGuard } from '@/components/auth/legal-guard';
 
-// Configured Plus Jakarta Sans for a softer, more premium SME feel
 const jakarta = Plus_Jakarta_Sans({ 
   subsets: ['latin'],
   variable: '--font-jakarta', 
 });
 
-// ----------------------
-// Guard Wrapper for Auth-Only Pages
-// ----------------------
 function AuthWrapper({ children }: { children: ReactNode }) {
   const { isLoading } = useAuth();
 
@@ -35,25 +31,43 @@ function AuthWrapper({ children }: { children: ReactNode }) {
   return <LegalGuard>{children}</LegalGuard>;
 }
 
-// ----------------------
-// RootLayout
-// ----------------------
 export default function RootLayout({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
+  const [mounted, setMounted] = useState(false); // ✅ Track if component has mounted
+
+  // ✅ Set mounted to true after the first render
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Updated Helper: Only runs window logic after mounting
+  const renderChildren = () => {
+    const protectedRoutes = ['/dashboard', '/system-admin']; 
+
+    // During SSR and the very first client render, 'mounted' is false.
+    // This ensures server and client start with the same HTML.
+    if (mounted && typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (protectedRoutes.some(route => path.startsWith(route))) {
+        return <AuthWrapper>{children}</AuthWrapper>;
+      }
+    }
+
+    return children;
+  };
 
   return (
     <html lang="en" suppressHydrationWarning className={jakarta.variable}>
       <body className={`${jakarta.className} antialiased`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="light" // Defaulting to light for SME visibility
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              {/* ✅ Only wrap pages that need authentication */}
-              {childrenWithAuth(children)}
+              {renderChildren()} {/* ✅ Use the helper here */}
               <Toaster richColors position="top-right" />
             </AuthProvider>
           </QueryClientProvider>
@@ -61,20 +75,4 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </body>
     </html>
   );
-}
-
-// ----------------------
-// Helper: Wrap only protected pages with AuthWrapper
-// ----------------------
-function childrenWithAuth(children: ReactNode) {
-  const protectedRoutes = ['/dashboard', '/system-admin']; 
-
-  if (typeof window !== 'undefined') {
-    const path = window.location.pathname;
-    if (protectedRoutes.some(route => path.startsWith(route))) {
-      return <AuthWrapper>{children}</AuthWrapper>;
-    }
-  }
-
-  return children;
 }

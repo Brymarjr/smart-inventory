@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation'; //  Import Router for linking
-import { forecastService, DashboardData, AnomalyAlert } from '@/services/forecastService';
+import { useRouter } from 'next/navigation';
+import { forecastService } from '@/services/forecastService';
+import type { DashboardData, AnomalyAlert } from '@/services/forecastService'; // Fixed: Explicitly imported as types
 import { 
   TrendingUp, 
   AlertTriangle, 
@@ -101,7 +102,8 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (!data) return null;
+  // Fixed: Next.js pages must return a valid React Element, not null.
+  if (!data) return <></>;
 
   const { summary, forecasts } = data;
   const filteredAlerts = getFilteredAlerts();
@@ -112,10 +114,10 @@ export default function AnalyticsPage() {
       {/* --- HEADER --- */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Intelligence Center</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
           <p className="text-muted-foreground">
              {activeFilter === 'all' 
-               ? "Overview of system health and AI predictions." 
+               ? "Discover trends and make data-driven decisions." 
                : `Filtered View: Showing ${getFilterTitle()}.`}
           </p>
         </div>
@@ -127,7 +129,6 @@ export default function AnalyticsPage() {
                 </Button>
             )}
             
-            {/* ✅ FIXED REFRESH BUTTON: Spins when loading */}
             <Button 
               onClick={loadData} 
               variant="outline" 
@@ -217,7 +218,7 @@ export default function AnalyticsPage() {
               filteredAlerts.map((alert) => (
                 <div 
                   key={alert.id} 
-                  onClick={() => setSelectedAlert(alert)} // OPEN MODAL
+                  onClick={() => setSelectedAlert(alert)} 
                   className="group flex flex-col space-y-1 rounded-lg border p-3 bg-white shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
@@ -296,12 +297,12 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* --- 4. INVESTIGATION MODAL (Connected to Router) --- */}
+      {/* --- 4. INVESTIGATION MODAL --- */}
       {selectedAlert && (
         <InvestigationModal 
           alert={selectedAlert} 
           onClose={() => setSelectedAlert(null)}
-          router={router} // Pass router to modal
+          router={router} 
         />
       )}
 
@@ -325,15 +326,12 @@ function StatWidget({ title, value, icon: Icon, className, tooltip, onClick, isA
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           {title}
           
-          {/*  FIXED TOOLTIP: Uses simple group-hover logic */}
           {tooltip && (
              <div className="relative group/info ml-1 z-50">
                 <Info className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors cursor-help" />
                 
-                {/* Tooltip Content */}
                 <div className="absolute hidden group-hover/info:block bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 bg-slate-900 text-white text-xs rounded shadow-lg z-50 pointer-events-none">
                   {tooltip}
-                  {/* Small arrow */}
                   <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
                 </div>
              </div>
@@ -362,12 +360,11 @@ function ActionBadge({ action }: { action: string }) {
   );
 }
 
-// --- SMART MODAL WITH REAL LINKS ---
+// --- SMART MODAL ---
 function InvestigationModal({ alert, onClose, router }: { alert: AnomalyAlert, onClose: () => void, router: any }) {
   
-  // Logic to determine steps based on anomaly type
   const getSteps = () => {
-    if (alert.anomaly_type === 'shrinkage') { // Ghost Stock
+    if (alert.anomaly_type === 'shrinkage') { 
       return [
         "Go to the physical location of this product.",
         "Perform a manual count of items on the shelf.",
@@ -391,13 +388,12 @@ function InvestigationModal({ alert, onClose, router }: { alert: AnomalyAlert, o
   const title = alert.anomaly_type === 'shrinkage' ? 'Ghost Stock Resolution' : 'Velocity Spike Audit';
   const colorClass = alert.anomaly_type === 'shrinkage' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50';
   
-  //  DYNAMIC BUTTON TEXT & ACTION (Links to Real Pages)
   const btnText = alert.anomaly_type === 'shrinkage' ? 'Go to Inventory' : 'View Sales History';
   const btnAction = () => {
       if (alert.anomaly_type === 'shrinkage') {
-          router.push('/dashboard/inventory'); //  Link to Inventory
+          router.push('/dashboard/inventory'); 
       } else {
-          router.push('/dashboard/sales/history'); //  Link to Sales history (Transactions)
+          router.push('/dashboard/sales/history'); 
       }
       onClose();
   };
@@ -419,14 +415,11 @@ function InvestigationModal({ alert, onClose, router }: { alert: AnomalyAlert, o
 
         {/* Body */}
         <div className="p-6 space-y-6">
-          
-          {/* Context */}
           <div className="bg-slate-50 p-3 rounded-md border border-slate-100">
             <h3 className="text-sm font-semibold text-slate-900 mb-1">Why was this flagged?</h3>
             <p className="text-sm text-slate-600">{alert.description}</p>
           </div>
 
-          {/* Checklist */}
           <div>
             <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center">
               <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />

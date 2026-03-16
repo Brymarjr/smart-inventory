@@ -4,59 +4,58 @@
 
 @layer base {
   :root {
-    /* Brand Colors (HSL) */
+    /* --- LIGHT MODE --- */
     --background: 0 0% 100%;
-    --foreground: 239 48% 20%;
+    --foreground: 239 48% 15%; /* Deep Navy Text */
     --card: 0 0% 100%;
-    --card-foreground: 239 48% 20%;
+    --card-foreground: 239 48% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 239 48% 20%;
-    --primary: 239 96% 58%; /* Deep Indigo */
+    --popover-foreground: 239 48% 15%;
+    --primary: 239 96% 58%; 
     --primary-foreground: 210 40% 98%;
-    --secondary: 239 48% 20%; /* Dark Purple */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary: 239 10% 96%;
+    --secondary-foreground: 239 48% 15%;
+    --muted: 239 10% 96%;
+    --muted-foreground: 239 10% 45%;
     --accent: 239 96% 58%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 239 48% 20%; 
+    --border: 239 20% 90%;
+    --input: 239 20% 90%;
     --ring: 239 96% 58%;
-
-    /* SME-style rounded corners - larger and softer */
     --radius: 1.25rem;
+  }
+
+  .dark {
+    /* --- BRAND NAVY DARK MODE --- */
+    --background: 239 48% 6%;         /* Darkest Navy (Base) */
+    --foreground: 210 40% 98%;        /* Off-white text */
+    --card: 239 48% 10%;              /* Slightly lighter Navy (Cards/Sidebar) */
+    --card-foreground: 210 40% 98%;
+    --popover: 239 48% 10%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 239 90% 66%;           /* Brighter Indigo for contrast */
+    --primary-foreground: 239 48% 6%;
+    --secondary: 239 30% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 239 30% 12%;
+    --muted-foreground: 239 10% 65%;
+    --accent: 239 90% 66%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 239 30% 18%;            /* Subtle blue-tinted borders */
+    --input: 239 30% 18%;
+    --ring: 239 90% 66%;
   }
 }
 
 @layer base {
   * {
-    @apply border-border outline-none;
+    @apply border-border;
   }
-  
   body {
-    /* "font-sans" here will pull the soft font we define in layout.tsx */
-    @apply bg-background text-foreground font-sans antialiased tracking-tight;
-    /* Ensuring the project doesn't feel blocky */
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Custom selection color for a premium feel */
-  ::selection {
-    @apply bg-primary/20 text-primary;
-  }
-}
-
-@layer components {
-  .glass-nav {
-    @apply bg-white/80 backdrop-blur-md border-b border-white/10 sticky top-0 z-50;
-  }
-
-  /* Big, bold SME inputs with soft focus */
-  .sme-input-focus {
-    @apply focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-300;
+    @apply bg-background text-foreground antialiased transition-colors duration-300;
   }
 }

@@ -23,11 +23,10 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const { register, handleSubmit, reset } = useForm<ProfileData>();
 
-  // 1. Fetch Current User Data (Using the new 'me' endpoint)
+  // 1. Fetch Current User Data
   const { data: user, isLoading } = useQuery({
     queryKey: ['me'],
     queryFn: async () => {
-      // ✅ Use 'me' here too, it's safer and cleaner
       const res = await api.get('/api/users/me/');
       return res.data;
     },
@@ -41,7 +40,7 @@ export default function ProfilePage() {
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || '',
-        phone_number: user.phone_number || '', // Backend field usually snake_case
+        phone_number: user.phone_number || '', 
       });
     }
   }, [user, reset]);
@@ -54,15 +53,11 @@ export default function ProfilePage() {
           last_name: data.last_name,
           phone_number: data.phone_number
       };
-      
-      // ✅ FIXED: Use '/api/users/me/' instead of ID
-      // This bypasses the admin-only check on the main list view
       await api.patch('/api/users/me/', payload);
     },
     onSuccess: () => {
       toast.success("Profile updated!");
       queryClient.invalidateQueries({ queryKey: ['me'] });
-      // Also refresh global auth user if you are using one
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to update profile.");
@@ -74,46 +69,80 @@ export default function ProfilePage() {
     mutation.mutate(data);
   };
 
-  if (isLoading) return <div className="p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  if (isLoading) return <div className="p-8 flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Loading profile...</div>;
 
   return (
-    <div className="max-w-2xl mx-auto py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>Update your personal details here.</CardDescription>
+    <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      {/* Page Header - Aligned to Dashboard Style */}
+      <div className="flex flex-col gap-1.5 ml-1">
+        <h3 className="text-3xl font-black tracking-tight text-[#1A1B4B]">Profile</h3>
+        <p className="text-muted-foreground">
+          Manage your account and contact information
+        </p>
+      </div>
+
+      <Card className="border-slate-200 shadow-sm overflow-hidden rounded-xl">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-6 px-8">
+          <CardTitle className="text-[#1A1B4B] font-bold text-xl tracking-tight">Personal Information</CardTitle>
+          <CardDescription className="text-slate-500 font-medium">Update your personal details here.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="first_name">First Name</Label>
-                    <Input id="first_name" {...register('first_name')} />
+        
+        <CardContent className="pt-10 px-8 pb-10">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-10">
+            {/* Name Group */}
+            <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-3">
+                    <Label htmlFor="first_name" className="font-bold text-slate-700 tracking-wide text-sm">First Name</Label>
+                    <Input id="first_name" {...register('first_name')} className="h-11 border-slate-300 focus:ring-[#2D31FA] rounded-lg" placeholder="John" />
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="last_name">Last Name</Label>
-                    <Input id="last_name" {...register('last_name')} />
+                <div className="space-y-3">
+                    <Label htmlFor="last_name" className="font-bold text-slate-700 tracking-wide text-sm">Last Name</Label>
+                    <Input id="last_name" {...register('last_name')} className="h-11 border-slate-300 focus:ring-[#2D31FA] rounded-lg" placeholder="Doe" />
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input id="email" {...register('email')} disabled className="bg-muted" />
-                <p className="text-[0.8rem] text-muted-foreground">Email cannot be changed here.</p>
+            {/* Email Field - Clickable but read-only */}
+            <div className="space-y-3">
+                <Label htmlFor="email" className="font-bold text-slate-700 tracking-wide text-sm">Email Address</Label>
+                <Input 
+                  id="email" 
+                  {...register('email')} 
+                  readOnly 
+                  className="h-11 bg-slate-50/80 border-slate-200 text-slate-500 cursor-text focus-visible:ring-0 rounded-lg" 
+                />
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mt-2">
+                  Email management is restricted to administrators
+                </p>
             </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" {...register('phone_number')} />
+            {/* Phone Field */}
+            <div className="space-y-3 max-w-md">
+                <Label htmlFor="phone" className="font-bold text-slate-700 tracking-wide text-sm">Phone Number</Label>
+                <Input id="phone" {...register('phone_number')} className="h-11 border-slate-300 focus:ring-[#2D31FA] rounded-lg" placeholder="+234 ..." />
             </div>
 
-            <div className="pt-4 flex justify-end">
-                <Button type="submit" disabled={mutation.isPending}>
-                    {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                </Button>
-            </div>
+            {/* Footer / Action */}
+            <div className="pt-8 border-t border-slate-100 flex justify-end">
+    <Button 
+      type="submit" 
+      disabled={mutation.isPending} 
+      className="h-11 bg-[#2D31FA] hover:bg-[#1A1B4B] transition-all font-bold px-10 shadow-md rounded-lg flex items-center gap-2 text-white"
+    >
+        {mutation.isPending ? (
+          <Loader2 
+            size={16} 
+            className="animate-spin" 
+            style={{ color: '#FFFFFF', stroke: '#FFFFFF' }} 
+          />
+        ) : (
+          <Save 
+            size={16} 
+            style={{ color: '#FFFFFF', stroke: '#FFFFFF' }} 
+          />
+        )}
+        <span className="text-white">Save Changes</span>
+    </Button>
+</div>
           </form>
         </CardContent>
       </Card>

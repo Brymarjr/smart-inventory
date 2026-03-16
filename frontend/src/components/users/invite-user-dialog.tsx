@@ -104,8 +104,16 @@ export function InviteUserDialog() {
           <>
             <DialogHeader>
               <DialogTitle>Add New Team Member</DialogTitle>
-              <DialogDescription>
-                Create an account for a new user. You will need to share the credentials with them.
+              <DialogDescription className="text-sm">
+
+                Create an account for a new user.
+
+                <span className="block mt-1 text-muted-foreground/90">
+
+                  You will need to share the credentials with them.
+
+                </span>
+
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="grid gap-4 py-4">
@@ -186,9 +194,9 @@ export function InviteUserDialog() {
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="staff">Employee</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
-                    {/* Removed finance_officer */}
+                    <SelectItem value="manager">Financial Officer</SelectItem>
                     <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
                   </SelectContent>
                 </Select>
