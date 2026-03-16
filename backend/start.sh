@@ -7,7 +7,7 @@ echo "📦 Running database migrations..."
 python manage.py migrate --noinput
 
 # (Optional) Collect static files if you are using Django admin
-# python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput
 
 echo "🚀 Starting Celery Worker in the background..."
 # CRITICAL: We limit concurrency to 2 so we don't blow up Render's 512MB memory limit!
