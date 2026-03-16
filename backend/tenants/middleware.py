@@ -2,6 +2,10 @@ from django.http import HttpResponseForbidden, JsonResponse
 from tenants.models import Tenant
 from core import tenant_context
 from django.utils import timezone
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 class TenantMiddleware:
     """
@@ -97,4 +101,35 @@ class BlockWriteIfSubscriptionExpiredMiddleware:
         return self.get_response(request)
 
 
+class GlobalTenantSuspensionMiddleware:
+    """
+    Bulletproof middleware to block suspended tenants globally.
+    Relies on TenantMiddleware having already resolved the tenant.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
 
+    def __call__(self, request):
+        path = request.path
+
+        # 1. THE LIFELINE: Always allow Auth, Support, and Admin endpoints
+        if path.startswith('/api/auth/') or path.startswith('/api/support/') or path.startswith('/api/admin/'):
+            return self.get_response(request)
+
+        # 2. Extract the Tenant (Already resolved by your TenantMiddleware!)
+        tenant = getattr(request, 'tenant', None)
+
+        # 3. THE LOCKDOWN: Check database status
+        if tenant:
+            if not tenant.is_active:
+                logger.warning(f"[Suspension Middleware] ⛔ BLOCKED: Tenant '{tenant.name}' is suspended! Slamming the door on {path}.")
+                return JsonResponse({"detail": "tenant_suspended"}, status=403)
+        else:
+            # Fallback just in case DRF Authentication resolves it later
+            user = getattr(request, 'user', None)
+            if user and hasattr(user, 'tenant') and user.tenant:
+                if not user.tenant.is_active:
+                    logger.warning(f"[Suspension Middleware] ⛔ BLOCKED: User Tenant '{user.tenant.name}' is suspended! Slamming the door on {path}.")
+                    return JsonResponse({"detail": "tenant_suspended"}, status=403)
+
+        return self.get_response(request)

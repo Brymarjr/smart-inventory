@@ -22,7 +22,7 @@ import { AlertCircle, Building2, Loader2, Eye, EyeOff, PackageSearch, ArrowLeft 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 
-// Schema from Code A
+// Schema for form validation
 const tenantSchema = z.object({
   tenant: z.string().min(1, 'Organization ID is required'),
   email: z.string().email('Invalid email address').min(1, 'Email is required'),
@@ -30,7 +30,6 @@ const tenantSchema = z.object({
 });
 
 function LoginForm() {
-  // Logic from Code A
   const { loginTenant } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -40,8 +39,6 @@ function LoginForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // UI State from Code B
   const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<z.infer<typeof tenantSchema>>({
@@ -53,31 +50,28 @@ function LoginForm() {
     },
   });
 
-  // Submission logic strictly from Code A
   async function onSubmit(values: z.infer<typeof tenantSchema>) {
     setIsLoading(true);
     setError('');
     try {
       await loginTenant(values.tenant, values.email, values.password);
       toast.success('Welcome back!');
-      router.refresh();
+      router.refresh(); // Forces a fresh check of the auth state
     } catch (err: any) {
       console.error(err);
       const serverMsg = err.response?.data?.detail || err.response?.data?.non_field_errors || 'Invalid Organization ID or credentials.';
       setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
       toast.error("Login Failed");
-    } finally {
-      setIsLoading(false);
+      setIsLoading(false); // Only stop loading if it failed
     }
   }
 
-  // Tailwind trick from Code B
   const disableBrowserEye = "[&::-ms-reveal]:hidden [&::-ms-clear]:hidden [&::-webkit-contacts-auto-fill-button]:hidden";
 
   return (
     <div className="h-screen w-full flex flex-col lg:flex-row bg-white overflow-hidden">
       
-      {/* LEFT PANEL - Professional Branding (From Code B) */}
+      {/* LEFT PANEL - Professional Branding */}
       <div className="hidden lg:flex w-full lg:w-5/12 bg-[#1A1B4B] text-white p-12 flex-col justify-between relative">
         <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-[#2D31FA] opacity-10 rounded-full blur-3xl"></div>
         
@@ -119,7 +113,7 @@ function LoginForm() {
         </div>
       </div>
 
-      {/* RIGHT PANEL - Login Form (Merged A Logic + B UI) */}
+      {/* RIGHT PANEL - Login Form */}
       <div className="flex-1 flex items-center justify-center bg-slate-50 p-4 overflow-y-auto w-full">
         <Card className="w-full max-w-3xl border-none shadow-[0_20px_60px_rgba(0,0,0,0.12)] rounded-[2.5rem] p-4 lg:p-10 bg-white my-4">
           <CardHeader className="text-center space-y-3 pb-6">
@@ -256,7 +250,6 @@ function LoginForm() {
   );
 }
 
-// Suspense boundary kept from Code A, styled to match the new full-screen aesthetic
 export default function LoginPage() {
   return (
     <Suspense fallback={
@@ -264,7 +257,7 @@ export default function LoginPage() {
         <Loader2 className="animate-spin" /> Loading Security...
       </div>
     }>
-       <LoginForm />
+        <LoginForm />
     </Suspense>
   );
 }

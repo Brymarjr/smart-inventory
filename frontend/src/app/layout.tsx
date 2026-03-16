@@ -5,9 +5,10 @@ import './globals.css';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { useState, ReactNode, useEffect } from 'react'; // Added useEffect
+import { useState, ReactNode, useEffect } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { LegalGuard } from '@/components/auth/legal-guard';
+import { IdleTimeoutWrapper } from '@/components/auth/idle-timeout-wrapper';
 
 const jakarta = Plus_Jakarta_Sans({ 
   subsets: ['latin'],
@@ -28,26 +29,35 @@ function AuthWrapper({ children }: { children: ReactNode }) {
     );
   }
 
-  return <LegalGuard>{children}</LegalGuard>;
+  return (
+    <LegalGuard>
+      <IdleTimeoutWrapper>
+        {children}
+      </IdleTimeoutWrapper>
+    </LegalGuard>
+  );
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
-  const [mounted, setMounted] = useState(false); // ✅ Track if component has mounted
+  const [mounted, setMounted] = useState(false);
 
-  // ✅ Set mounted to true after the first render
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Updated Helper: Only runs window logic after mounting
+  // Updated Helper: Handles route protection and hydration safety
   const renderChildren = () => {
     const protectedRoutes = ['/dashboard', '/system-admin']; 
 
-    // During SSR and the very first client render, 'mounted' is false.
-    // This ensures server and client start with the same HTML.
     if (mounted && typeof window !== 'undefined') {
       const path = window.location.pathname;
+
+      // Explicitly exempt the system admin login page from the wrapper
+      if (path === '/system-admin/login') {
+        return children;
+      }
+
       if (protectedRoutes.some(route => path.startsWith(route))) {
         return <AuthWrapper>{children}</AuthWrapper>;
       }
@@ -58,7 +68,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
   return (
     <html lang="en" suppressHydrationWarning className={jakarta.variable}>
-      <body className={`${jakarta.className} antialiased`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <title>ForeTrack</title>
+        <meta name="description" content="Smart POS and Inventory Management" />
+      </head>
+      <body className={`${jakarta.className} antialiased bg-background text-foreground`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -67,7 +82,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              {renderChildren()} {/* ✅ Use the helper here */}
+              {renderChildren()}
               <Toaster richColors position="top-right" />
             </AuthProvider>
           </QueryClientProvider>

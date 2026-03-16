@@ -80,6 +80,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'tenants.middleware.TenantMiddleware',
     'tenants.auth_middleware.TenantAttachAfterJWTMiddleware',
+    'tenants.middleware.GlobalTenantSuspensionMiddleware',
     'tenants.middleware.BlockWriteIfSubscriptionExpiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -113,7 +114,7 @@ DATABASES = {
 }
 
 # --- REDIS & CELERY (SSL AWARE) ---
-CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default=CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
@@ -126,6 +127,19 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 if 'rediss://' in CELERY_BROKER_URL:
     CELERY_REDIS_BACKEND_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
     CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
+    
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+
+CELERY_TASK_ROUTES = {
+    # THE VIP LANE: Syncs process instantly on their own thread
+    'sync.tasks.process_sync_job': {'queue': 'high_priority'},
+    
+    # THE SLOW LANE: Emails go here so they don't block the checkout line
+    'notifications.tasks.send_notification_email': {'queue': 'emails'},
+    'sales.tasks.notify_low_stock': {'queue': 'emails'},
+    'sales.tasks.send_weekly_reports': {'queue': 'emails'},
+    'users.tasks.send_password_reset_email': {'queue': 'emails'},
+}
 
 # --- EMAIL SETTINGS ---
 # Uses SMTP by default. If EMAIL_HOST is missing, it crashes (good for catching errors).
@@ -194,8 +208,8 @@ REST_FRAMEWORK = {
         # 1. Check for Support Restrictions first
         'core.permissions.IsSupportReadOnly',
         
-        # 2. Then check Tenant Subscription status
-        'tenants.permissions.IsTenantActiveOrReadOnly',
+        # 2. Then check Tenant active status
+        'tenants.permissions.IsTenantActivePermission',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -203,10 +217,10 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
@@ -258,7 +272,7 @@ MAX_OPS_PER_UPLOAD = 500
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": env('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/1'),
+        "LOCATION": env('REDIS_URL', default='redis://127.0.0.1:6379/1'),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             # If Redis takes > 2 seconds to connect or read, stop waiting.

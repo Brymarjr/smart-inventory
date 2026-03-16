@@ -1,34 +1,52 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { CartItem } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Trash2, ShoppingCart, Loader2, CreditCard } from 'lucide-react';
-import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
-import { queueOperation } from '@/lib/sync-manager'; 
-import { db } from '@/lib/db'; 
+import { useState } from "react";
+import { CartItem } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Trash2, ShoppingCart, Loader2, CreditCard } from "lucide-react";
+import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
+import { queueOperation } from "@/lib/sync-manager";
+import { db } from "@/lib/db";
+import { useAuth } from "@/lib/auth-context";
 
 interface PosCartProps {
   cart: CartItem[];
   onRemove: (id: number) => void;
   onUpdateQty: (id: number, delta: number) => void;
   onClear: () => void;
-  onSaleSuccess: (data: any) => void; 
+  onSaleSuccess: (data: any) => void;
 }
 
-export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }: PosCartProps) {
-  
+export function PosCart({
+  cart,
+  onRemove,
+  onUpdateQty,
+  onClear,
+  onSaleSuccess,
+}: PosCartProps) {
+  const { user } = useAuth();
   // Checkout Form State
-  const [customerName, setCustomerName] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'transfer' | 'pos' | 'other'>('cash');
-  const [notes, setNotes] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false); 
+  const [customerName, setCustomerName] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cash" | "card" | "transfer" | "pos" | "other"
+  >("cash");
+  const [notes, setNotes] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalAmount = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
 
   // ✅ Smart Checkout Logic (Online vs Offline)
   const handleCheckout = async () => {
@@ -39,82 +57,81 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
     const isOnline = navigator.onLine;
 
     try {
-        const saleTmpId = `sale-${uuidv4()}`;
-        const timestamp = Date.now();
-        
-        // 2. Generate Reference: POS- for Online, OFF- for Offline
-        const reference = isOnline 
-            ? `POS-${timestamp}` 
-            : `OFF-${timestamp}`; 
+      const saleTmpId = `sale-${uuidv4()}`;
+      const timestamp = Date.now();
 
-        // 3. Queue the Sale Record
-        await queueOperation('sales.Sale', 'create', {
-            tmp_id: saleTmpId,
-            reference: reference,
-            customer_name: customerName,
-            payment_method: paymentMethod,
-            total_amount: totalAmount,
-            notes: notes,
-            created_at: new Date().toISOString()
+      // 2. Generate Reference: POS- for Online, OFF- for Offline
+      const reference = isOnline ? `POS-${timestamp}` : `OFF-${timestamp}`;
+
+      // 3. Queue the Sale Record
+      await queueOperation("sales.Sale", "create", {
+        tmp_id: saleTmpId,
+        reference: reference,
+        customer_name: customerName,
+        payment_method: paymentMethod,
+        total_amount: totalAmount,
+        notes: notes,
+        created_at: new Date().toISOString(),
+      });
+
+      // 4. Queue the Items & UPDATE LOCAL STOCK
+      for (const item of cart) {
+        // A. Queue the sync operation
+        await queueOperation("sales.SaleItem", "create", {
+          sale_tmp_id: saleTmpId,
+          product_id: item.productId,
+          quantity: item.quantity,
+          unit_price: item.price,
+          subtotal: item.price * item.quantity,
         });
 
-        // 4. Queue the Items & UPDATE LOCAL STOCK
-        for (const item of cart) {
-            // A. Queue the sync operation
-            await queueOperation('sales.SaleItem', 'create', {
-                sale_tmp_id: saleTmpId, 
-                product_id: item.productId,
-                quantity: item.quantity,
-                unit_price: item.price,
-                subtotal: item.price * item.quantity
-            });
-
-            // B. Optimistic Update
-            const currentProduct = await db.products.get(item.productId);
-            if (currentProduct) {
-                await db.products.update(item.productId, {
-                    quantity: currentProduct.quantity - item.quantity
-                });
-            }
+        // B. Optimistic Update
+        const currentProduct = await db.products.get(item.productId);
+        if (currentProduct) {
+          await db.products.update(item.productId, {
+            quantity: currentProduct.quantity - item.quantity,
+          });
         }
+      }
 
-        // 5. User Feedback
-        if (isOnline) {
-            toast.success('Sale Completed Successfully!');
-        } else {
-            toast.info('Sale Recorded (Offline Mode)');
-        }
+      // 5. User Feedback
+      if (isOnline) {
+        toast.success("Sale Completed Successfully!");
+      } else {
+        toast.info("Sale Recorded (Offline Mode)");
+      }
 
-        // 6. Construct Smart Receipt Data
-        const receiptData = {
-            id: saleTmpId, 
-            receipt_id: reference,
-            is_offline: !isOnline, // ✅ Flag for the receipt printer
-            customer_name: customerName,
-            total_amount: totalAmount,
-            created_at: new Date().toISOString(),
-            items: cart.map(c => ({
-                product_name: c.name,
-                quantity: c.quantity,
-                unit_price: c.price,
-                subtotal: c.price * c.quantity
-            }))
-        };
+      // 6. Construct Smart Receipt Data
+      const receiptData = {
+        id: saleTmpId,
+        receipt_id: reference,
+        is_offline: !isOnline, 
+        // Build the real name, or fallback to username
+        cashier_name: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.username,
+        customer_name: customerName,
+        total_amount: totalAmount,
+        created_at: new Date().toISOString(),
+        items: cart.map((c) => ({
+          product_name: c.name,
+          quantity: c.quantity,
+          unit_price: c.price,
+          subtotal: c.price * c.quantity,
+        })),
+      };
 
-        // Trigger success callback
-        onSaleSuccess(receiptData);
+      // Trigger success callback
+      onSaleSuccess(receiptData);
 
-        // Cleanup
-        onClear(); 
-        setCustomerName('');
-        setNotes('');
-        setPaymentMethod('cash');
-
+      // Cleanup
+      onClear();
+      setCustomerName("");
+      setNotes("");
+      setPaymentMethod("cash");
     } catch (error) {
-        console.error(error);
-        toast.error('Failed to record sale locally.');
+      console.error(error);
+      toast.error("Failed to record sale locally.");
     } finally {
-        setIsProcessing(false);
+      setIsProcessing(false);
     }
   };
 
@@ -129,13 +146,18 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
   }
 
   return (
-    <div className="flex flex-col h-full bg-white border rounded-lg shadow-sm">
+    <div className="flex flex-col h-full bg-card border rounded-lg shadow-sm">
       {/* HEADER */}
       <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
         <h2 className="font-semibold flex items-center">
           <ShoppingCart className="mr-2 h-4 w-4" /> Current Order
         </h2>
-        <Button variant="ghost" size="sm" onClick={onClear} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClear}
+          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+        >
           Clear
         </Button>
       </div>
@@ -143,36 +165,47 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
       {/* ITEMS LIST */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {cart.map((item) => (
-          <div key={item.productId} className="flex items-center justify-between group">
+          <div
+            key={item.productId}
+            className="flex items-center justify-between group"
+          >
             <div className="flex-1">
               <p className="font-medium text-sm truncate">{item.name}</p>
-              <p className="text-xs text-muted-foreground">₦{item.price.toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">
+                ₦{item.price.toLocaleString()}
+              </p>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <div className="flex items-center border rounded-md">
-                <button 
-                   onClick={() => onUpdateQty(item.productId, -1)}
-                   className="px-2 py-1 hover:bg-gray-100 text-sm disabled:opacity-50"
-                   disabled={item.quantity <= 1}
-                >-</button>
-                <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                <button 
-                   onClick={() => onUpdateQty(item.productId, 1)}
-                   className="px-2 py-1 hover:bg-gray-100 text-sm disabled:opacity-50"
-                   disabled={item.quantity >= item.maxStock}
-                >+</button>
+                <button
+                  onClick={() => onUpdateQty(item.productId, -1)}
+                  className="px-2 py-1 hover:bg-gray-100 text-sm disabled:opacity-50"
+                  disabled={item.quantity <= 1}
+                >
+                  -
+                </button>
+                <span className="w-8 text-center text-sm font-medium">
+                  {item.quantity}
+                </span>
+                <button
+                  onClick={() => onUpdateQty(item.productId, 1)}
+                  className="px-2 py-1 hover:bg-gray-100 text-sm disabled:opacity-50"
+                  disabled={item.quantity >= item.maxStock}
+                >
+                  +
+                </button>
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="h-8 w-8 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => onRemove(item.productId)}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>
-            
+
             <div className="w-20 text-right font-medium text-sm">
               ₦{(item.price * item.quantity).toLocaleString()}
             </div>
@@ -183,44 +216,49 @@ export function PosCart({ cart, onRemove, onUpdateQty, onClear, onSaleSuccess }:
       {/* CHECKOUT SECTION */}
       <div className="p-4 bg-gray-50 border-t space-y-4 rounded-b-lg">
         <div className="grid grid-cols-2 gap-3">
-            <Input 
-                placeholder="Customer Name (Optional)" 
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="bg-white"
-            />
-            <Select value={paymentMethod} onValueChange={(val: any) => setPaymentMethod(val)}>
-                <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Payment" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="pos">POS / Card</SelectItem>
-                    <SelectItem value="transfer">Transfer</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-            </Select>
+          <Input
+            placeholder="Customer Name (Optional)"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            className="bg-card"
+          />
+          <Select
+            value={paymentMethod}
+            onValueChange={(val: any) => setPaymentMethod(val)}
+          >
+            <SelectTrigger className="bg-card">
+              <SelectValue placeholder="Payment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">Cash</SelectItem>
+              <SelectItem value="pos">POS / Card</SelectItem>
+              <SelectItem value="transfer">Transfer</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <Separator />
 
         <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Total Amount</span>
-            <span className="text-2xl font-bold text-primary">₦{totalAmount.toLocaleString()}</span>
+          <span className="text-muted-foreground">Total Amount</span>
+          <span className="text-2xl font-bold text-primary">
+            ₦{totalAmount.toLocaleString()}
+          </span>
         </div>
 
-        <Button 
-            size="lg" 
-            className="w-full text-lg" 
-            onClick={handleCheckout} 
-            disabled={isProcessing}
+        <Button
+          size="lg"
+          className="w-full text-lg"
+          onClick={handleCheckout}
+          disabled={isProcessing}
         >
-            {isProcessing ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-                <CreditCard className="mr-2 h-5 w-5" />
-            )}
-            {isProcessing ? 'Processing...' : 'Complete Sale'}
+          {isProcessing ? (
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          ) : (
+            <CreditCard className="mr-2 h-5 w-5" />
+          )}
+          {isProcessing ? "Processing..." : "Complete Sale"}
         </Button>
       </div>
     </div>

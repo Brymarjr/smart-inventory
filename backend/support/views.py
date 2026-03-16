@@ -20,6 +20,7 @@ from rest_framework.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from .models import Ticket, TicketComment
 from .serializers import TicketSerializer, ContactTenantAdminSerializer, TicketCommentSerializer
+from billing.utils import require_feature
 from notifications.utils import notify_user 
 
 User = get_user_model()
@@ -73,6 +74,8 @@ class TicketViewSet(viewsets.ModelViewSet):
         """
         if not self.request.user.tenant:
             raise serializers.ValidationError("You must belong to a tenant to open a ticket.")
+        
+        require_feature(self.request.user.tenant, 'support_standard')
         serializer.save(tenant=self.request.user.tenant, created_by=self.request.user, status='open')
 
     def perform_update(self, serializer):

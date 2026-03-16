@@ -108,7 +108,7 @@ class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
@@ -116,14 +116,14 @@ class CategoryViewSet(AuditLogMixin, TenantFilteredViewSet):
         Create a new category.
         
         Enforces:
-        1. Feature presence ('inventory_view').
+        1. Feature presence ('inventory_basic').
         2. Plan Usage Limits ('max_categories').
         """
         tenant = getattr(request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
 
         current_count = Category.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_categories", current_count)
@@ -158,7 +158,7 @@ class SupplierViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
         return super().list(request, *args, **kwargs)
 
 
@@ -172,7 +172,7 @@ class SupplierViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
 
         current_count = Supplier.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_suppliers", current_count)
@@ -238,7 +238,7 @@ class ProductViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
@@ -250,13 +250,61 @@ class ProductViewSet(AuditLogMixin, TenantFilteredViewSet):
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
 
-        require_feature(tenant, "inventory_view")
+        require_feature(tenant, "inventory_basic")
 
         current_count = Product.objects.filter(tenant=tenant).count()
         check_plan_limit(tenant, "max_products", current_count)
 
         return super().create(request, *args, **kwargs)
+    
+    def perform_update(self, serializer):
+        """
+        Intercepts standard PUT/PATCH requests to edit a product.
+        Records what specifically changed (e.g., Name or Reorder Level) 
+        and creates a global AuditLog entry.
+        """
+        from django.db import transaction
+        from tenants.models import AuditLog 
 
+        # 1. Capture the old data directly from the instance before saving
+        old_instance = self.get_object()
+        old_name = old_instance.name
+        old_reorder = getattr(old_instance, 'reorder_level', None)
+        old_price = getattr(old_instance, 'price', None)
+
+        # Extract the manual note provided by the admin in the frontend modal
+        frontend_note = self.request.data.get('note', '').strip()
+
+        # 2. Save the new data atomically alongside the log
+        with transaction.atomic():
+            updated_product = serializer.save()
+
+            # 3. Auto-generate the change summary
+            changes = []
+            if old_name != updated_product.name:
+                changes.append(f"Name: '{old_name}' -> '{updated_product.name}'")
+            if old_reorder != updated_product.reorder_level:
+                changes.append(f"Reorder: {old_reorder} -> {updated_product.reorder_level}")
+            if old_price != updated_product.price:
+                changes.append(f"Price: {old_price} -> {updated_product.price}")
+            
+            change_summary = " | ".join(changes) if changes else "General details updated."
+            
+            # Combine the automatic summary with the user's manual note
+            final_reason = change_summary
+            if frontend_note:
+                final_reason += f" - Admin Note: {frontend_note}"
+
+            # 4. Create the Global Audit Log
+            AuditLog.objects.create(
+                tenant=self.request.user.tenant,
+                actor=self.request.user,
+                action='UPDATE',
+                target_model='Product',
+                target_name=updated_product.name,
+                reason=final_reason
+            )
+            
     # Custom Action for Stock Adjustment
     # Usage: POST /api/inventory/products/{id}/adjust_stock/
     @action(detail=True, methods=['post'], url_path='adjust-stock')

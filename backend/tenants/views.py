@@ -16,6 +16,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import action
 from .serializers import TenantDetailSerializer, TenantRegistrationSerializer, TenantSettingsSerializer, AuditLogSerializer, TenantListSerializer
 from .models import Tenant, TenantSettings, AuditLog
+from billing.utils import require_feature
 from core.pagination import StandardResultsSetPagination
 from core.mixins import TenantFilteredViewSet
 from users.permissions import IsTenantAdminOrManager
@@ -125,6 +126,11 @@ class AuditLogViewSet(TenantFilteredViewSet):
         'action'           # Search "DELETE" or "UPDATE"
     ]
     
+    def list(self, request, *args, **kwargs):
+        tenant = getattr(request.user, "tenant", None)
+        require_feature(tenant, "audit_logs")
+        return super().list(request, *args, **kwargs)
+    
     @action(detail=False, methods=['get'])
     def export_csv(self, request):
         """
@@ -132,6 +138,9 @@ class AuditLogViewSet(TenantFilteredViewSet):
         
         Useful for managers who need to report to store owners or external auditors.
         """
+        tenant = getattr(request.user, "tenant", None)
+        require_feature(tenant, "audit_logs")
+        
         queryset = self.filter_queryset(self.get_queryset())
 
         response = HttpResponse(content_type='text/csv')

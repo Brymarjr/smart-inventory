@@ -47,3 +47,6 @@ c. Run these commands in the different backend terminals:
 
    git push origin frontend-features      (To push to github so other users can pull your changes)
 
+   git pull origin frontend-features      (To pull from git the latest code version)
+
+venv folder is never commited to prevent it from breaking after every pull!

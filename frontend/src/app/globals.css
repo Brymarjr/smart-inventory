@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* --- LIGHT MODE --- */
+    /* Brand Colors (HSL) - Light Mode */
     --background: 0 0% 100%;
     --foreground: 239 48% 15%; /* Deep Navy Text */
     --card: 0 0% 100%;
@@ -56,6 +56,27 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased transition-colors duration-300;
+    @apply bg-background text-foreground font-sans antialiased tracking-tight transition-colors duration-300;
+    /* Ensuring the project doesn't feel blocky */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom selection color for a premium feel */
+  ::selection {
+    @apply bg-primary/20 text-primary;
+  }
+}
+
+@layer components {
+  .glass-nav {
+    /* Updated glass nav to support dark mode seamlessly */
+    @apply bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-border sticky top-0 z-50;
+  }
+
+  /* Big, bold SME inputs with soft focus */
+  .sme-input-focus {
+    @apply focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-300;
   }
 }

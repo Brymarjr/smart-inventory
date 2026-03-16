@@ -34,20 +34,25 @@ const getAuthHeaders = () => {
 };
 
 // 2. PULL: Download updates (Recursive Pagination)
-export const pullData = async (page = 1): Promise<{ success: boolean; error?: any }> => {
+// 👇 FIX 1: We added passedLastSync so the timestamp isn't lost during page 2+
+export const pullData = async (page = 1, passedLastSync: string | null = null): Promise<{ success: boolean; halted?: boolean; error?: any }> => {
   try {
     const headers = getAuthHeaders();
-    if (!headers.Authorization) return { success: false, error: "No token" };
+    
+    // THE EMERGENCY BRAKE
+    if (!headers.Authorization) {
+      console.warn("Sync aborted: User is not fully authenticated yet.");
+      return { success: false, error: "NO_TOKEN_ABORT" };
+    }
 
-    // Only read from DB on the first page
-    let lastSync = null;
+    // 👇 FIX 2: Use localStorage (instant & reliable) instead of Dexie for the timestamp
+    let lastSync = passedLastSync;
     if (page === 1) {
-        const meta = await db.meta.get('last_sync');
-        lastSync = meta?.value || null;
-    } 
+        lastSync = localStorage.getItem('last_sync_time');
+    }
     
     const deviceId = getDeviceId();
-    console.log(`⬇️ Sync Pull: Page ${page}...`);
+    console.log(`⬇️ Sync Pull: Page ${page}... ${lastSync ? '(Delta Sync)' : '(Full Sync)'}`);
 
     const response = await api.get('/api/sync/download/', {
       params: { device_id: deviceId, last_sync: lastSync, page: page },
@@ -86,49 +91,51 @@ export const pullData = async (page = 1): Promise<{ success: boolean; error?: an
           const cleanSales = rawSales.map((s: any) => ({
               ...s,
               total_amount: parseFloat(s.total_amount) || 0,
-              // Ensure dates are strings for Dexie
               created_at: s.created_at ? new Date(s.created_at).toISOString() : new Date().toISOString()
           }));
           await db.sales.bulkPut(cleanSales);
       }
 
-      // --- 4. Clean SaleItems (THE FIX FOR YOUR ERROR) ---
+      // --- 4. Clean SaleItems ---
       if (rawSaleItems.length > 0) {
           const cleanItems = rawSaleItems.map((i: any) => ({
               ...i,
               quantity: parseInt(i.quantity) || 1,
               unit_price: parseFloat(i.unit_price) || 0,
               subtotal: parseFloat(i.subtotal) || 0,
-              // Remove null IDs if they exist
               id: i.id ? i.id : undefined 
           }));
-          console.log(`💾 Saving ${cleanItems.length} items...`);
           await db.saleItems.bulkPut(cleanItems);
-      }
-
-      // Only update the timestamp if we are DONE.
-      if (!has_more) {
-         await db.meta.put({ key: 'last_sync', value: synced_at });
-         console.log(`✅ Sync Complete! Updated timestamp to: ${synced_at}`);
       }
     });
 
-    // 4. Recursion
+    // 4. Recursion or Finish
     if (has_more) {
         await new Promise(r => setTimeout(r, 50));
-        return await pullData(page + 1); 
+        // 👇 FIX 3: Pass lastSync back into the function so it isn't lost on Page 2!
+        return await pullData(page + 1, lastSync); 
+    } else {
+        // WE ARE DONE! Save the timestamp so the next refresh skips everything
+        const finalSyncTime = synced_at || new Date().toISOString();
+        localStorage.setItem('last_sync_time', finalSyncTime);
+        console.log(`✅ Sync Complete! Updated timestamp to: ${finalSyncTime}`);
     }
 
     return { success: true };
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error.response?.status === 402 || error.response?.status === 403) {
+      console.warn(`[SYNC HALTED] Billing Limit Reached: ${error.response.data?.detail}`);
+      return { success: false, halted: true, error: error.response.data?.detail }; 
+    }
+
     console.error("❌ Sync Pull Failed:", error);
     return { success: false, error };
   }
 };
 
 // 3. PUSH: Upload Local Changes
-export const pushData = async () => {
+export const pushData = async (): Promise<{ success: boolean; count?: number; halted?: boolean; error?: any }> => {
   try {
     const headers = getAuthHeaders();
     if (!headers.Authorization) return { success: false, error: "No token" };
@@ -156,7 +163,13 @@ export const pushData = async () => {
     console.log(`✅ Pushed ${pendingItems.length} changes to server.`);
     return { success: true, count: pendingItems.length };
 
-  } catch (error) {
+  } catch (error: any) {
+    // ✅ Catch Billing Limits Gracefully on Push too
+    if (error.response?.status === 402 || error.response?.status === 403) {
+      console.warn(`[SYNC HALTED] Billing Limit Reached on Push: ${error.response.data?.detail}`);
+      return { success: false, halted: true, error: error.response.data?.detail }; 
+    }
+
     console.error("❌ Push Failed:", error);
     return { success: false, error };
   }

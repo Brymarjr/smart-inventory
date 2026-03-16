@@ -103,18 +103,6 @@ class SaleCreateSerializer(serializers.Serializer):
                     subtotal=subtotal
                 )
 
-                # ✅ decrement quantity instead of stock
-                Product.objects.filter(pk=prod.pk).update(quantity=F('quantity') - qty)
-
-                # refresh product to check if low stock
-                prod.refresh_from_db(fields=['quantity'])
-                threshold = getattr(prod, 'reorder_level', getattr(settings, 'DEFAULT_LOW_STOCK_THRESHOLD', 10))
-                if prod.quantity <= threshold:
-                    low_stock_alerts.append(prod.pk)
-
-            for pid in low_stock_alerts:
-                tasks.notify_low_stock.delay(pid)
-
             return sale
 
 

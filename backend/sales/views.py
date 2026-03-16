@@ -25,7 +25,7 @@ from users.permissions import (
 )
 from .models import Sale, SaleItem
 from .serializers import SaleCreateSerializer, SaleReadSerializer
-from billing.utils import require_feature
+from billing.utils import require_feature, has_feature
 from inventory.models import Product
 from core.pagination import StandardResultsSetPagination
 
@@ -99,7 +99,7 @@ class SaleViewSet(TenantFilteredViewSet):
         Gated by the 'sales_view' feature flag.
         """
         tenant = self._get_tenant_or_403(request)
-        require_feature(tenant, "sales_view")
+        require_feature(tenant, "sales_basic")
 
         queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
@@ -115,7 +115,7 @@ class SaleViewSet(TenantFilteredViewSet):
         Useful for printing receipts or auditing specific transactions.
         """
         tenant = self._get_tenant_or_403(request)
-        require_feature(tenant, "sales_view")
+        require_feature(tenant, "sales_basic")
 
         sale = self.get_queryset().filter(pk=pk).first()
         if not sale:
@@ -137,7 +137,7 @@ class SaleViewSet(TenantFilteredViewSet):
         3. Records the financial transaction.
         """
         tenant = self._get_tenant_or_403(request)
-        require_feature(tenant, "sales_view")
+        require_feature(tenant, "sales_basic")
 
         serializer = SaleCreateSerializer(
             data=request.data,
@@ -159,34 +159,29 @@ class SaleViewSet(TenantFilteredViewSet):
             status=status.HTTP_201_CREATED,
         )
         
-    # ==========================================================
+   # ==========================================================
     # DASHBOARD STATS ACTION 
     # ==========================================================
     @action(detail=False, methods=['get'], url_path='dashboard-stats')
     def dashboard_stats(self, request):
         """
         Aggregates Real-Time Financial Data for the Admin Dashboard.
-        
-        Calculates:
-        1. **Revenue & Profit:** Compares current month vs. previous month.
-        2. **Trends:** Percentage growth/decline.
-        3. **Operational Metrics:** Low stock alerts and total product count.
-        4. **Top Sellers:** Identify the top 5 performing products this month.
-        
-        Returns:
-            JSON object formatted for frontend KPI cards and charts.
+        Conditionally returns Profit and Trends based on the billing plan.
         """
+        
         tenant = self._get_tenant_or_403(request)
-        # require_feature(tenant, "ml_forecasting") # Optional: If we decide to gate this feature
+        
+        # 1. Base Security: Must have at least the basic dashboard
+        require_feature(tenant, "dashboard_basic") 
 
         now = timezone.now()
         
-        # 1. Date Ranges (First of this month, First of last month)
+        # Date Ranges
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         last_month_end = start_of_month - timedelta(seconds=1)
         last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0)
 
-        # 2. Helper Logic: Calculates Revenue and Profit for a given date range
+        # Helper Logic
         def get_financials(start_date, end_date=None):
             filters = {
                 'sale__tenant': tenant,
@@ -195,8 +190,6 @@ class SaleViewSet(TenantFilteredViewSet):
             if end_date:
                 filters['sale__created_at__lte'] = end_date
 
-            # Aggregate SaleItems for accurate Profit calculation:
-            # Profit = Sum(Selling Price - Cost Price) * Quantity
             stats = SaleItem.objects.filter(**filters).aggregate(
                 revenue=Sum('subtotal'),
                 total_cost=Sum(F('cost_price') * F('quantity'))
@@ -207,17 +200,17 @@ class SaleViewSet(TenantFilteredViewSet):
             profit = rev - cost
             return rev, profit
 
-        # 3. Fetch Data for Current and Previous Periods
+        # Fetch Data
         curr_revenue, curr_profit = get_financials(start_of_month)
         prev_revenue, prev_profit = get_financials(last_month_start, last_month_end)
 
-        # 4. Calculate Trends (Percentage Change)
+        # Calculate Trends
         def calc_trend(current, previous):
             if previous == 0: 
                 return 100 if current > 0 else 0
             return round(((current - previous) / previous) * 100, 1)
 
-        # 5. Inventory Health Metrics
+        # Inventory Health Metrics
         low_stock = Product.objects.filter(
             tenant=tenant, 
             is_deleted=False, 
@@ -226,28 +219,47 @@ class SaleViewSet(TenantFilteredViewSet):
         
         product_count = Product.objects.filter(tenant=tenant, is_deleted=False).count()
 
-        # 6. Top Selling Products (Top 5 by Volume)
-        # Groups by product name, sums quantity, and sorts descending
+        # Top Selling Products
         top_products = SaleItem.objects.filter(
             sale__tenant=tenant,
-            sale__created_at__gte=start_of_month # Top products THIS MONTH
+            sale__created_at__gte=start_of_month 
         ).values('product__name').annotate(
             total_sold=Sum('quantity'),
             total_revenue=Sum('subtotal')
         ).order_by('-total_sold')[:5]
 
-        # 7. Return Final JSON
-        return Response({
+        # ------------------------------------------------------
+        # CONDITIONAL BILLING RESPONSE
+        # ------------------------------------------------------
+        
+        # Free Tier Payload (Basic)
+        response_data = {
             "revenue": { 
                 "value": curr_revenue, 
-                "trend": calc_trend(curr_revenue, prev_revenue) 
-            },
-            "profit":  { 
-                "value": curr_profit,  
-                "trend": calc_trend(curr_profit, prev_profit) 
+                "trend": None # Hidden from Free tier
             },
             "low_stock": low_stock,
             "product_count": product_count,
             "top_products": top_products, 
-            "layout_config": getattr(request.user, 'dashboard_config', ["revenue", "profit", "low_stock", "product_count"])
-        })
+            "layout_config": ["revenue", "low_stock", "product_count"]
+        }
+
+        # Pro/Enterprise Payload (Advanced)
+        if has_feature(tenant, "dashboard_advanced"):
+            # Unlock Revenue Growth Trend
+            response_data["revenue"]["trend"] = calc_trend(curr_revenue, prev_revenue)
+            
+            # Unlock Entire Profit Metric
+            response_data["profit"] = { 
+                "value": curr_profit,  
+                "trend": calc_trend(curr_profit, prev_profit) 
+            }
+            
+            # Update their layout to include Profit
+            response_data["layout_config"] = ["revenue", "profit", "low_stock", "product_count"]
+
+        # Override with user's custom layout if they saved one
+        if hasattr(request.user, 'dashboard_config') and request.user.dashboard_config:
+            response_data["layout_config"] = request.user.dashboard_config
+
+        return Response(response_data)

@@ -13,12 +13,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
 import { 
   Plus, AlertTriangle, PackageOpen, Settings2, Trash2, 
-  ArchiveRestore, RotateCcw, ChevronLeft, ChevronRight, Loader2
+  ArchiveRestore, RotateCcw, ChevronLeft, ChevronRight, Loader2, Edit2
 } from 'lucide-react';
 import { ProductForm } from './product-form';
 import { StockAdjustmentDialog } from '@/components/inventory/stock-adjustment-dialog';
 import { ArchiveProductDialog } from '@/components/inventory/archive-product-dialog'; 
 import { RestoreProductDialog } from '@/components/inventory/restore-product-dialog';
+import { EditProductDialog } from '@/components/inventory/edit-product-dialog';
 
 // ✅ Import the new component
 import { DebouncedInput } from '@/components/shared/debounced-input';
@@ -35,6 +36,7 @@ export default function InventoryPage() {
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [archiveProduct, setArchiveProduct] = useState<Product | null>(null);
   const [restoreProduct, setRestoreProduct] = useState<Product | null>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -160,6 +162,13 @@ export default function InventoryPage() {
                             {currentTab === 'active' ? (
                                 <>
                                     <Button 
+                                        variant="ghost" size="icon" title="Edit Product"
+                                        onClick={() => setEditProduct(product)}
+                                    >
+                                        <Edit2 className="h-4 w-4 text-emerald-600" />
+                                    </Button>
+
+                                    <Button 
                                         variant="ghost" size="icon" title="Adjust Stock"
                                         onClick={() => setAdjustProduct(product)}
                                     >
@@ -244,10 +253,16 @@ export default function InventoryPage() {
       />
 
       <RestoreProductDialog
-        product={restoreProduct}
+        product={restoreProduct as any}
         isOpen={!!restoreProduct}
         onClose={() => setRestoreProduct(null)}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['products'] })}
+      />
+
+      <EditProductDialog 
+        product={editProduct} 
+        open={!!editProduct} 
+        onOpenChange={(open) => !open && setEditProduct(null)} 
       />
     </div>
   );

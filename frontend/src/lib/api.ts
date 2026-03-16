@@ -1,5 +1,6 @@
 // src/lib/api.ts
 import axios from 'axios';
+import { toast } from 'sonner'; // <-- ✅ Added Sonner for Global Toasts
 import { SystemTenant, SystemTenantDetail, AuditLog, SupportTicket, ContactAdminPayload } from './types'; 
 
 // Default to localhost for development
@@ -32,11 +33,41 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// --- 2. Response Interceptor (HANDLES REFRESH) ---
+// --- 2. Response Interceptor (HANDLES REFRESH & BILLING) ---
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // ✅ GLOBAL BILLING HANDLER: Catch Limits (402)
+    if (error.response?.status === 402) {
+      toast.error("Plan Limit Reached", {
+        description: error.response.data.detail || "You need to upgrade your plan to perform this action.",
+        duration: 8000,
+        action: {
+          label: "Upgrade",
+          onClick: () => window.location.href = '/dashboard/billing'
+        }
+      });
+      return Promise.reject(error);
+    }
+    
+    // ✅ GLOBAL BILLING HANDLER: Catch Feature Locks (403)
+    if (error.response?.status === 403 && error.response.data?.detail?.toLowerCase().includes('plan')) {
+      toast.info("Premium Feature", {
+        description: error.response.data.detail,
+        duration: 8000,
+      });
+      return Promise.reject(error);
+    }
+
+    // ✅ GLOBAL SUSPENSION HANDLER: Catch Suspended Tenants (403)
+    if (error.response?.status === 403 && error.response.data?.detail === 'tenant_suspended') {
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/suspended')) {
+        window.location.href = '/suspended';
+      }
+      return Promise.reject(error);
+    }
 
     // Only retry if 401 Unauthorized
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -58,17 +89,34 @@ api.interceptors.response.use(
           return api(originalRequest);
         } catch (refreshError) {
           if (typeof window !== 'undefined') {
-             localStorage.clear();
-             window.location.href = '/login';
+             // Only remove auth credentials, leave device_id intact!
+             localStorage.removeItem('access_token');
+             localStorage.removeItem('refresh_token');
+             localStorage.removeItem('tenant_slug');
+             localStorage.removeItem('username');
+             
+             // Only redirect if they aren't already on a login page
+             if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+             }
           }
         }
       } else {
         if (typeof window !== 'undefined') {
-            localStorage.clear();
-            window.location.href = '/login';
+             // Only remove auth credentials, leave device_id intact!
+             localStorage.removeItem('access_token');
+             localStorage.removeItem('refresh_token');
+             localStorage.removeItem('tenant_slug');
+             localStorage.removeItem('username');
+             
+             // Only redirect if they aren't already on a login page
+             if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+             }
          }
       }
-    }
+    } 
+
     return Promise.reject(error);
   }
 );
@@ -91,8 +139,16 @@ export const adminApi = {
     return data;
   },
   getTenantAuditLogs: async (id: string, page = 1) => {
-    const { data } = await api.get<{ results: AuditLog[], count: number }>(`/api/admin/tenants/${id}/audit_logs/?page=${page}`);
-    return data;
+    try {
+      const { data } = await api.get<{ results: AuditLog[], count: number }>(`/api/admin/tenants/${id}/audit_logs/?page=${page}`);
+      return data;
+    } catch (error: any) {
+      // Catch the billing lock
+      if (error.response?.status === 403) {
+        return { isLocked: true, message: error.response.data?.detail };
+      }
+      throw error;
+    }
   },
   getTenantSubscription: async (tenantId: string) => {
     const { data } = await api.get(`/api/billing/admin/subscriptions/?tenant=${tenantId}`);

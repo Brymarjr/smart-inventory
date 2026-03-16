@@ -236,9 +236,11 @@ def _apply_sync_operation(job, op, id_map) -> dict:
 
                 # Try Create
                 try:
-                    obj = Model.objects.create(**payload)
+                    # THIS IS THE MISSING MAGIC (The Inner Savepoint)
+                    with transaction.atomic():
+                        obj = Model.objects.create(**payload)
                 except IntegrityError as e:
-                    # ✅ Handle Race Condition Uniqueness
+                    # ✅ Handle Race Condition Uniqueness safely!
                     if "unique constraint" in str(e).lower():
                         if 'reference' in payload:
                             existing = Model.objects.filter(reference=payload['reference'], tenant_id=tenant.id).first()

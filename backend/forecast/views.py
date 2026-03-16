@@ -20,6 +20,7 @@ from core.mixins import TenantFilteredViewSet
 from .models import Forecast, InventoryAnomaly, ForecastModel
 from .serializers import ForecastDashboardSerializer, InventoryAnomalySerializer
 from .tasks import run_analytics_for_all, train_and_detect_anomalies, generate_daily_forecasts
+from billing.utils import require_feature
 from tenants.models import Tenant
 
 class ForecastViewSet(TenantFilteredViewSet):
@@ -49,6 +50,8 @@ class ForecastViewSet(TenantFilteredViewSet):
             - **alerts**: List of active, unresolved inventory anomalies.
         """
         tenant = request.user.tenant
+        
+        require_feature(tenant, 'ml_forecasting')
         
         # 1. Summary Metrics (For the top KPI cards)
         # We use conditional aggregation (Count + Q objects) to get specific stats

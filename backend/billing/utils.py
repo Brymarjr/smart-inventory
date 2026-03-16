@@ -2,7 +2,8 @@ import requests
 import os
 from django.core.mail import send_mail
 from django.conf import settings
-from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.exceptions import ValidationError, PermissionDenied, APIException
+from rest_framework import status
 from billing.constants import PLAN_FEATURES, PLAN_LIMITS
 from django.utils import timezone
 from django.db import transaction
@@ -10,6 +11,13 @@ from billing.models import Subscription, Plan
 
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "")
 PAYSTACK_BASE_URL = os.getenv("PAYSTACK_BASE_URL", "https://api.paystack.co")
+
+
+# Custom 402 Exception for Billing Limits
+class PaymentRequired(APIException):
+    status_code = status.HTTP_402_PAYMENT_REQUIRED
+    default_detail = 'You have reached your plan limit. Please upgrade to continue.'
+    default_code = 'payment_required'
 
 
 def send_billing_alert_email(subject, message, recipients):
@@ -27,8 +35,10 @@ def send_billing_alert_email(subject, message, recipients):
 
 def get_tenant_plan(tenant):
     """
-    Return the tenant's plan name (fallback to 'free').
-    Superusers (without a tenant) should always get 'enterprise' privileges.
+    Return the tenant's plan name.
+    If the subscription is expired, they keep the plan's read-features 
+    (so they can view their historical data), but write-access is blocked 
+    globally by the BlockWriteIfSubscriptionExpiredMiddleware.
     """
     from billing.models import Subscription  # avoid circular import
 
@@ -37,15 +47,15 @@ def get_tenant_plan(tenant):
         return 'enterprise'
 
     try:
-        # Fetch the latest active subscription safely
-        active_sub = (
+        # Fetch the absolute latest subscription to remember their historical tier.
+        latest_sub = (
             Subscription.objects
-            .filter(tenant=tenant, status="active")
+            .filter(tenant=tenant)
             .order_by("-created_at")
             .first()
         )
-        if active_sub and active_sub.plan:
-            return active_sub.plan.name.lower()
+        if latest_sub and latest_sub.plan:
+            return latest_sub.plan.name.lower()
     except Exception as e:
         # Optional: you can log this
         print(f"[get_tenant_plan error] {e}")
@@ -62,12 +72,19 @@ def has_feature(tenant, feature: str) -> bool:
 def check_plan_limit(tenant, limit_key: str, current_count: int):
     """
     Enforce plan limits dynamically.
-    Example usage: check_plan_limit(tenant, 'max_products', Product.objects.count())
+    Raises a 402 Payment Required if the limit is exceeded.
     """
+    # Superusers bypass limits
+    if tenant is None:
+        return
+
     plan_name = get_tenant_plan(tenant)
     limit = PLAN_LIMITS.get(plan_name, {}).get(limit_key)
+    
     if limit is not None and current_count >= limit:
-        raise ValidationError(f"You've reached your plan limit for {limit_key.replace('_', ' ')} ({limit}).")
+        raise PaymentRequired(
+            detail=f"You have reached your plan limit for {limit_key.replace('_', ' ')} ({limit}). Please upgrade your plan to add more."
+        )
 
 
 def require_feature(tenant, feature: str):
