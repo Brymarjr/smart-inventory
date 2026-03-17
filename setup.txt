@@ -6,7 +6,7 @@ Steps in starting the system up:
 
 3. On the backend terminals do the following;
 
-a. Activate the virtual environments for all the backend terminals with this command :  source venv/bin/activate
+a. Activate the virtual environments for all the backend terminals with this command :  source venv/bin/activate  || source venv2/bin/activate (for you CHIOMA!)
 
 b. Run these commands in the same backend terminal : 
 
@@ -25,7 +25,7 @@ b. Run these commands in the same backend terminal :
 c. Run these commands in the different backend terminals:    
 
    python manage.py runserver    
-   celery -A smart_inventory worker --loglevel=info    
+   celery -A smart_inventory worker -Q high_priority,default,emails --loglevel=info    
    celery -A smart_inventory beat --loglevel=info
 
 4. For the frontend terminal simply run :
