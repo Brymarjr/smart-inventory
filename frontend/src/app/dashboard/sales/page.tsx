@@ -126,8 +126,12 @@ export default function SalesPage() {
     return { results: items, count: total };
   }, [debouncedSearch, page, isOnline]);
 
-  const products = isOnline ? apiProductData?.results : localProductData?.results;
-  const totalProducts = isOnline ? apiProductData?.count : localProductData?.count;
+  const products = isOnline
+    ? apiProductData?.results
+    : localProductData?.results;
+  const totalProducts = isOnline
+    ? apiProductData?.count
+    : localProductData?.count;
   const isLoading = isOnline ? isApiLoading : !localProductData;
   const totalPages = Math.ceil((totalProducts || 0) / PAGE_SIZE);
 
@@ -188,7 +192,9 @@ export default function SalesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold tracking-tight text-[#1A1B4B]">Point of Sale</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-[#1A1B4B]">
+          Point of Sale
+        </h1>
       </div>
 
       <div className="h-[calc(100vh-140px)] flex flex-col md:flex-row gap-4">
@@ -236,7 +242,7 @@ export default function SalesPage() {
             </div>
 
             {activeTab === "pos" && (
-              <div className="flex gap-1 border-2 rounded-lg p-1 bg-white">
+              <div className="flex gap-1 border-2 rounded-lg p-1 bg-card">
                 <Button
                   variant={viewMode === "grid" ? "secondary" : "ghost"}
                   size="icon"
@@ -257,7 +263,7 @@ export default function SalesPage() {
             )}
           </div>
 
-          <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 bg-card rounded-2xl border shadow-sm overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
               {activeTab === "pos" && (
                 <div className="flex flex-col h-full">
@@ -271,9 +277,17 @@ export default function SalesPage() {
                       <p className="font-bold">No products found.</p>
                     </div>
                   ) : (
-                    <div className={viewMode === "grid" ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "space-y-2"}>
+                    <div
+                      className={
+                        viewMode === "grid"
+                          ? "grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                          : "space-y-2"
+                      }
+                    >
                       {products.map((product: any) => {
-                        const inCart = cart.find((c) => c.productId === product.id)?.quantity || 0;
+                        const inCart =
+                          cart.find((c) => c.productId === product.id)
+                            ?.quantity || 0;
                         const remaining = product.quantity - inCart;
                         const isOutOfStock = remaining <= 0;
                         return (
@@ -282,16 +296,33 @@ export default function SalesPage() {
                             className={`cursor-pointer transition-all hover:border-[#2D31FA] ${isOutOfStock ? "opacity-50" : "hover:shadow-md"}`}
                             onClick={() => !isOutOfStock && addToCart(product)}
                           >
-                            <CardContent className={viewMode === "grid" ? "p-4" : "p-3 flex justify-between items-center"}>
+                            <CardContent
+                              className={
+                                viewMode === "grid"
+                                  ? "p-4"
+                                  : "p-3 flex justify-between items-center"
+                              }
+                            >
                               <div>
-                                <h3 className="font-black text-sm line-clamp-2 text-[#1A1B4B]">{product.name}</h3>
-                                <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
+                                <h3 className="font-black text-sm line-clamp-2 text-[#1A1B4B]">
+                                  {product.name}
+                                </h3>
+                                <p className="text-xs text-slate-400 font-mono">
+                                  {product.sku}
+                                </p>
                               </div>
                               <div className="text-right">
-                                <Badge variant={isOutOfStock ? "destructive" : "secondary"} className="text-[10px] uppercase font-black">
+                                <Badge
+                                  variant={
+                                    isOutOfStock ? "destructive" : "secondary"
+                                  }
+                                  className="text-[10px] uppercase font-black"
+                                >
                                   {isOutOfStock ? "OUT" : `${remaining} LEFT`}
                                 </Badge>
-                                <div className="font-black text-[#2D31FA]">₦{parseFloat(product.price).toLocaleString()}</div>
+                                <div className="font-black text-[#2D31FA]">
+                                  ₦{parseFloat(product.price).toLocaleString()}
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
@@ -301,10 +332,26 @@ export default function SalesPage() {
                   )}
                   {totalProducts > PAGE_SIZE && (
                     <div className="mt-4 flex justify-between border-t pt-4">
-                      <span className="text-xs font-bold text-slate-400">Page {page} of {totalPages}</span>
+                      <span className="text-xs font-bold text-slate-400">
+                        Page {page} of {totalPages}
+                      </span>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setPage((p) => p - 1)} disabled={page === 1}><ChevronLeft className="h-4 w-4" /></Button>
-                        <Button variant="outline" size="sm" onClick={() => setPage((p) => p + 1)} disabled={page >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage((p) => p - 1)}
+                          disabled={page === 1}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPage((p) => p + 1)}
+                          disabled={page >= totalPages}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -318,20 +365,41 @@ export default function SalesPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="font-black uppercase text-xs">Ref</TableHead>
-                          <TableHead className="font-black uppercase text-xs">Total</TableHead>
-                          <TableHead className="font-black uppercase text-xs">Date</TableHead>
-                          <TableHead className="text-right font-black uppercase text-xs">Action</TableHead>
+                          <TableHead className="font-black uppercase text-xs">
+                            Ref
+                          </TableHead>
+                          <TableHead className="font-black uppercase text-xs">
+                            Total
+                          </TableHead>
+                          <TableHead className="font-black uppercase text-xs">
+                            Date
+                          </TableHead>
+                          <TableHead className="text-right font-black uppercase text-xs">
+                            Action
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {salesHistory?.results?.map((sale: any) => (
                           <TableRow key={sale.id} className="hover:bg-slate-50">
-                            <TableCell className="font-mono text-xs">{sale.reference}</TableCell>
-                            <TableCell className="font-black text-[#2D31FA]">₦{Number(sale.total_amount).toLocaleString()}</TableCell>
-                            <TableCell className="text-slate-500">{format(new Date(sale.created_at), "MMM d, HH:mm")}</TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {sale.reference}
+                            </TableCell>
+                            <TableCell className="font-black text-[#2D31FA]">
+                              ₦{Number(sale.total_amount).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-slate-500">
+                              {format(
+                                new Date(sale.created_at),
+                                "MMM d, HH:mm",
+                              )}
+                            </TableCell>
                             <TableCell className="text-right">
-                              <Button variant="outline" size="sm" onClick={() => setSelectedSale(sale)}>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedSale(sale)}
+                              >
                                 <Printer className="w-3 h-3 mr-1" /> Print
                               </Button>
                             </TableCell>
@@ -363,19 +431,37 @@ export default function SalesPage() {
         )}
       </div>
 
-      <Dialog open={!!selectedSale} onOpenChange={(open) => !open && setSelectedSale(null)}>
+      <Dialog
+        open={!!selectedSale}
+        onOpenChange={(open) => !open && setSelectedSale(null)}
+      >
         <DialogContent className="max-w-[400px] rounded-3xl">
           <div className="text-center p-4">
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-black text-[#1A1B4B]">Receipt Ready</h2>
+            <h2 className="text-2xl font-black text-[#1A1B4B]">
+              Receipt Ready
+            </h2>
             <div className="hidden">
-              <ReceiptTemplate ref={printRef} sale={selectedSale} settings={settings} />
+              <ReceiptTemplate
+                ref={printRef}
+                sale={selectedSale}
+                settings={settings}
+              />
             </div>
             <div className="flex flex-col gap-3 mt-6">
-              <Button onClick={() => handlePrint()} className="w-full h-12 bg-[#2D31FA] font-black uppercase tracking-widest rounded-xl shadow-lg">
+              <Button
+                onClick={() => handlePrint()}
+                className="w-full h-12 bg-[#2D31FA] font-black uppercase tracking-widest rounded-xl shadow-lg"
+              >
                 <Printer className="mr-2 h-4 w-4" /> Print Receipt
               </Button>
-              <Button variant="outline" onClick={() => setSelectedSale(null)} className="w-full h-12 font-bold uppercase rounded-xl border-2">Close</Button>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedSale(null)}
+                className="w-full h-12 font-bold uppercase rounded-xl border-2"
+              >
+                Close
+              </Button>
             </div>
           </div>
         </DialogContent>

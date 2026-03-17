@@ -28,28 +28,36 @@
   }
 
   .dark {
-    /* --- BRAND NAVY DARK MODE --- */
-    --background: 239 48% 6%;         /* Darkest Navy (Base) */
-    --foreground: 210 40% 98%;        /* Off-white text */
-    --card: 239 48% 10%;              /* Slightly lighter Navy (Cards/Sidebar) */
-    --card-foreground: 210 40% 98%;
-    --popover: 239 48% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 239 90% 66%;           /* Brighter Indigo for contrast */
-    --primary-foreground: 239 48% 6%;
-    --secondary: 239 30% 15%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 239 30% 12%;
-    --muted-foreground: 239 10% 65%;
-    --accent: 239 90% 66%;
-    --accent-foreground: 210 40% 98%;
+    /* --- VERCEL-STYLE PURE BLACK DARK MODE --- */
+    --background: 0 0% 0%;         /* Pure Black (The Floor) */
+    --foreground: 0 0% 93%;        /* Off-white text */
+    
+    --card: 0 0% 7%;               /* Dark Grey (Elevated Cards) */
+    --card-foreground: 0 0% 93%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 93%;
+    
+    --primary: 239 90% 66%;        /* Keeping your Brand Indigo! */
+    --primary-foreground: 0 0% 0%; /* Black text on bright buttons */
+    
+    /* 👇 FIXED: Darkened the backgrounds, brightened the text */
+    --secondary: 0 0% 4%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 4%;
+    --muted-foreground: 0 0% 75%;
+    
+    --accent: 239 30% 15%;         /* Subtle hover state */
+    --accent-foreground: 0 0% 98%;
+    
     --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 239 30% 18%;            /* Subtle blue-tinted borders */
-    --input: 239 30% 18%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 0 0% 15%;            /* Subtle borders to separate cards */
+    --input: 0 0% 15%;
     --ring: 239 90% 66%;
   }
 }
+
 
 @layer base {
   * {
@@ -71,11 +79,11 @@
 
 @layer components {
   .glass-nav {
-    /* Updated glass nav to support dark mode seamlessly */
-    @apply bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-border sticky top-0 z-50;
+    /* 👇 FIXED: Removed the hardcoded slate-950 so it uses your pure black background */
+    @apply bg-white/80 dark:bg-background/80 backdrop-blur-md border-b border-border sticky top-0 z-50;
   }
 
-  /* Big, bold SME inputs with soft focus */
+ /* Big, bold SME inputs with soft focus */
   .sme-input-focus {
     @apply focus-visible:ring-4 focus-visible:ring-primary/10 focus-visible:border-primary transition-all duration-300;
   }

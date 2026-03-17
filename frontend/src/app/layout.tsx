@@ -10,7 +10,7 @@ const jakarta = Plus_Jakarta_Sans({
 
 // Next.js handles the <head> tags automatically using this export
 export const metadata: Metadata = {
-  title: 'ForeTrack Smart Inventory',
+  title: 'ForeTrack',
   description: 'Smart POS and Inventory Management',
   manifest: '/manifest.json',
 };

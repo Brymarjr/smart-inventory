@@ -18,9 +18,6 @@ export const getDeviceId = (): string => {
 const getAuthHeaders = () => {
     if (typeof window === 'undefined') return {};
     
-    // 🔍 DEBUG: Check what keys you actually have
-    console.log("🔍 LocalStorage Keys:", Object.keys(localStorage));
-    
     // Try the common names
     const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
     
@@ -29,12 +26,10 @@ const getAuthHeaders = () => {
         return {};
     }
     
-    console.log("✅ getAuthHeaders: Token found (length " + token.length + ")");
     return { Authorization: `Bearer ${token}` };
 };
 
 // 2. PULL: Download updates (Recursive Pagination)
-// 👇 FIX 1: We added passedLastSync so the timestamp isn't lost during page 2+
 export const pullData = async (page = 1, passedLastSync: string | null = null): Promise<{ success: boolean; halted?: boolean; error?: any }> => {
   try {
     const headers = getAuthHeaders();
@@ -45,7 +40,6 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
       return { success: false, error: "NO_TOKEN_ABORT" };
     }
 
-    // 👇 FIX 2: Use localStorage (instant & reliable) instead of Dexie for the timestamp
     let lastSync = passedLastSync;
     if (page === 1) {
         lastSync = localStorage.getItem('last_sync_time');
@@ -59,7 +53,10 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
       headers: headers
     });
 
-    const { data, synced_at, has_more } = response.data;
+    // 👀 DEBUG: Let's see exactly what the backend gives us
+    console.log(`👀 BACKEND RESPONSE DATA (Page ${page}):`, response.data);
+
+    const { data, synced_at, has_more, next } = response.data;
 
     // 3. Save to DB with SANITIZATION
     await db.transaction('rw', [db.products, db.categories, db.sales, db.saleItems, db.meta], async () => {
@@ -110,18 +107,19 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
     });
 
     // 4. Recursion or Finish
-    if (has_more) {
+    // 👇 THE FIX: Bulletproof check for both `has_more` boolean AND Django's `next` URL
+    const hasMorePages = has_more === true || !!next;
+
+    if (hasMorePages) {
         await new Promise(r => setTimeout(r, 50));
-        // 👇 FIX 3: Pass lastSync back into the function so it isn't lost on Page 2!
         return await pullData(page + 1, lastSync); 
     } else {
         // WE ARE DONE! Save the timestamp so the next refresh skips everything
         const finalSyncTime = synced_at || new Date().toISOString();
         localStorage.setItem('last_sync_time', finalSyncTime);
         console.log(`✅ Sync Complete! Updated timestamp to: ${finalSyncTime}`);
+        return { success: true };
     }
-
-    return { success: true };
 
   } catch (error: any) {
     if (error.response?.status === 402 || error.response?.status === 403) {
