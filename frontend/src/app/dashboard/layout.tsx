@@ -36,7 +36,7 @@ import { UserNav } from "@/components/layout/user-nav";
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Analytics", href: "/dashboard/analytics", icon: TrendingUp },
-  { name: "Inventory", href: "/dashboard/inventory", icon: Package },
+  { name: "Inventory", href: "/dashboard/inventory/suppliers", icon: Package },
   { name: "Sales", href: "/dashboard/sales", icon: ShoppingCart },
   { name: "Purchases", href: "/dashboard/purchases", icon: Truck },
   { name: "Billing", href: "/dashboard/billing", icon: CreditCard },

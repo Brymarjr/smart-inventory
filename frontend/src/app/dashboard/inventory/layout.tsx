@@ -6,9 +6,10 @@ import { Package, Tags, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { name: 'Products', href: '/dashboard/inventory', icon: Package },
-  { name: 'Categories', href: '/dashboard/inventory/categories', icon: Tags },
   { name: 'Suppliers', href: '/dashboard/inventory/suppliers', icon: Truck },
+  { name: 'Categories', href: '/dashboard/inventory/categories', icon: Tags },
+  { name: 'Products', href: '/dashboard/inventory', icon: Package },
+
 ];
 
 export default function InventoryLayout({ children }: { children: React.ReactNode }) {

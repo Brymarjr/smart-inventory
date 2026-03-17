@@ -25,7 +25,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+
+// ✅ Swapped Sheet for Dialog to make it a centered modal
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription 
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
@@ -33,7 +41,7 @@ const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   sku: z.string().min(1, 'SKU is required'),
   price: z.string().min(1, 'Price is required'),
-  cost_price: z.string().min(1, 'Cost price is required'), // ✅ Added Validation
+  cost_price: z.string().min(1, 'Cost price is required'),
   quantity: z.string().min(1, 'Quantity is required'),
   reorder_level: z.string().min(1, 'Reorder level is required'),
   description: z.string().optional(),
@@ -57,7 +65,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
       name: '',
       sku: '',
       price: '',
-      cost_price: '', // ✅ Added Default Value
+      cost_price: '',
       quantity: '0',
       reorder_level: '10',
       description: '',
@@ -91,7 +99,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
       const payload = {
         ...values,
         price: parseFloat(values.price),
-        cost_price: parseFloat(values.cost_price), // ✅ Send Cost Price
+        cost_price: parseFloat(values.cost_price),
         quantity: parseInt(values.quantity),
         reorder_level: parseInt(values.reorder_level),
         category_id: values.category_id ? parseInt(values.category_id) : null,
@@ -131,14 +139,15 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>Add New Product</SheetTitle>
-          <SheetDescription>
+    // ✅ Replaced Sheet with Dialog
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="overflow-y-auto max-h-[90vh] sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Add New Product</DialogTitle>
+          <DialogDescription>
             Create a new item in your inventory catalog.
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
         
         <div className="mt-6">
           <Form {...form}>
@@ -161,7 +170,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
                   name="sku"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>SKU *</FormLabel>
+                      <FormLabel>Product ID *</FormLabel>
                       <FormControl><Input placeholder="e.g. WM-001" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -169,7 +178,6 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
                 />
               </div>
 
-              {/* ✅ UPDATED PRICING ROW */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -297,7 +305,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
             </form>
           </Form>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
