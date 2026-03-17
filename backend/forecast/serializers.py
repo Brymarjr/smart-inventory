@@ -18,19 +18,24 @@ class ForecastDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Forecast
         fields = [
-            'product_name', 'product_sku', 'current_stock', 'prediction_date', 
+            'product', 'product_name', 'product_sku', 'current_stock', 'prediction_date', 
             'predicted_quantity', 'reasoning', 'recommended_action'
         ]
 
     def get_recommended_action(self, obj):
-        # Logic matches your previous file, which is perfect.
         pred = obj.predicted_quantity
         stock = obj.product.quantity
         
-        if stock == 0 and pred > 0:
+        # 1. THE ZERO STOCK FIX: If stock is 0, it is ALWAYS urgent.
+        if stock <= 0:
             return "Urgent: Out of Stock"
+            
+        # 2. IMMEDIATE STOCKOUT: We don't have enough for tomorrow.
         if stock < pred:
             return f"Reorder {int(pred - stock)} units"
-        if stock < (pred * 1.5):
+            
+        # 3. SAFETY STOCK RISK: Less than 3 days of cover left based on tomorrow's demand.
+        if pred > 0 and stock <= (pred * 3):
             return "Low Safety Stock"
+            
         return "Healthy"
