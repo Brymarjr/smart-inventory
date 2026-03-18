@@ -18,7 +18,7 @@ class ForecastDashboardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Forecast
         fields = [
-            'product_name', 'product_sku', 'current_stock', 'prediction_date', 
+            'product', 'product_name', 'product_sku', 'current_stock', 'prediction_date', 
             'predicted_quantity', 'reasoning', 'recommended_action'
         ]
 

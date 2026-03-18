@@ -21,14 +21,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
-    // Wipe EVERYTHING on logout
+    // 1. Grab the info from the current user state directly without making the whole function depend on 'user'
+    // We use a temporary variable so we don't need 'user' in the dependency array
+    const token = localStorage.getItem('access_token');
+    
+    // 2. Wipe EVERYTHING
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
+    
+    // We check if we're on a system-admin path OR if the user was an admin 
+    // to decide where to send them
+    const isAdminPath = window.location.pathname.startsWith('/system-admin');
+
     setUser(null);
-    window.location.href = '/login'; // 🛑 HARD REDIRECT
-  }, []);
+
+    // 3. Conditional Redirect
+    if (isAdminPath) {
+      window.location.href = '/system-admin/login';
+    } else {
+      window.location.href = '/login';
+    }
+  }, []); // ✅ EMPTY ARRAY = NO MORE LOOPS
 
   const fetchUserProfile = useCallback(async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -62,13 +77,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginTenant = async (tenant: string, email: string, password: string) => {
-    // 1. PRE-EMPTIVE STRIKE: Wipe any "ghost" data from previous sessions before starting
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
 
-    // 2. BULLETPROOF FORMATTING: Force the ID into a proper slug
     const safeTenantSlug = tenant.toLowerCase().trim().replace(/\s+/g, '-');
 
     try {
@@ -80,7 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password: password 
       });
 
-      // 3. Save the clean data, including the username
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('tenant_slug', safeTenantSlug);
@@ -88,7 +100,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(data.user);
 
-      // 4. Smart Redirect (HARD NAVIGATION)
       if (!data.user.tos_accepted_at) {
         window.location.href = '/legal/accept-terms';
       } else {
@@ -96,7 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       toast.success('Access Granted');
-
     } catch (error: any) {
       let message = 'Login failed. Please check your credentials.';
       if (error.response?.data?.detail) message = error.response.data.detail;
@@ -117,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('username', username); 
       setUser(userRes.data);
-      window.location.href = '/system-admin'; // 🛑 HARD REDIRECT
+      window.location.href = '/system-admin'; 
     } catch (error: any) {
       throw new Error('Admin login failed');
     }

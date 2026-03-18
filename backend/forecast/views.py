@@ -55,11 +55,12 @@ class ForecastViewSet(TenantFilteredViewSet):
             
         return qs.order_by('prediction_date', 'product__name')
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], pagination_class=None)
     def dashboard(self, request):
         """
         The Main Intelligence Dashboard Summary.
         Returns top-level KPIs and urgent alerts.
+        Isolated from pagination to prevent frontend mapping crashes.
         """
         tenant = request.user.tenant
         require_feature(tenant, 'ml_forecasting')
@@ -76,17 +77,20 @@ class ForecastViewSet(TenantFilteredViewSet):
         anomalies = InventoryAnomaly.objects.filter(
             tenant=tenant, is_resolved=False
         ).select_related('product').order_by('-severity', '-detected_at')
+
+        # 3. Forecasts (Limit to top 20 for initial dashboard load)
+        forecasts = Forecast.objects.filter(tenant=tenant).select_related('product').order_by('prediction_date')[:20]
         
         return Response({
             "summary": stats,
-            "alerts": InventoryAnomalySerializer(anomalies, many=True).data
+            "alerts": InventoryAnomalySerializer(anomalies, many=True).data,
+            "forecasts": ForecastDashboardSerializer(forecasts, many=True).data
         })
 
     @action(detail=False, methods=['get'])
     def product_chart(self, request):
         """
         Returns the full 7-day forecast timeline for a specific product.
-        Usage: GET /api/forecasts/product_chart/?product_id=123
         """
         product_id = request.query_params.get('product_id')
         if not product_id:
@@ -95,7 +99,6 @@ class ForecastViewSet(TenantFilteredViewSet):
         tenant = request.user.tenant
         today = timezone.now().date()
         
-        # Grab the next 7 days for this specific product
         forecasts = Forecast.objects.filter(
             tenant=tenant, 
             product_id=product_id,
@@ -192,6 +195,7 @@ class AdminPlatformStatsView(APIView):
                 stats = get_monthly_metrics(tenant)
                 platform_stats.append({
                     "name": stats['tenant_name'],
+                    "id": stats['tenant_id'],
                     "revenue": float(stats['revenue']),
                     "profit": float(stats['profit']),
                     "alerts": stats['anomalies_flagged']
