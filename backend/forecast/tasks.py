@@ -7,12 +7,18 @@ from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 from sklearn.linear_model import LinearRegression
+from notifications.models import Notification
+from notifications.tasks import send_notification_email
 
 from tenants.models import Tenant
 from inventory.models import Product
 from forecast.models import ForecastModel, Forecast, InventoryAnomaly
 from forecast.utils import get_clean_sales_data
+from .reports import get_monthly_metrics
+
+User = get_user_model()
 
 def _get_model_dir():
     base_dir = os.path.join(settings.BASE_DIR, 'forecast', 'ml_models')
@@ -206,3 +212,70 @@ def run_analytics_for_all(sync=False):
         else:
             train_and_detect_anomalies.delay(t.id)
             generate_daily_forecasts.delay(t.id)
+            
+            
+@shared_task
+def send_monthly_intelligence_reports():
+    """
+    Runs on the 1st of every month via Celery Beat.
+    Sends deep AI-driven business intelligence to admins and managers.
+    """
+    tenants = Tenant.objects.all()
+    notifications_to_create = []
+    
+    for tenant in tenants:
+        # 1. Get the meaningful data from our reporting logic
+        try:
+            stats = get_monthly_metrics(tenant)
+        except Exception as e:
+            print(f"Error generating metrics for {tenant.name}: {e}")
+            continue
+
+        # 2. Get recipients (Admins and Managers)
+        recipients = User.objects.filter(
+            tenant=tenant,
+            role__name__in=["tenant_admin", "manager"],
+            is_active=True
+        )
+
+        if not recipients.exists():
+            continue
+
+        # 3. Format the message using the data from get_monthly_metrics
+        # We try to get currency symbol from settings if it exists
+        settings = getattr(tenant, 'settings', None)
+        currency = settings.currency_symbol if settings else "₦"
+        
+        title = f"Monthly Intelligence Report: {stats['period']}"
+        message = (
+            f"Your business performance summary for {stats['period']}:\n"
+            f"-------------------------------------------------\n"
+            f"💰 Total Revenue: {currency}{stats['revenue']:,.2f}\n"
+            f"📈 Total Profit: {currency}{stats['profit']:,.2f}\n"
+            f"📊 Net Margin: {stats['margin']}%\n"
+            f"🏆 Top Product: {stats['top_product']}\n"
+            f"🚨 AI Anomalies Flagged: {stats['anomalies_flagged']}\n"
+            f"-------------------------------------------------\n\n"
+            f"Log in to the Intelligence Center to view detailed charts and reorder recommendations."
+        )
+
+        # 4. Queue up notifications
+        for user in recipients:
+            notifications_to_create.append(
+                Notification(
+                    tenant=tenant,
+                    recipient=user,
+                    title=title,
+                    message=message,
+                    notification_type="system",
+                )
+            )
+
+    # 5. Bulk execute and trigger email tasks
+    if notifications_to_create:
+        created_notifications = Notification.objects.bulk_create(notifications_to_create)
+        for n in created_notifications:
+            # This triggers your existing notification email task
+            send_notification_email.delay(n.id)
+
+    return f"Sent monthly intelligence reports to {len(tenants)} tenants."
