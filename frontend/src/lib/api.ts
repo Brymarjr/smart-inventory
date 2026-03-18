@@ -1,9 +1,8 @@
 // src/lib/api.ts
 import axios from 'axios';
-import { toast } from 'sonner'; // <-- ✅ Added Sonner for Global Toasts
+import { toast } from 'sonner'; 
 import { SystemTenant, SystemTenantDetail, AuditLog, SupportTicket, ContactAdminPayload } from './types'; 
 
-// Default to localhost for development
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 const api = axios.create({
@@ -22,9 +21,12 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Inject Active Tenant (CRITICAL FOR YOUR DASHBOARD)
+    // ✅ FIX: Inject Active Tenant ONLY if we are NOT in the system-admin area
+    // This prevents Superuser login from being blocked by a stale tenant_slug
     const tenantSlug = typeof window !== 'undefined' ? localStorage.getItem('tenant_slug') : null;
-    if (tenantSlug) {
+    const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/system-admin');
+
+    if (tenantSlug && !isAdminPath) {
       config.headers['X-Tenant'] = tenantSlug;
     }
 
@@ -38,6 +40,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/system-admin');
 
     // ✅ GLOBAL BILLING HANDLER: Catch Limits (402)
     if (error.response?.status === 402) {
@@ -81,7 +84,8 @@ api.interceptors.response.use(
           const { data } = await axios.post(`${API_URL}/api/auth/token/refresh/`, {
             refresh: refreshToken,
           }, {
-             headers: tenantSlug ? { 'X-Tenant': tenantSlug } : {} 
+             // ✅ FIX: Maintain Admin-Awareness during token refresh
+             headers: (tenantSlug && !isAdminPath) ? { 'X-Tenant': tenantSlug } : {} 
           });
 
           localStorage.setItem('access_token', data.access);
@@ -89,29 +93,26 @@ api.interceptors.response.use(
           return api(originalRequest);
         } catch (refreshError) {
           if (typeof window !== 'undefined') {
-             // Only remove auth credentials, leave device_id intact!
              localStorage.removeItem('access_token');
              localStorage.removeItem('refresh_token');
              localStorage.removeItem('tenant_slug');
              localStorage.removeItem('username');
              
-             // Only redirect if they aren't already on a login page
+             // ✅ FIX: Redirect to the correct login page
              if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/login';
+                window.location.href = isAdminPath ? '/system-admin/login' : '/login';
              }
           }
         }
       } else {
         if (typeof window !== 'undefined') {
-             // Only remove auth credentials, leave device_id intact!
              localStorage.removeItem('access_token');
              localStorage.removeItem('refresh_token');
              localStorage.removeItem('tenant_slug');
              localStorage.removeItem('username');
              
-             // Only redirect if they aren't already on a login page
              if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/login';
+                window.location.href = isAdminPath ? '/system-admin/login' : '/login';
              }
          }
       }
@@ -143,7 +144,6 @@ export const adminApi = {
       const { data } = await api.get<{ results: AuditLog[], count: number }>(`/api/admin/tenants/${id}/audit_logs/?page=${page}`);
       return data;
     } catch (error: any) {
-      // Catch the billing lock
       if (error.response?.status === 403) {
         return { isLocked: true, message: error.response.data?.detail };
       }
@@ -174,37 +174,28 @@ export const adminApi = {
 };
 
 export const supportApi = {
-  // TIER 1: Staff -> Tenant Admin
   contactTenantAdmin: async (payload: ContactAdminPayload) => {
     const { data } = await api.post('/api/support/contact-admin/', payload);
     return data;
   },
-
-  // TIER 2: Admin -> System Support
   createTicket: async (payload: Partial<SupportTicket>) => {
     const { data } = await api.post<SupportTicket>('/api/support/tickets/', payload);
     return data;
   },
-
   getMyTickets: async () => {
     const { data } = await api.get('/api/support/tickets/');
-    // If paginated, return results. If flat array (rare), return data.
     return Array.isArray(data) ? data : data.results;
   },
-  
   getAllTickets: async () => {
     const { data } = await api.get('/api/support/tickets/');
     return Array.isArray(data) ? data : data.results;
   },
-
   updateTicket: async (id: number, payload: Partial<SupportTicket>) => {
     const { data } = await api.patch<SupportTicket>(`/api/support/tickets/${id}/`, payload);
     return data;
   },
-
   replyToTicket: async (id: number, message: string) => {
     const { data } = await api.post(`/api/support/tickets/${id}/reply/`, { message });
     return data;
   },
-
 };

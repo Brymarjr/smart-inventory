@@ -115,21 +115,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginAdmin = async (username: string, password: string) => {
+    // 1. Clear everything first to ensure a clean slate
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('tenant_slug');
+    localStorage.removeItem('username');
+
     try {
+      // 2. Auth token request
       const { data } = await api.post<AuthResponse>('/api/auth/token/', { username, password });
+      
+      // 3. Get user profile using the fresh token to verify superuser status
       const userRes = await api.get<User>('/api/users/me/', {
         headers: { Authorization: `Bearer ${data.access}` }
       });
 
-      if (!userRes.data.is_superuser) throw new Error('Unauthorized');
+      if (!userRes.data.is_superuser) {
+        throw new Error('Unauthorized: Not a System Admin');
+      }
 
+      // 4. Save new admin data
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('username', username); 
+      
       setUser(userRes.data);
+      
+      // 5. Hard redirect to bypass any stale React state
       window.location.href = '/system-admin'; 
     } catch (error: any) {
-      throw new Error('Admin login failed');
+      const errorMessage = error.response?.data?.detail || error.message || 'Admin login failed';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
