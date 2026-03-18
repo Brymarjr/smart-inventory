@@ -226,8 +226,8 @@ SIMPLE_JWT = {
 
 # --- DOCUMENTATION ---
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Smart Inventory API',
-    'DESCRIPTION': 'API schema for Smart Inventory.',
+    'TITLE': 'Fore Track API',
+    'DESCRIPTION': 'API schema for Fore Track.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'POSTPROCESSING_HOOKS': [

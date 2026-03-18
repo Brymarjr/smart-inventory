@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   title: 'ForeTrack',
   description: 'Smart POS and Inventory Management',
   manifest: '/manifest.json',
+  icons: {
+    apple: "/apple-touch-icon.png", // Links the Apple icon
+  },
 };
 
 // Next.js 14+ best practice for setting theme colors
