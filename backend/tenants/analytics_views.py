@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import BasePermission
-from django.db.models import Sum
+from django.db.models import Sum, F
 from django.db.models.functions import TruncMonth
 from django.db import connection
 from django.utils import timezone
@@ -11,7 +11,7 @@ import datetime
 import logging
 
 from .models import Tenant
-from sales.models import Sale
+from sales.models import Sale, SaleItem # ✅ Added SaleItem for profit logic
 from support.models import Ticket
 
 logger = logging.getLogger(__name__)
@@ -19,60 +19,57 @@ logger = logging.getLogger(__name__)
 class IsAnySuperUser(BasePermission):
     """
     Allows access to ANY user marked as 'superuser'.
-    This covers:
-    1. Superusers with is_staff=True
-    2. Superusers with is_staff=False
     """
     def has_permission(self, request, view):
-        # We only care if 'is_superuser' is True. We ignore 'is_staff'.
         return bool(request.user and request.user.is_authenticated and request.user.is_superuser)
 
 class SystemAnalyticsView(APIView):
     """
-    Returns REAL global stats including calculated Growth Rate and live System Health pings.
+    Returns REAL global stats including synchronized Profit, Revenue, 
+    Growth Rate and live System Health pings.
     """
     permission_classes = [IsAnySuperUser]
 
     def get(self, request):
-        # --- 1. AGGREGATE STATS ---
+        # --- 1. AGGREGATE STATS (The Core Fix) ---
         total_tenants = Tenant.objects.count()
         active_tenants = Tenant.objects.filter(is_active=True).count()
         
-        # Calculate Global Revenue (Handle None if no sales exist)
+        # Calculate Global Revenue (Sum of Sale subtotals)
         global_revenue = Sale.objects.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
         
+        # ✅ RIGOROUS FIX: Calculate Global Profit using SaleItem snapshots
+        # This matches the 'forecast/reports.py' logic exactly to ensure parity.
+        global_profit = SaleItem.objects.aggregate(
+            total_profit=Sum(F('subtotal') - (F('cost_price') * F('quantity')))
+        )['total_profit'] or 0
+
         open_tickets = Ticket.objects.exclude(status='closed').count()
 
         # --- 2. GROWTH RATE (Month over Month) ---
         now = timezone.now()
-        # Get the first day of THIS month
         start_of_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        # Get the first day of LAST month
         start_of_last_month = start_of_this_month - relativedelta(months=1)
         
-        # Efficient DB Counts
         new_tenants_this_month = Tenant.objects.filter(created_at__gte=start_of_this_month).count()
         new_tenants_last_month = Tenant.objects.filter(
             created_at__gte=start_of_last_month, 
             created_at__lt=start_of_this_month
         ).count()
 
-        # Safe Division Calculation
         if new_tenants_last_month > 0:
             growth_rate = ((new_tenants_this_month - new_tenants_last_month) / new_tenants_last_month) * 100
         else:
-            # If 0 last month, and we have new ones this month, it's 100% growth.
-            # If 0 last month and 0 this month, it's 0% growth.
             growth_rate = 100.0 if new_tenants_this_month > 0 else 0.0
 
         # --- 3. SYSTEM HEALTH CHECKS ---
         health_status = {
             "database": "Offline",
             "redis": "Offline",
-            "api": "Online" # If this code executes, API is reachable
+            "api": "Online" 
         }
 
-        # A. Check Database (PostgreSQL)
+        # A. Check Database
         try:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1")
@@ -81,16 +78,12 @@ class SystemAnalyticsView(APIView):
             logger.error(f"Database Health Check Failed: {e}")
             health_status["database"] = "Offline"
 
-        # B. Check Task Queue (Redis)
+        # B. Check Redis
         try:
-            # Uses the 'default' cache connection defined in settings.py
             conn = get_redis_connection("default")
-            # .ping() returns True if connected
             if conn.ping():
                 health_status["redis"] = "Online"
         except Exception as e:
-            # It's common for Redis to be unavailable in some dev environments
-            # We log it but don't crash the dashboard
             logger.warning(f"Redis Health Check Failed: {e}")
             health_status["redis"] = "Offline"
 
@@ -119,6 +112,7 @@ class SystemAnalyticsView(APIView):
             "total_tenants": total_tenants,
             "active_tenants": active_tenants,
             "global_revenue": global_revenue,
+            "global_profit": global_profit, # ✅ Now exposed to Admin Dashboard
             "open_tickets": open_tickets,
             "growth_rate": round(growth_rate, 1),
             "health": health_status,

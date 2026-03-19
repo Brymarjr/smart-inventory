@@ -25,7 +25,7 @@ def get_monthly_metrics(tenant):
     # Calculate Profit: Sum of (Subtotal - (Cost * Quantity))
     # We use Coalesce/Value for cost_price fallback to 0 if not set
     profit_data = sales_qs.aggregate(
-        total_profit=Sum(F('subtotal') - (F('product__cost_price') * F('quantity')))
+        total_profit=Sum(F('subtotal') - (F('cost_price') * F('quantity')))
     )
     profit = profit_data['total_profit'] or Decimal('0.00')
 

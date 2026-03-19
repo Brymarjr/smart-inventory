@@ -100,58 +100,68 @@ def train_and_detect_anomalies(self, tenant_id):
     )
 
 def _detect_anomalies(tenant, product, df, model_info):
-    detected_types = []
+    # REMOVED: detected_types list. We want independent checks now.
     
-    # 1. STOCKOUT RISK (Priority)
-    # FIX: Use RECENT velocity (last 7 days), not 90-day average. 
-    # If the product started selling fast recently, we need to know!
+    # 1. STOCKOUT RISK CHECK
+    # Recent velocity (last 7 days) catches the impact of recent big sales
     recent_velocity = df['adjusted_qty'].tail(7).mean()
-    
-    # Use recent velocity if valid, otherwise fallback to long-term average
     velocity = recent_velocity if recent_velocity > 0 else model_info['avg_sales']
     
     if velocity > 0.1: 
         days_cover = product.quantity / velocity
         
-        # Threshold: Warn if less than 14 days of stock left
         if days_cover < 14:
             from purchases.services import get_best_procurement_recommendation
             recommendation = get_best_procurement_recommendation(tenant, product)
     
-            extra_note = ""
+            description = (
+                f"Critical Stockout Risk: {product.quantity} units remaining. "
+                f"Current Velocity: {velocity:.1f}/day. "
+                f"Estimated Exhaustion: {int(days_cover)} days."
+            )
+
             if recommendation:
-                extra_note = f" Strategy: Buy from {recommendation['supplier_name']} at {recommendation['best_price']} to maximize margin."
+                description += f" Strategic Source: {recommendation['supplier_name']} (₦{recommendation['best_price']})."
+
             InventoryAnomaly.objects.create(
                 tenant=tenant, 
                 product=product, 
                 anomaly_type='stockout_risk', 
                 severity='high',
-                description=f"Critical Low Stock: {product.quantity} left. {extra_note}"
+                description=description
             )
-            detected_types.append('stockout')
 
-    # 2. VELOCITY SPIKE
+    # 2. VELOCITY SPIKE CHECK (Now Independent)
+    # This catches the "13 units sold at once" event even if stock is now low.
     recent_max = df['adjusted_qty'].tail(3).max()
     threshold = model_info['avg_sales'] * 4 
     
-    if recent_max > threshold and recent_max > 10:
-        if 'stockout' not in detected_types:
-            InventoryAnomaly.objects.create(
-                tenant=tenant, product=product, 
-                anomaly_type='velocity_spike', severity='low',
-                description=f"Velocity Spike: Sales hit {recent_max} recently (Normal: ~{model_info['avg_sales']:.1f})."
+    if recent_max > threshold and recent_max > 5:
+        # ✅ NEW: Meaningful description for bulk events
+        InventoryAnomaly.objects.create(
+            tenant=tenant, product=product, 
+            anomaly_type='velocity_spike', severity='low',
+            description=(
+                f"Bulk Purchase Detected: A single event of {recent_max} units occurred. "
+                f"This is {recent_max/model_info['avg_sales']:.1f}x higher than your "
+                f"normal demand of {model_info['avg_sales']:.1f}/day. "
+                f"Verify if this was a wholesale customer or an entry error."
             )
+        )
 
-    # 3. GHOST STOCK
+    # 3. GHOST STOCK CHECK (Now Independent)
     recent_sum = df['adjusted_qty'].tail(7).sum()
-    if 'stockout' not in detected_types: 
-        # Kept the 0.5 threshold from our previous success
-        if product.quantity > 10 and model_info['avg_sales'] > 0.5 and recent_sum == 0:
-            InventoryAnomaly.objects.create(
-                tenant=tenant, product=product, 
-                anomaly_type='shrinkage', severity='medium',
-                description=f"Ghost Stock: 0 sales in 7 days. Stock is {product.quantity}. Normally sells {model_info['avg_sales']:.1f}/day."
+    # Ghost stock is only meaningful if the item normally sells and hasn't just spiked
+    if product.quantity > 10 and model_info['avg_sales'] > 0.5 and recent_sum == 0:
+        InventoryAnomaly.objects.create(
+            tenant=tenant, product=product, 
+            anomaly_type='shrinkage', severity='medium',
+            description=(
+                f"Ghost Stock Alert: 0 sales recorded in the last 7 days. "
+                f"System shows {product.quantity} units available. "
+                f"Historical baseline: {model_info['avg_sales']:.1f}/day. Verify physical count."
             )
+        )
 
 
 @shared_task(bind=True)
