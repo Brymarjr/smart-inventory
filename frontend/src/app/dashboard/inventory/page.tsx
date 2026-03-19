@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; 
 import { 
   Plus, AlertTriangle, PackageOpen, Settings2, Trash2, 
-  ArchiveRestore, RotateCcw, ChevronLeft, ChevronRight, Loader2, Edit2
+  ArchiveRestore, RotateCcw, ChevronLeft, ChevronRight, Loader2, Edit2, Eye
 } from 'lucide-react';
 import { ProductForm } from './product-form';
 import { StockAdjustmentDialog } from '@/components/inventory/stock-adjustment-dialog';
@@ -25,10 +25,7 @@ import { EditProductDialog } from '@/components/inventory/edit-product-dialog';
 import { DebouncedInput } from '@/components/shared/debounced-input';
 
 export default function InventoryPage() {
-  // ✅ We only hold the "Final" search term here. 
-  // The immediate typing is handled inside DebouncedInput.
   const [search, setSearch] = useState(''); 
-  
   const [page, setPage] = useState(1);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState("active");
@@ -37,6 +34,9 @@ export default function InventoryPage() {
   const [archiveProduct, setArchiveProduct] = useState<Product | null>(null);
   const [restoreProduct, setRestoreProduct] = useState<Product | null>(null);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
+  
+  // ✅ New state for View/Details Mode
+  const [viewProduct, setViewProduct] = useState<Product | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -87,14 +87,12 @@ export default function InventoryPage() {
             <div className="flex items-center justify-between">
                 <CardTitle>{currentTab === 'active' ? 'Active Products' : 'Archived Products'}</CardTitle>
                 
-                {/* ✅ FAST INPUT: Only updates parent state after 500ms delay */}
                 <DebouncedInput 
                     value={search}
                     onChange={(val) => setSearch(val)}
                     isLoading={isFetching && !isLoading}
                     placeholder="Search products..."
                 />
-
             </div>
             </CardHeader>
             <CardContent>
@@ -158,9 +156,17 @@ export default function InventoryPage() {
                         </TableCell>
 
                         <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1">
                             {currentTab === 'active' ? (
                                 <>
+                                    {/* ✅ EYE ICON: Strategic View Mode */}
+                                    <Button 
+                                        variant="ghost" size="icon" title="View Insights"
+                                        onClick={() => setViewProduct(product)}
+                                    >
+                                        <Eye className="h-4 w-4 text-slate-600" />
+                                    </Button>
+
                                     <Button 
                                         variant="ghost" size="icon" title="Edit Product"
                                         onClick={() => setEditProduct(product)}
@@ -236,8 +242,17 @@ export default function InventoryPage() {
         </Card>
       </Tabs>
 
-      <ProductForm isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} />
+      {/* ✅ MODALS & FORMS */}
+      <ProductForm isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} mode="create" />
       
+      {/* View Insights Modal */}
+      <ProductForm 
+        isOpen={!!viewProduct} 
+        onClose={() => setViewProduct(null)} 
+        product={viewProduct} 
+        mode="view" 
+      />
+
       <StockAdjustmentDialog 
         product={adjustProduct as any} 
         isOpen={!!adjustProduct}

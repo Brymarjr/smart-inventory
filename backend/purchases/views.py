@@ -310,6 +310,17 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
                 # 3. Update Quantity
                 product.quantity = new_total_qty
                 product.save(update_fields=["price", "quantity", "cost_price"])
+                
+                # 4.  STRATEGIC UPDATE: Update Supplier Price Mapping
+                # This makes the "Supplier" useful by tracking the latest price from this source.
+                from inventory.models import SupplierPrice
+                if purchase.supplier:
+                    SupplierPrice.objects.update_or_create(
+                        tenant=tenant,
+                        product=product,
+                        supplier=purchase.supplier,
+                        defaults={'supply_price': incoming_cost}
+                    )
 
         notify_user(
             tenant=purchase.tenant,

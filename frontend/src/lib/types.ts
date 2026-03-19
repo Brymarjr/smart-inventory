@@ -43,6 +43,13 @@ export interface Supplier {
   address?: string;
 }
 
+export interface SupplierPrice {
+  id: number;
+  supplier_name: string;
+  supply_price: string | number;
+  last_updated: string;
+}
+
 export interface Product {
   id: number;
   sku: string;
@@ -53,6 +60,8 @@ export interface Product {
   quantity: number;
   reorder_level: number;
   price: string; 
+  cost_price: string;
+  supplier_prices?: SupplierPrice[];
   // We calculated 'low_stock_threshold' logic in frontend, 
   // but let's just use reorder_level as the threshold.
 }

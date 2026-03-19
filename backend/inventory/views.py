@@ -428,3 +428,29 @@ class ProductViewSet(AuditLogMixin, TenantFilteredViewSet):
             )
 
         return Response({"status": "restored", "message": f"{product.name} has been restored."})
+    
+    
+    @action(detail=True, methods=['get'], url_path='best-price')
+    def get_best_price(self, request, pk=None):
+        """
+        Returns the cheapest known supplier for this specific product 
+        based on the SupplierPrice history.
+        """
+        from .models import SupplierPrice
+        product = self.get_object()
+    
+        # Get the cheapest supplier price recorded for this tenant
+        best_option = SupplierPrice.objects.filter(
+            tenant=request.user.tenant, 
+            product=product
+        ).order_by('supply_price').first()
+
+        if not best_option:
+            return Response(None, status=status.HTTP_200_OK)
+
+        return Response({
+            "supplier_name": best_option.supplier.name,
+            "supplier_id": best_option.supplier.id,
+            "best_price": float(best_option.supply_price),
+            "savings_vs_current": float(product.cost_price - best_option.supply_price)
+        })

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
-import { Category, Supplier, PaginatedResponse } from '@/lib/types';
+import { Category, Supplier, PaginatedResponse, Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,13 +27,16 @@ import {
 } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Zap, TrendingDown, History, Info } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { useEffect } from 'react';
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   sku: z.string().min(1, 'SKU is required'),
   price: z.string().min(1, 'Price is required'),
-  cost_price: z.string().min(1, 'Cost price is required'), // ✅ Added Validation
+  cost_price: z.string().min(1, 'Cost price is required'),
   quantity: z.string().min(1, 'Quantity is required'),
   reorder_level: z.string().min(1, 'Reorder level is required'),
   description: z.string().optional(),
@@ -46,10 +49,13 @@ type ProductFormValues = z.infer<typeof productSchema>;
 interface ProductFormProps {
   isOpen: boolean;
   onClose: () => void;
+  product?: Product | null; // Pass this if we are VIEWING or EDITING
+  mode?: 'create' | 'view' | 'edit';
 }
 
-export function ProductForm({ isOpen, onClose }: ProductFormProps) {
+export function ProductForm({ isOpen, onClose, product, mode = 'create' }: ProductFormProps) {
   const queryClient = useQueryClient();
+  const isViewMode = mode === 'view';
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -57,7 +63,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
       name: '',
       sku: '',
       price: '',
-      cost_price: '', // ✅ Added Default Value
+      cost_price: '',
       quantity: '0',
       reorder_level: '10',
       description: '',
@@ -66,7 +72,25 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
     },
   });
 
-  // Fetch Categories
+  // Load existing product data if provided
+  useEffect(() => {
+    if (product) {
+      form.reset({
+        name: product.name,
+        sku: product.sku,
+        price: product.price.toString(),
+        cost_price: product.cost_price?.toString() || '0',
+        quantity: product.quantity.toString(),
+        reorder_level: (product as any).reorder_level?.toString() || '10',
+        description: product.description || '',
+        category_id: (product as any).category?.id?.toString(),
+        supplier_id: (product as any).supplier?.id?.toString(),
+      });
+    } else {
+      form.reset();
+    }
+  }, [product, form]);
+
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
@@ -76,7 +100,6 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
     enabled: isOpen,
   });
 
-  // Fetch Suppliers
   const { data: suppliers } = useQuery({
     queryKey: ['suppliers'],
     queryFn: async () => {
@@ -91,7 +114,7 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
       const payload = {
         ...values,
         price: parseFloat(values.price),
-        cost_price: parseFloat(values.cost_price), // ✅ Send Cost Price
+        cost_price: parseFloat(values.cost_price),
         quantity: parseInt(values.quantity),
         reorder_level: parseInt(values.reorder_level),
         category_id: values.category_id ? parseInt(values.category_id) : null,
@@ -102,31 +125,16 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
     onSuccess: () => {
       toast.success('Product created successfully');
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }); // Refresh dashboard
       form.reset();
       onClose();
     },
     onError: (error: any) => {
-      console.error("API Error:", error);
-      const data = error.response?.data;
-
-      const generalError = data?.detail || data?.non_field_errors?.[0] || (Array.isArray(data) ? data[0] : null);
-
-      if (generalError && typeof generalError === 'string' && generalError.toLowerCase().includes('limit')) {
-          toast.error("Plan Limit Reached! Please upgrade your subscription.");
-          return;
-      }
-
-      if (data?.sku) {
-          toast.error(`SKU Error: ${data.sku[0]}`);
-          return;
-      }
-
-      toast.error("Failed to create product. Please try again.");
+      toast.error(error.response?.data?.detail || "Failed to save product.");
     },
   });
 
   function onSubmit(values: ProductFormValues) {
+    if (isViewMode) return;
     createMutation.mutate(values);
   }
 
@@ -134,9 +142,11 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="overflow-y-auto sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Add New Product</SheetTitle>
+          <SheetTitle>
+            {isViewMode ? 'Product Insights' : mode === 'edit' ? 'Edit Product' : 'Add New Product'}
+          </SheetTitle>
           <SheetDescription>
-            Create a new item in your inventory catalog.
+            {isViewMode ? 'Strategic procurement history and cost analysis.' : 'Manage your item catalog.'}
           </SheetDescription>
         </SheetHeader>
         
@@ -150,8 +160,8 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Product Name *</FormLabel>
-                      <FormControl><Input placeholder="e.g. Wireless Mouse" {...field} /></FormControl>
+                      <FormLabel>Product Name</FormLabel>
+                      <FormControl><Input disabled={isViewMode} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -161,26 +171,22 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
                   name="sku"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>SKU *</FormLabel>
-                      <FormControl><Input placeholder="e.g. WM-001" {...field} /></FormControl>
+                      <FormLabel>SKU</FormLabel>
+                      <FormControl><Input disabled={isViewMode} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              {/* ✅ UPDATED PRICING ROW */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="cost_price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Cost Price (₦) *</FormLabel>
-                      <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-[10px]">Your buying price.</FormDescription>
+                      <FormLabel>Cost Price (₦)</FormLabel>
+                      <FormControl><Input type="number" disabled={isViewMode} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -190,110 +196,81 @@ export function ProductForm({ isOpen, onClose }: ProductFormProps) {
                   name="price"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Selling Price (₦) *</FormLabel>
-                      <FormControl>
-                          <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                      </FormControl>
+                      <FormLabel>Selling Price (₦)</FormLabel>
+                      <FormControl><Input type="number" disabled={isViewMode} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="quantity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Initial Stock</FormLabel>
-                      <FormControl><Input type="number" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="reorder_level"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Reorder Level</FormLabel>
-                      <FormControl><Input type="number" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {!isViewMode && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Initial Stock</FormLabel>
+                        <FormControl><Input type="number" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="reorder_level"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reorder Level</FormLabel>
+                        <FormControl><Input type="number" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="category_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categories?.map((c) => (
-                            <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="supplier_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Supplier</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {suppliers?.map((s) => (
-                            <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {/* PROCUREMENT INSIGHTS SECTION */}
+              {isViewMode && product?.supplier_prices && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                   <div className="flex items-center gap-2 text-primary pt-4">
+                    <History className="h-4 w-4" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider">Supplier Price Comparison</h3>
+                  </div>
+                  <Separator />
+                  
+                  <div className="space-y-2">
+                    {product.supplier_prices.length === 0 ? (
+                      <div className="p-4 rounded-lg bg-muted text-center text-xs text-muted-foreground">
+                        No purchase history found for this product.
+                      </div>
+                    ) : (
+                      product.supplier_prices.map((sp: any) => (
+                        <div key={sp.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                          <div>
+                            <p className="text-xs font-bold">{sp.supplier_name}</p>
+                            <p className="text-[10px] text-muted-foreground">Last Paid: {new Date(sp.last_updated).toLocaleDateString()}</p>
+                          </div>
+                          <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">
+                            ₦{parseFloat(sp.supply_price).toLocaleString()}
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Details..." className="resize-none" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Product
-                </Button>
-              </div>
-
+              {!isViewMode && (
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                  <Button type="submit" disabled={createMutation.isPending}>
+                    {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Product
+                  </Button>
+                </div>
+              )}
             </form>
           </Form>
         </div>

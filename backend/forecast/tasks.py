@@ -115,10 +115,18 @@ def _detect_anomalies(tenant, product, df, model_info):
         
         # Threshold: Warn if less than 14 days of stock left
         if days_cover < 14:
+            from purchases.services import get_best_procurement_recommendation
+            recommendation = get_best_procurement_recommendation(tenant, product)
+    
+            extra_note = ""
+            if recommendation:
+                extra_note = f" Strategy: Buy from {recommendation['supplier_name']} at {recommendation['best_price']} to maximize margin."
             InventoryAnomaly.objects.create(
-                tenant=tenant, product=product, 
-                anomaly_type='stockout_risk', severity='high',
-                description=f"Critical Low Stock: {product.quantity} units left. Selling ~{velocity:.1f}/day (Cover: {days_cover:.1f} days)."
+                tenant=tenant, 
+                product=product, 
+                anomaly_type='stockout_risk', 
+                severity='high',
+                description=f"Critical Low Stock: {product.quantity} left. {extra_note}"
             )
             detected_types.append('stockout')
 

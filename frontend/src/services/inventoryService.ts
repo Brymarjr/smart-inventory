@@ -6,8 +6,10 @@ export interface Product {
   sku: string;
   quantity: number;
   price: string;
+  cost_price: string;
   category_name?: string; // Optional, based on your serializer
   supplier_name?: string; // Optional
+  supplier_prices?: SupplierPrice[];
 }
 
 export interface StockAdjustmentPayload {
@@ -15,6 +17,13 @@ export interface StockAdjustmentPayload {
   quantity_change?: number; // Option B: Add/Subtract (e.g. "Add 5")
   reason: 'restock' | 'damage' | 'theft' | 'correction' | 'return';
   note?: string;
+}
+
+export interface SupplierPrice {
+  id: number;
+  supplier_name: string;
+  supply_price: number;
+  last_updated: string;
 }
 
 export const inventoryService = {
@@ -56,6 +65,12 @@ export const inventoryService = {
 
   async restoreProduct(id: number) {
     const response = await api.post(`/api/products/${id}/restore/`);
+    return response.data;
+  },
+
+  // Fetch best price recommendation for a product
+  async getBestPrice(productId: number) {
+    const response = await api.get(`/api/products/${productId}/best-price/`);
     return response.data;
   },
   

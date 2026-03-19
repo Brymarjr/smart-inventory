@@ -91,3 +91,21 @@ class InventoryLog(models.Model):
 
     def __str__(self):
         return f"{self.product.name}: {self.change_amount} ({self.reason})"
+    
+    
+class SupplierPrice(TenantAwareModel):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='supplier_prices')
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name='product_prices')
+    
+    # This is the "Strategic" field
+    supply_price = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    last_updated = models.DateTimeField(auto_now=True)
+    objects = TenantManager()
+
+    class Meta:
+        unique_together = ("tenant", "product", "supplier")
+        verbose_name = "Supplier Price Mapping"
+
+    def __str__(self):
+        return f"{self.supplier.name} - {self.product.name}: {self.supply_price}"

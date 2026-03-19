@@ -1,7 +1,6 @@
 from rest_framework import serializers
-from .models import Category, Supplier, Product
+from .models import Category, Supplier, Product, SupplierPrice
 from core.tenant_context import TenantNotSetError
-
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,7 +13,6 @@ class CategorySerializer(serializers.ModelSerializer):
         validated_data['tenant'] = tenant
         return super().create(validated_data)
 
-
 class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supplier
@@ -26,10 +24,19 @@ class SupplierSerializer(serializers.ModelSerializer):
         validated_data['tenant'] = tenant
         return super().create(validated_data)
 
+# Serializer for the Price Matrix
+class SupplierPriceSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.ReadOnlyField(source='supplier.name')
+
+    class Meta:
+        model = SupplierPrice
+        fields = ['id', 'supplier_name', 'supply_price', 'last_updated']
 
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     supplier = SupplierSerializer(read_only=True)
+    # ✅ STRATEGIC INJECTION: Nested Price History
+    supplier_prices = SupplierPriceSerializer(many=True, read_only=True)
 
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category._base_manager.none(),
@@ -46,8 +53,8 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             'id', 'name', 'sku', 'category', 'supplier',
-            'quantity', 'price', 'cost_price','description',
-            'category_id', 'supplier_id'
+            'quantity', 'price', 'cost_price', 'description',
+            'category_id', 'supplier_id', 'supplier_prices' # ✅ Included here
         ]
         read_only_fields = ['tenant']
 
@@ -64,8 +71,3 @@ class ProductSerializer(serializers.ModelSerializer):
         tenant = self.context['request'].user.tenant
         validated_data['tenant'] = tenant
         return super().create(validated_data)
-
-
-
-
-
