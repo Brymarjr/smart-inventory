@@ -22,7 +22,6 @@ api.interceptors.request.use(
     }
 
     // ✅ FIX: Inject Active Tenant ONLY if we are NOT in the system-admin area
-    // This prevents Superuser login from being blocked by a stale tenant_slug
     const tenantSlug = typeof window !== 'undefined' ? localStorage.getItem('tenant_slug') : null;
     const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/system-admin');
 
@@ -84,7 +83,6 @@ api.interceptors.response.use(
           const { data } = await axios.post(`${API_URL}/api/auth/token/refresh/`, {
             refresh: refreshToken,
           }, {
-             // ✅ FIX: Maintain Admin-Awareness during token refresh
              headers: (tenantSlug && !isAdminPath) ? { 'X-Tenant': tenantSlug } : {} 
           });
 
@@ -98,7 +96,6 @@ api.interceptors.response.use(
              localStorage.removeItem('tenant_slug');
              localStorage.removeItem('username');
              
-             // ✅ FIX: Redirect to the correct login page
              if (!window.location.pathname.includes('/login')) {
                 window.location.href = isAdminPath ? '/system-admin/login' : '/login';
              }
@@ -117,6 +114,23 @@ api.interceptors.response.use(
          }
       }
     } 
+
+    // GLOBAL CUSTOM MESSAGE HANDLER
+    // This catches 403 (Permission) or 400 (Bad Request) errors and shows the backend's message.
+    if (error.response) {
+      const status = error.response.status;
+      const backendDetail = error.response.data?.detail || error.response.data?.message;
+
+      if (status === 403) {
+        toast.error("Access Denied", {
+          description: backendDetail || "You do not have the required permissions for this action.",
+        });
+      } else if (status === 400 && backendDetail) {
+        toast.error("Invalid Request", {
+          description: backendDetail,
+        });
+      }
+    }
 
     return Promise.reject(error);
   }

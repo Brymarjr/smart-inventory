@@ -4,6 +4,8 @@ from rest_framework.permissions import BasePermission
 
 class IsTenantAdmin(permissions.BasePermission):
     """Allow access only to users with the TenantAdmin role."""
+    message = "Access Denied: This action requires Tenant Administrator privileges."
+    
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
@@ -13,6 +15,8 @@ class IsTenantAdmin(permissions.BasePermission):
 
 class IsManager(permissions.BasePermission):
     """Allow access only to users with the Manager role."""
+    message = "Access Denied: This action requires a Manager role."
+
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
@@ -22,6 +26,8 @@ class IsManager(permissions.BasePermission):
 
 class IsStaff(permissions.BasePermission):
     """Allow access only to users with the Staff role."""
+    message = "Access Denied: This action is restricted to Staff members."
+
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
@@ -32,11 +38,24 @@ class IsStaff(permissions.BasePermission):
 # Composite permissions for common scenarios
 class IsTenantAdminOrManager(permissions.BasePermission):
     """Allow access to both TenantAdmin and Manager roles."""
+    message = "Access Denied: You must be an Administrator or Manager to perform this task."
+
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
             return True  # ✅ Always allow superusers
         return getattr(user.role, "name", None) in ["tenant_admin", "manager"]
+    
+
+class IsStaffOrManager(permissions.BasePermission):
+    """Allow access to both Staff and Manager roles."""
+    message = "Access Denied: This action is only available to Staff or Managers."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if user and user.is_authenticated and user.is_superuser:
+            return True  # ✅ Always allow superusers
+        return getattr(user.role, "name", None) in ["staff", "manager"]
 
 
 class IsStaffOrTenantAdminManager(permissions.BasePermission):
@@ -44,6 +63,8 @@ class IsStaffOrTenantAdminManager(permissions.BasePermission):
     Staff can create sales and purchase orders.
     Tenant Admins, Managers can view and manage them.
     """
+    message = "Access Denied: Your account role does not have permission to access this resource."
+
     def has_permission(self, request, view):
         user = request.user
         if user and user.is_authenticated and user.is_superuser:
@@ -58,6 +79,7 @@ class MustChangePasswordPermission(permissions.BasePermission):
     Deny access to any endpoint for users who must change password,
     except for endpoints that allow password change/reset/login.
     """
+    message = "Security Action Required: You must change your password before accessing the system."
 
     def has_permission(self, request, view):
         # Allow password-related endpoints

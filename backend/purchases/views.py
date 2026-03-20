@@ -26,7 +26,7 @@ from django.utils import timezone
 from django.db import transaction
 from .models import PurchaseOrder, PurchaseItem
 from .serializers import PurchaseOrderSerializer, PurchaseItemSerializer, PurchaseMarkPaidSerializer
-from users.permissions import IsStaffOrTenantAdminManager, IsManager, IsTenantAdminOrManager
+from users.permissions import IsStaffOrManager, IsManager, IsTenantAdminOrManager
 from inventory.models import Supplier, Product
 from core.mixins import TenantFilteredViewSet
 from decimal import Decimal
@@ -39,21 +39,44 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
     Manages the Lifecycle of a Purchase Order.
 
     Permissions:
-    - **Create:** Allowed for Staff (to request stock).
-    - **Approve/Reject/Pay:** Restricted to Managers/Admins.
-    - **View:** Scoped to the user's tenant.
+    - **list/retrieve:** Allowed for everyone in the tenant (Staff, Managers, Admins).
+    - **create:** Restricted to Staff and Managers.
+    - **approve/reject/mark_paid:** Handled by action-specific permissions.
     """
     queryset = PurchaseOrder.objects.all().select_related("supplier", "created_by", "approved_by", "paid_by")
     serializer_class = PurchaseOrderSerializer
-    permission_classes = [IsAuthenticated]
     pagination_class = StandardResultsSetPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['reference', 'supplier__name', 'status', 'notes']
 
+    def get_permissions(self):
+        """
+        Dynamically handles permissions based on your specific requirements:
+        - View (list/retrieve) is for everyone.
+        - Create is for Staff/Managers.
+        - Custom actions use their own decorators.
+        """
+        if self.action in ['list', 'retrieve']:
+            # Accessible to anyone authenticated in the tenant
+            permission_classes = [IsAuthenticated]
+        
+        elif self.action == 'create':
+            # Restrict creation to your custom permission
+            permission_classes = [IsAuthenticated, IsStaffOrManager]
+            
+        else:
+            # For custom actions (approve/paid), pull from the @action decorator
+            permission_classes = getattr(
+                getattr(self, self.action, None), 
+                'permission_classes', 
+                [IsAuthenticated]
+            )
+        
+        return [permission() for permission in permission_classes]
+
     def get_queryset(self):
         """
         Returns Purchase Orders belonging to the authenticated user's tenant.
-        Superusers can view all POs globally.
         """
         user = self.request.user
         base_qs = PurchaseOrder.objects.select_related(
@@ -65,15 +88,36 @@ class PurchaseOrderViewSet(TenantFilteredViewSet):
 
     def perform_create(self, serializer):
         """
-        Creates a Draft PO.
-        
-        Enforces the 'purchases' feature flag from the billing plan feature.
+        Creates a Draft PO and alerts all Managers in the tenant.
         """
         tenant = getattr(self.request.user, "tenant", None)
         if tenant is None:
             raise PermissionDenied("Tenant context not found.")
+        
         require_feature(tenant, "inventory_advanced")
-        serializer.save(tenant=tenant, created_by=self.request.user)
+        
+        # 1. Save the Purchase Order
+        purchase = serializer.save(tenant=tenant, created_by=self.request.user)
+
+        # 2. Alert the Managers
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+
+        # Find all active users in this tenant with 'manager' roles
+        managers = User.objects.filter(
+            tenant=tenant,
+            role__name__in=["manager"],
+            is_active=True
+        ).exclude(id=self.request.user.id)
+
+        for manager in managers:
+            notify_user(
+                tenant=tenant,
+                recipient=manager,
+                title="New Purchase Request",
+                message=f"Staff {self.request.user.get_full_name()} created PO #{purchase.reference}. Review required.",
+                notification_type="purchase_created",
+            )
 
     def list(self, request, *args, **kwargs):
         tenant = getattr(request.user, "tenant", None)
