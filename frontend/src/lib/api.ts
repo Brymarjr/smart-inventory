@@ -16,16 +16,22 @@ const api = axios.create({
 // --- 1. Request Interceptor (INJECTS HEADERS) ---
 api.interceptors.request.use(
   (config) => {
-    // Inject Access Token
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    // List of public endpoints that should NEVER have auth/tenant headers attached
+    const publicEndpoints = ['/api/tenants/register/', '/api/auth/login/'];
+    const isPublicEndpoint = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
 
-    // Inject Active Tenant (CRITICAL FOR YOUR DASHBOARD)
-    const tenantSlug = typeof window !== 'undefined' ? localStorage.getItem('tenant_slug') : null;
-    if (tenantSlug) {
-      config.headers['X-Tenant'] = tenantSlug;
+    if (!isPublicEndpoint) {
+      // Inject Access Token only for private routes
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Inject Active Tenant only for private routes
+      const tenantSlug = typeof window !== 'undefined' ? localStorage.getItem('tenant_slug') : null;
+      if (tenantSlug) {
+        config.headers['X-Tenant'] = tenantSlug;
+      }
     }
 
     return config;

@@ -21,13 +21,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
-    // Wipe EVERYTHING on logout
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
     setUser(null);
-    window.location.href = '/login'; // 🛑 HARD REDIRECT
+    // Remove default header on logout
+    delete api.defaults.headers.common['Authorization'];
+    window.location.href = '/login'; 
   }, []);
 
   const fetchUserProfile = useCallback(async () => {
@@ -62,40 +63,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginTenant = async (tenant: string, email: string, password: string) => {
-    // 1. PRE-EMPTIVE STRIKE: Wipe any "ghost" data from previous sessions before starting
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
 
-    // 2. BULLETPROOF FORMATTING: Force the ID into a proper slug
-    const safeTenantSlug = tenant.toLowerCase().trim().replace(/\s+/g, '-');
+    const cleanTenant = tenant.trim();
 
     try {
       const { data } = await api.post<AuthResponse>('/api/login/', { 
-        tenant: safeTenantSlug, 
-        tenant_slug: safeTenantSlug,
+        tenant: cleanTenant, 
+        tenant_slug: cleanTenant,
         username: email, 
         email: email,
         password: password 
       });
 
-      // 3. Save the clean data, including the username
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
-      localStorage.setItem('tenant_slug', safeTenantSlug);
+      localStorage.setItem('tenant_slug', cleanTenant);
       localStorage.setItem('username', email); 
+
+      // FIX: Manually inject the token into the API instance immediately.
+      // This prevents the 403 error on the next page (Accept Terms) by ensuring 
+      // the very next request already has the Authorization header set.
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
 
       setUser(data.user);
 
-      // 4. Smart Redirect (HARD NAVIGATION)
-      if (!data.user.tos_accepted_at) {
-        window.location.href = '/legal/accept-terms';
-      } else {
-        window.location.href = '/dashboard';
-      }
-
-      toast.success('Access Granted');
+      // We use a small delay before the redirect to ensure localStorage 
+      // and state have synchronized across the browser tabs/threads.
+      setTimeout(() => {
+        if (!data.user.tos_accepted_at) {
+          window.location.href = '/legal/accept-terms';
+        } else {
+          window.location.href = '/dashboard';
+        }
+      }, 100);
 
     } catch (error: any) {
       let message = 'Login failed. Please check your credentials.';
@@ -107,9 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginAdmin = async (username: string, password: string) => {
     try {
       const { data } = await api.post<AuthResponse>('/api/auth/token/', { username, password });
-      const userRes = await api.get<User>('/api/users/me/', {
-        headers: { Authorization: `Bearer ${data.access}` }
-      });
+      
+      // Update headers for admin too
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
+
+      const userRes = await api.get<User>('/api/users/me/');
 
       if (!userRes.data.is_superuser) throw new Error('Unauthorized');
 
@@ -117,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('username', username); 
       setUser(userRes.data);
-      window.location.href = '/system-admin'; // 🛑 HARD REDIRECT
+      window.location.href = '/system-admin'; 
     } catch (error: any) {
       throw new Error('Admin login failed');
     }

@@ -50,3 +50,5 @@ c. Run these commands in the different backend terminals:
    git pull origin frontend-features      (To pull from git the latest code version)
 
 venv folder is never commited to prevent it from breaking after every pull!
+source  venv2/bin/activate
+python manage.py runserver

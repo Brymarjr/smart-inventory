@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -128,14 +128,21 @@ export default function DashboardLayout({
                 <SheetDescription className="sr-only">
                   Navigation links
                 </SheetDescription>
-                <div className="h-16 flex items-center px-6 border-b border-white/10">
-                  <div className="bg-[#2D31FA] p-1.5 rounded-lg mr-2">
-                    <PackageSearch size={20} className="text-white" />
-                  </div>
-                  <span className="text-xl font-black tracking-tighter uppercase">
-                    ForeTrack
-                  </span>
-                </div>
+                
+                          <div className="flex items-center gap-3">
+                          <Image 
+                              src="/icon-192x192.png" 
+                              alt="ForeTrack Logo"
+                              width={44}
+                              height={44}
+                          
+                              className="object-contain rounded-xl bg-white/10" 
+                              priority
+                            />
+                            <span className="text-2xl font-black tracking-tighter text-white">
+                              ForeTrack
+                            </span>
+                          </div>
                 <div className="py-4 px-3 space-y-1">
                   {NAV_ITEMS.map((item) => (
                     <Link
@@ -157,15 +164,21 @@ export default function DashboardLayout({
             </Sheet>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="bg-[#2D31FA] p-1.5 rounded-lg shadow-lg shadow-[#2D31FA]/20">
-              <PackageSearch size={22} className="text-white" />
-            </div>
-            <span className="text-xl font-black tracking-tighter text-white uppercase">
-              ForeTrack
-            </span>
-          </div>
-
+         
+                   <div className="flex items-center gap-3">
+                   <Image 
+                       src="/icon-192x192.png" 
+                       alt="ForeTrack Logo"
+                       width={44}
+                       height={44}
+                   
+                       className="object-contain rounded-xl bg-white/10" 
+                       priority
+                     />
+                     <span className="text-2xl font-black tracking-tighter text-white">
+                       ForeTrack
+                     </span>
+                   </div>
           {/* SYNC ENGINE STATUS BADGES */}
           <div className="flex gap-2 ml-4">
             {isSyncing && (

@@ -1,6 +1,6 @@
 "use client";
-
-import { useState, Suspense } from "react";
+import Image from "next/image";
+import { useState, Suspense, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -66,21 +66,42 @@ function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof tenantSchema>) {
+    // 1. CRITICAL FIX: Extract the flag immediately before any async logic
+    const wasRedirectedFromRegister = searchParams.get("registered") === "true";
+    
     setIsLoading(true);
     setError("");
+    toast.dismiss();
+
     try {
+      // 2. Perform the login
       await loginTenant(values.tenant, values.email, values.password);
-      toast.success("Welcome back!");
-      router.refresh(); // Forces a fresh check of the auth state
+      
+      // 3. Use the "locked" constant to determine the toast
+      
+        toast.success("Login verified!", {
+        description: " Welcome!",
+        });
+       
+      
+
+      setTimeout(() => {
+        router.refresh(); 
+      }, 1500);
+
     } catch (err: any) {
       console.error(err);
       const serverMsg =
         err.response?.data?.detail ||
         err.response?.data?.non_field_errors ||
         "Invalid Organization ID or credentials.";
+      
       setError(Array.isArray(serverMsg) ? serverMsg[0] : serverMsg);
-      toast.error("Login Failed");
-      setIsLoading(false); // Only stop loading if it failed
+      toast.error("Login Failed", {
+        description: "Please check your organization ID and credentials."
+      });
+      
+      setIsLoading(false); 
     }
   }
 
@@ -104,11 +125,18 @@ function LoginForm() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <div className="bg-[#2D31FA] p-2 rounded-lg">
-              <PackageSearch className="w-8 h-8 text-white" />
-            </div>
-            <span className="text-3xl font-bold tracking-tight">ForeTrack</span>
+          <div className="flex items-center gap-3">
+            <Image 
+              src="/icon-192x192.png" 
+              alt="ForeTrack Logo"
+              width={44}
+              height={44}
+              className="object-contain rounded-xl bg-white/10" 
+              priority
+            />
+            <span className="text-2xl font-black tracking-tighter text-white">
+              ForeTrack
+            </span>
           </div>
 
           <div className="space-y-6">
@@ -159,7 +187,7 @@ function LoginForm() {
             {error && (
               <Alert
                 variant="destructive"
-                className="mb-4 py-2 rounded-2xl border-2"
+                className="mb-4 py-2 rounded-2xl border-2 animate-in fade-in zoom-in duration-300"
               >
                 <AlertCircle className="h-5 w-5" />
                 <AlertDescription className="text-sm font-semibold">
@@ -232,13 +260,13 @@ function LoginForm() {
                             placeholder="••••••••"
                             {...field}
                             disabled={isLoading}
-                            className={`h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6 pr-14 ${disableBrowserEye}`}
+                            className={`h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6 pr-14 transition-all ${disableBrowserEye}`}
                           />
                         </FormControl>
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#2D31FA] focus:outline-none"
+                          className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#2D31FA] focus:outline-none transition-colors"
                         >
                           {showPassword ? (
                             <EyeOff className="h-6 w-6" />
@@ -250,7 +278,7 @@ function LoginForm() {
                       <div className="flex justify-end pt-1">
                         <Link
                           href="/forgot-password"
-                          className="text-xs font-black text-[#2D31FA] hover:text-[#1A1B4B] uppercase tracking-tighter"
+                          className="text-xs font-black text-[#2D31FA] hover:text-[#1A1B4B] uppercase tracking-tighter transition-colors"
                         >
                           Forgot Password?
                         </Link>
@@ -262,7 +290,7 @@ function LoginForm() {
 
                 <Button
                   type="submit"
-                  className="w-full h-16 text-xl font-black bg-[#2D31FA] hover:bg-[#1A1B4B] text-white rounded-2xl shadow-2xl shadow-[#2D31FA]/20 transition-all tracking-widest mt-2 flex items-center justify-center gap-3"
+                  className="w-full h-16 text-xl font-black bg-[#2D31FA] hover:bg-[#1A1B4B] text-white rounded-2xl shadow-2xl shadow-[#2D31FA]/20 transition-all tracking-widest mt-2 flex items-center justify-center gap-3 disabled:opacity-80"
                   disabled={isLoading}
                 >
                   {isLoading ? (
@@ -283,7 +311,7 @@ function LoginForm() {
               New to ForeTrack?{" "}
               <Link
                 href="/register"
-                className="text-[#2D31FA] font-black hover:text-[#1A1B4B]"
+                className="text-[#2D31FA] font-black hover:text-[#1A1B4B] transition-colors"
               >
                 Register Business
               </Link>
@@ -300,7 +328,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen w-full items-center justify-center gap-2 font-bold text-[#2D31FA] bg-slate-50">
-          <Loader2 className="animate-spin" /> Loading Security...
+          <Loader2 className="animate-spin" /> Loading ...
         </div>
       }
     >
