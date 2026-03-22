@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }, 100);
 
-      toast.success('Access Granted');
+      // ✅ REMOVED: toast.success('Access Granted') to avoid duplicates
     } catch (error: any) {
       let message = 'Login failed. Please check your credentials.';
       if (error.response?.data?.detail) message = error.response.data.detail;

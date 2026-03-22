@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner";
+import { toast } from "sonner"; 
 
 // Contexts & Custom Components
 import { useAuth } from "@/lib/auth-context";
@@ -38,7 +38,6 @@ export function UserNav() {
   const { setTheme, theme } = useTheme();
   const { user, logout } = useAuth();
   
-  // Prevent hydration mismatch for theme-specific UI
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -48,8 +47,9 @@ export function UserNav() {
   const handleLogout = async () => {
     try {
       await logout();
+      // 'id' prevents overlapping/duplicate toasts
       toast.success("Logout successful", {
-        id: "logout-toast",
+        id: "logout-toast", 
       });
       router.push("/login");
     } catch (error) {
@@ -57,15 +57,14 @@ export function UserNav() {
     }
   };
 
-  // ✅ Fixed: Joined first_name and last_name manually for the UI
-  // ✅ Fixed: Added explicit type (n: string) to resolve the implicit 'any' error
+  // Safe checks for user data
   const initials = (user?.first_name && user?.last_name)
     ? `${user.first_name[0]}${user.last_name[0]}`.toUpperCase()
     : user?.email?.substring(0, 2).toUpperCase() || "U";
       
   const displayName = (user?.first_name && user?.last_name)
     ? `${user.first_name} ${user.last_name}`
-    : user?.username || user?.email || 'User';
+    : user?.username || 'User';
 
   const isPrivileged = user?.role === 'tenant_admin' || user?.role === 'manager';
   const isTenantAdmin = user?.role === 'tenant_admin';
@@ -75,11 +74,9 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9 border">
-            {/* ✅ Removed .image to satisfy TypeScript User type */}
-            <AvatarImage src="" alt={displayName} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">
-              {initials}
-            </AvatarFallback>
+            {/* Fixed the type error by using a safe cast and fallback string */}
+            <AvatarImage src={(user as any)?.image || ""} alt={user?.email || "User"} />
+            <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
