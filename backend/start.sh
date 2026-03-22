@@ -9,7 +9,7 @@ echo "🌱 Running Seeder (Checks for existing data)..."
 python manage.py seed_three_months
 
 echo "👤 Ensuring Superuser Access..."
-# ✅ This line creates Chioma's account ONLY if it doesn't already exist
+# This line creates Chioma's account ONLY if it doesn't already exist
 python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(email='chiomaiwegbuna@gmail.com').exists() or User.objects.create_superuser('Chioma', 'chiomaiwegbuna@gmail.com', 'chi123')"
 
 echo "🧠 Initializing AI Brain..."
