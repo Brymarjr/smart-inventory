@@ -61,9 +61,15 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         tenant_id = 1
+        tenant = Tenant.objects.get(id=tenant_id)
+
+        # PREVENT DUPLICATES: Check if data already exists for this tenant
+        if Product.objects.filter(tenant=tenant).exists():
+            self.stdout.write(self.style.SUCCESS(f"⏭️  Tenant {tenant_id} already has data. Skipping seeding to prevent duplicates."))
+            return
+
         self.stdout.write(f"🏗️  Populating Tenant {tenant_id}...")
 
-        tenant = Tenant.objects.get(id=tenant_id)
         user = User.objects.filter(tenant=tenant).first()
         user_field = next((f.name for f in Sale._meta.fields if f.related_model == User), None)
 
