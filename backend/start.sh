@@ -6,16 +6,18 @@ echo "📦 Running database migrations..."
 python manage.py migrate --noinput
 
 echo "🌱 Running Seeder (Checks for existing data)..."
+# Since data exists, this will now skip in ~1 second
 python manage.py seed_three_months
 
 echo "👤 Ensuring Superuser Access..."
-# This line creates Chioma's account ONLY if it doesn't already exist
+# Checks if Chioma exists; if yes, skips. No memory impact.
 python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(email='chiomaiwegbuna@gmail.com').exists() or User.objects.create_superuser('Chioma', 'chiomaiwegbuna@gmail.com', 'chi123')"
 
-echo "🧠 Initializing AI Brain..."
-python manage.py shell -c "from forecast.tasks import run_analytics_for_all; run_analytics_for_all()"
+# ✅ REMOVED: Initializing AI Brain (To prevent 512MB RAM crash)
+# You will trigger this manually via your System Admin API once live.
 
 echo "🚀 Starting Celery Worker..."
+# Concurrency 1 is perfect for the free tier
 celery -A smart_inventory worker -Q high_priority,default,emails --concurrency=1 --loglevel=info &
 
 echo "⏰ Starting Celery Beat..."
