@@ -356,7 +356,7 @@ class TenantAwareAuthViewSet(viewsets.ViewSet):
 
 
 # ----------------------------------------------------------
-#  Assign Role
+#   Assign Role
 # ----------------------------------------------------------
 class UserRoleAssignViewSet(TenantFilteredViewSet):
     """
@@ -377,9 +377,9 @@ class UserRoleAssignViewSet(TenantFilteredViewSet):
         serializer.is_valid(raise_exception=True)
 
         new_role = serializer.validated_data["role"]
-        old_role = user.role.name if user.role else None
+        old_role = user.role.name if user.role else "None" # Use string for logging
 
-        # Double check tenant scope (redundant with TenantFilteredViewSet but safe)
+        # Double check tenant scope
         if user.tenant != request.user.tenant:
             return Response(
                 {"error": "You can only modify users in your tenant."},
@@ -399,12 +399,19 @@ class UserRoleAssignViewSet(TenantFilteredViewSet):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
+        # 1. Commit the change to the database
         user.role = new_role
         user.save()
 
-        # Notify affected user and tenant admins
-        notify_role_changed(user, old_role=old_role, new_role=new_role.name)
+        # 2. Notify (FIX: Pass only positional arguments to match the task signature)
+        # We removed 'old_role=old_role' to prevent the TypeError
+        try:
+            notify_role_changed(user, new_role.name)
+        except Exception as e:
+            # We log the error but don't crash the response since the save worked
+            print(f"⚠️ Notification failed: {str(e)}")
 
+        # 3. Return Success
         return Response(
             {
                 "message": f"Role '{new_role.name}' assigned successfully.",

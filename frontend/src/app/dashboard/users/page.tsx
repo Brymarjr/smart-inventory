@@ -216,7 +216,7 @@ export default function UserManagementPage() {
                                 >
                                   <DropdownMenuRadioItem value="staff">Staff</DropdownMenuRadioItem>
                                   <DropdownMenuRadioItem value="manager">Manager</DropdownMenuRadioItem>
-                                  <DropdownMenuRadioItem value="tenant_admin">Tenant Admin</DropdownMenuRadioItem>
+                                  <DropdownMenuRadioItem value="admin">Admin</DropdownMenuRadioItem>
                                 </DropdownMenuRadioGroup>
                               </DropdownMenuSubContent>
                             </DropdownMenuSub>
