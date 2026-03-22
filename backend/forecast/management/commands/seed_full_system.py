@@ -84,7 +84,7 @@ class Command(BaseCommand):
     help = "The 'Layered Reality' Engine: Healthy History + Forced Anomalies"
 
     def handle(self, *args, **kwargs):
-        target_tenant_id = 34
+        target_tenant_id = 1
         self.stdout.write("🏗️  Initializing Naija Hypermarket Simulation (Layered Mode)...")
 
         # --- A. SETUP ---

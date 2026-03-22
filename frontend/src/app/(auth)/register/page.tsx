@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,7 +30,6 @@ import {
   Loader2,
   Rocket,
   ArrowLeft,
-  PackageSearch,
   Eye,
   EyeOff,
 } from "lucide-react";
@@ -90,20 +90,22 @@ export default function RegisterPage() {
         password: values.password,
       });
 
-      toast.success("Registration successful. Please log in.", {
+      // 1. Initial Toast on Register Page
+      toast.success("Registration successful!", {
+        description: "Your account has been created. Redirecting to login...",
         duration: 4000,
       });
 
       setTimeout(() => {
-        const tenantSlug = values.tenant_name
-          .toLowerCase()
-          .replace(/\s+/g, "-");
-        router.push(`/login?tenant=${tenantSlug}&email=${values.email}`);
-        setTimeout(() => {
-          toast.info("You can now log in with your credentials.");
-        }, 800);
+        const tenantParam = encodeURIComponent(values.tenant_name);
+        const emailParam = encodeURIComponent(values.email);
+        
+        // 2. We add 'registered=true' to the query string to trigger the toast on the Login Page
+        router.push(`/login?tenant=${tenantParam}&email=${emailParam}&registered=true`);
       }, 2000);
+
     } catch (error: any) {
+      setIsLoading(false); 
       console.error(error);
       const data = error.response?.data;
 
@@ -155,8 +157,6 @@ export default function RegisterPage() {
       toast.error("Registration failed", {
         description: "An unexpected error occurred. Please try again later.",
       });
-    } finally {
-      setIsLoading(false);
     }
   }
 
@@ -184,11 +184,18 @@ export default function RegisterPage() {
             </span>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <div className="bg-[#2D31FA] p-2 rounded-lg">
-              <PackageSearch className="w-8 h-8 text-white" />
-            </div>
-            <span className="text-3xl font-bold tracking-tight">ForeTrack</span>
+          <div className="flex items-center gap-3">
+          <Image 
+              src="/icon-192x192.png" 
+              alt="ForeTrack Logo"
+              width={44}
+              height={44}
+              className="object-contain rounded-xl bg-white/10" 
+              priority
+            />
+            <span className="text-2xl font-black tracking-tighter text-white">
+              ForeTrack
+            </span>
           </div>
 
           <div className="space-y-4">
@@ -358,12 +365,12 @@ export default function RegisterPage() {
                         </FormLabel>
                         <div className="relative">
                           <FormControl>
-                            <Input
+                            <input
                               type={showPassword ? "text" : "password"}
                               placeholder="••••••••"
                               {...field}
                               disabled={isLoading}
-                              className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6 pr-14"
+                              className="w-full h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6 pr-14 bg-transparent"
                             />
                           </FormControl>
                           <button
@@ -393,12 +400,12 @@ export default function RegisterPage() {
                         </FormLabel>
                         <div className="relative">
                           <FormControl>
-                            <Input
+                            <input
                               type={showConfirmPassword ? "text" : "password"}
                               placeholder="••••••••"
                               {...field}
                               disabled={isLoading}
-                              className="h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6 pr-14"
+                              className="w-full h-16 text-xl border-2 border-[#1A1B4B] rounded-2xl focus-visible:ring-2 focus-visible:ring-[#2D31FA] focus-visible:ring-offset-0 px-6 pr-14 bg-transparent"
                             />
                           </FormControl>
                           <button

@@ -15,18 +15,24 @@ const api = axios.create({
 // --- 1. Request Interceptor (INJECTS HEADERS) ---
 api.interceptors.request.use(
   (config) => {
-    // Inject Access Token
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // ✅ FIX: Inject Active Tenant ONLY if we are NOT in the system-admin area
-    const tenantSlug = typeof window !== 'undefined' ? localStorage.getItem('tenant_slug') : null;
+    // 1. Identify context (Is this a public route or a system admin route?)
+    const publicEndpoints = ['/api/tenants/register/', '/api/auth/login/'];
+    const isPublicEndpoint = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
     const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/system-admin');
 
-    if (tenantSlug && !isAdminPath) {
-      config.headers['X-Tenant'] = tenantSlug;
+    if (!isPublicEndpoint) {
+      // 2. Inject Access Token
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      // 3. Inject Active Tenant (ONLY if not in system-admin area)
+      // This allows Superusers to move between tenants without being locked to one
+      const tenantSlug = typeof window !== 'undefined' ? localStorage.getItem('tenant_slug') : null;
+      if (tenantSlug && !isAdminPath) {
+        config.headers['X-Tenant'] = tenantSlug;
+      }
     }
 
     return config;

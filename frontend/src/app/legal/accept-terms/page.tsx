@@ -1,6 +1,6 @@
 "use client";
-
-import { useState } from "react";
+import Image from "next/image";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PackageSearch, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -21,8 +21,21 @@ import { useAuth } from "@/lib/auth-context";
 export default function AcceptTermsPage() {
   const [agreed, setAgreed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { refreshUser, user } = useAuth();
+
+  // Fix Hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Safety check: if user is already accepted, move them out
+  useEffect(() => {
+    if (mounted && user?.tos_accepted_at) {
+      router.push("/dashboard");
+    }
+  }, [user, router, mounted]);
 
   const handleAccept = async () => {
     if (!agreed) return;
@@ -30,38 +43,68 @@ export default function AcceptTermsPage() {
 
     try {
       // 1. Send acceptance to backend
+      // We no longer manually throw "Session not found" here. 
+      // We let the API call proceed; if the session is missing, 
+      // the catch block will handle the 403/401 from the server.
       await api.post("/api/users/accept-tos/");
 
-      // 2. Refresh the user profile in AuthContext
-      // We MUST await this so the 'user' object is updated before we move
+      // 2. Refresh the AuthContext so the 'user' object updates globally
       await refreshUser();
 
-      toast.success("Terms Accepted. Entering Dashboard...");
+      toast.success("Terms Accepted!", {
+        description: "Welcome to your dashboard.",
+      });
 
-      // 3. Explicitly redirect to trigger the layout guards
-      // Since refreshUser() is finished, the LegalGuard will see tos_accepted_at is now set
-      router.push("/dashboard");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to accept terms. Please try again.");
+      // 3. Smooth transition to dashboard
+      setTimeout(() => {
+        router.push("/dashboard");
+        router.refresh(); 
+      }, 1000);
+
+    } catch (error: any) {
+      console.error("Submission Error:", error);
+      
+      const status = error.response?.status;
+      const detail = error.response?.data?.detail || error.message;
+
+      if (status === 403 || status === 401) {
+        toast.error("Session Issue", {
+          description: "Your session expired or is invalid. Please log in again.",
+        });
+        // Optional: router.push("/login");
+      } else {
+        toast.error("Error", {
+          description: typeof detail === 'string' ? detail : "Failed to save acceptance.",
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Prevent hydration errors
+  if (!mounted) return null;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 dark:bg-gray-900">
       <Card className="w-full max-w-3xl shadow-xl border-t-4 border-t-blue-600">
         <CardHeader>
-          <div className="flex items-center gap-2 mb-2">
-            <PackageSearch className="h-8 w-8 text-blue-600" />
-            <span className="font-black text-xl tracking-tight uppercase">
-              FORETRACK
+          <div className="flex items-center gap-3">
+            <Image 
+              src="/icon-192x192.png" 
+              alt="ForeTrack Logo"
+              width={44}
+              height={44}
+              className="object-contain rounded-xl bg-white/10" 
+              priority
+            />
+            <span className="text-2xl font-black tracking-tighter text-gray-900">
+              ForeTrack
             </span>
           </div>
           <CardTitle className="text-2xl">Terms of Service Agreement</CardTitle>
           <CardDescription>
-            Access to the FORETRACK platform is subject to the following terms.
+            Access to the ForeTrack platform is subject to the following terms.
             <br />
             <span className="text-xs text-muted-foreground font-medium">
               Version 1.0.0 — Effective March 2026
@@ -92,7 +135,7 @@ export default function AcceptTermsPage() {
                 <p>
                   Users are strictly responsible for maintaining the accuracy of
                   the data entered into the system. You agree to utilize
-                  FORETRACK in a lawful, ethical manner and refrain from using
+                  ForeTrack in a lawful, ethical manner and refrain from using
                   the platform for any unauthorized or illegal operations that
                   violate local or international laws.
                 </p>
@@ -116,7 +159,7 @@ export default function AcceptTermsPage() {
                   4. Acceptable Use Policy
                 </h3>
                 <p>
-                  FORETRACK is a proprietary enterprise software. Users shall
+                  ForeTrack is a proprietary enterprise software. Users shall
                   not reproduce, distribute, modify, create derivative works of,
                   publicly display, or reverse-engineer any underlying code,
                   algorithms, or infrastructure belonging to the platform.
@@ -129,7 +172,7 @@ export default function AcceptTermsPage() {
                 </h3>
                 <p>
                   Your organization retains full ownership of all inventory,
-                  logistical, and operational data uploaded to FORETRACK. The
+                  logistical, and operational data uploaded to ForeTrack. The
                   platform processes this data exclusively to provide optimized
                   inventory management tools specifically scaled for small to
                   medium-sized enterprise operations. We employ
@@ -142,7 +185,7 @@ export default function AcceptTermsPage() {
                   6. Limitation of Liability
                 </h3>
                 <p>
-                  FORETRACK is provided on an "as is" and "as available" basis.
+                  ForeTrack is provided on an "as is" and "as available" basis.
                   The licensor shall not be held liable for any indirect,
                   incidental, or consequential damages, including but not
                   limited to inventory discrepancies, financial losses, or
@@ -158,7 +201,7 @@ export default function AcceptTermsPage() {
                 <p>
                   All software, design, text, graphics, and other content within
                   the platform are the exclusive intellectual property of
-                  FORETRACK. Continued use of the service grants you a limited,
+                  ForeTrack. Continued use of the service grants you a limited,
                   non-exclusive license to use the software for its intended
                   operational purposes.
                 </p>
@@ -170,7 +213,7 @@ export default function AcceptTermsPage() {
                 </h3>
                 <p>
                   While we strive for high operational availability to support
-                  your business, FORETRACK does not guarantee 100% continuous,
+                  your business, ForeTrack does not guarantee 100% continuous,
                   uninterrupted uptime. Scheduled maintenance and updates will
                   be communicated in advance whenever possible.
                 </p>
@@ -181,7 +224,7 @@ export default function AcceptTermsPage() {
                   9. Modifications to Terms
                 </h3>
                 <p>
-                  FORETRACK reserves the right to modify or replace these Terms
+                  ForeTrack reserves the right to modify or replace these Terms
                   at any time. Significant changes will be communicated via the
                   platform dashboard. Continued use of the application following
                   any modifications constitutes formal acceptance of the updated
@@ -196,7 +239,7 @@ export default function AcceptTermsPage() {
                 <p>
                   For any questions, legal inquiries, or compliance concerns
                   regarding these Terms of Service, please contact your
-                  designated FORETRACK technical support representative or
+                  designated ForeTrack technical support representative or
                   system administrator.
                 </p>
               </section>
@@ -216,7 +259,7 @@ export default function AcceptTermsPage() {
               htmlFor="terms"
               className="text-sm font-semibold leading-snug cursor-pointer text-slate-700 dark:text-slate-300"
             >
-              I have read and agree to the FORETRACK Terms and Conditions.
+              I have read and agree to the ForeTrack Terms and Conditions.
             </label>
           </div>
 

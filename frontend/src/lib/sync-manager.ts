@@ -132,8 +132,20 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
   }
 };
 
+
+// 👇 THE LOCK: Prevents rapid-fire duplicate syncs when toggling networks
+let isPushing = false;
+
 // 3. PUSH: Upload Local Changes
 export const pushData = async (): Promise<{ success: boolean; count?: number; halted?: boolean; error?: any }> => {
+  // EMERGENCY BRAKE: If already pushing, ignore the request
+  if (isPushing) {
+    console.log("🔒 Sync is locked: Push already in progress. Ignoring duplicate trigger.");
+    return { success: true, count: 0 };
+  }
+
+  isPushing = true; // Engage the lock
+
   try {
     const headers = getAuthHeaders();
     if (!headers.Authorization) return { success: false, error: "No token" };
@@ -170,6 +182,9 @@ export const pushData = async (): Promise<{ success: boolean; count?: number; ha
 
     console.error("❌ Push Failed:", error);
     return { success: false, error };
+  } finally {
+    // 🔓 ALWAYS release the lock, whether the sync succeeded, failed, or errored
+    isPushing = false;
   }
 };
 

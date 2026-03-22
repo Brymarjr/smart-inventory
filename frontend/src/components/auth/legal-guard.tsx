@@ -17,6 +17,9 @@ export function LegalGuard({ children }: { children: React.ReactNode }) {
     // 2. If not logged in, skip
     if (!user) return;
 
+    // 🚀 THE FIX: If the user is a super admin, exit the check entirely
+    if (user.is_superuser) return;
+
     const legalPath = "/legal/accept-terms";
 
     // 3. CHECK: Has user accepted ToS?
@@ -37,7 +40,7 @@ export function LegalGuard({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-card dark:bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }

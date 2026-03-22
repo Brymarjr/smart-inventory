@@ -25,7 +25,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+
+// ✅ USING DIALOG (Centered Modal) per frontend-features
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription 
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Loader2, Zap, TrendingDown, History, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +57,7 @@ type ProductFormValues = z.infer<typeof productSchema>;
 interface ProductFormProps {
   isOpen: boolean;
   onClose: () => void;
-  product?: Product | null; // Pass this if we are VIEWING or EDITING
+  product?: Product | null; 
   mode?: 'create' | 'view' | 'edit';
 }
 
@@ -120,16 +128,18 @@ export function ProductForm({ isOpen, onClose, product, mode = 'create' }: Produ
         category_id: values.category_id ? parseInt(values.category_id) : null,
         supplier_id: values.supplier_id ? parseInt(values.supplier_id) : null,
       };
-      await api.post('/api/products/', payload);
+      
+      if (mode === 'edit' && product) {
+        await api.patch(`/api/products/${product.id}/`, payload);
+      } else {
+        await api.post('/api/products/', payload);
+      }
     },
     onSuccess: () => {
-      toast.success('Product created successfully');
+      toast.success(mode === 'edit' ? 'Product updated' : 'Product created');
       queryClient.invalidateQueries({ queryKey: ['products'] });
       form.reset();
       onClose();
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to save product.");
     },
   });
 
@@ -139,18 +149,18 @@ export function ProductForm({ isOpen, onClose, product, mode = 'create' }: Produ
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="overflow-y-auto max-h-[90vh] sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>
             {isViewMode ? 'Product Insights' : mode === 'edit' ? 'Edit Product' : 'Add New Product'}
-          </SheetTitle>
-          <SheetDescription>
-            {isViewMode ? 'Strategic procurement history and cost analysis.' : 'Manage your item catalog.'}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogTitle>
+          <DialogDescription>
+            {isViewMode ? 'Strategic procurement history and cost analysis.' : 'Manage your item catalog settings.'}
+          </DialogDescription>
+        </DialogHeader>
         
-        <div className="mt-6">
+        <div className="mt-4">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               
@@ -161,7 +171,7 @@ export function ProductForm({ isOpen, onClose, product, mode = 'create' }: Produ
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Product Name</FormLabel>
-                      <FormControl><Input disabled={isViewMode} {...field} /></FormControl>
+                      <FormControl><Input disabled={isViewMode} placeholder="e.g. Paracetamol" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -171,8 +181,8 @@ export function ProductForm({ isOpen, onClose, product, mode = 'create' }: Produ
                   name="sku"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>SKU</FormLabel>
-                      <FormControl><Input disabled={isViewMode} {...field} /></FormControl>
+                      <FormLabel>SKU / Product ID</FormLabel>
+                      <FormControl><Input disabled={isViewMode} placeholder="e.g. PC-001" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -211,8 +221,9 @@ export function ProductForm({ isOpen, onClose, product, mode = 'create' }: Produ
                     name="quantity"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Initial Stock</FormLabel>
-                        <FormControl><Input type="number" {...field} /></FormControl>
+                        <FormLabel>Stock Quantity</FormLabel>
+                        <FormControl><Input type="number" disabled={mode === 'edit'} {...field} /></FormControl>
+                        <FormDescription className="text-[10px]">Use adjustments to change existing stock.</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -231,28 +242,28 @@ export function ProductForm({ isOpen, onClose, product, mode = 'create' }: Produ
                 </div>
               )}
 
-              {/* PROCUREMENT INSIGHTS SECTION */}
+              {/* PROCUREMENT INSIGHTS SECTION - Your Strategic Logic */}
               {isViewMode && product?.supplier_prices && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                   <div className="flex items-center gap-2 text-primary pt-4">
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 py-2">
+                   <div className="flex items-center gap-2 text-primary pt-2">
                     <History className="h-4 w-4" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider">Supplier Price Comparison</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-wider">Supplier Price History</h3>
                   </div>
                   <Separator />
                   
-                  <div className="space-y-2">
+                  <div className="grid gap-2">
                     {product.supplier_prices.length === 0 ? (
-                      <div className="p-4 rounded-lg bg-muted text-center text-xs text-muted-foreground">
-                        No purchase history found for this product.
+                      <div className="p-4 rounded-lg bg-muted text-center text-xs text-muted-foreground italic border-dashed border-2">
+                        No purchase records available for this item yet.
                       </div>
                     ) : (
                       product.supplier_prices.map((sp: any) => (
-                        <div key={sp.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                        <div key={sp.id} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border shadow-sm">
                           <div>
-                            <p className="text-xs font-bold">{sp.supplier_name}</p>
-                            <p className="text-[10px] text-muted-foreground">Last Paid: {new Date(sp.last_updated).toLocaleDateString()}</p>
+                            <p className="text-xs font-bold text-slate-900">{sp.supplier_name}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-medium">Updated: {new Date(sp.last_updated).toLocaleDateString()}</p>
                           </div>
-                          <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200">
+                          <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200 font-bold">
                             ₦{parseFloat(sp.supply_price).toLocaleString()}
                           </Badge>
                         </div>
@@ -263,18 +274,18 @@ export function ProductForm({ isOpen, onClose, product, mode = 'create' }: Produ
               )}
 
               {!isViewMode && (
-                <div className="flex justify-end gap-3 pt-4">
-                  <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                  <Button type="submit" disabled={createMutation.isPending}>
+                <div className="flex justify-end gap-3 pt-6">
+                  <Button type="button" variant="ghost" onClick={onClose}>Discard</Button>
+                  <Button type="submit" disabled={createMutation.isPending} className="px-8">
                     {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Product
+                    {mode === 'edit' ? 'Update Product' : 'Save Product'}
                   </Button>
                 </div>
               )}
             </form>
           </Form>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -21,29 +21,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
-    // 1. Grab the info from the current user state directly without making the whole function depend on 'user'
-    // We use a temporary variable so we don't need 'user' in the dependency array
-    const token = localStorage.getItem('access_token');
-    
+    // 1. Identify path before wiping storage
+    const isAdminPath = window.location.pathname.startsWith('/system-admin');
+
     // 2. Wipe EVERYTHING
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
     
-    // We check if we're on a system-admin path OR if the user was an admin 
-    // to decide where to send them
-    const isAdminPath = window.location.pathname.startsWith('/system-admin');
+    // 3. Clear API Headers
+    delete api.defaults.headers.common['Authorization'];
 
     setUser(null);
 
-    // 3. Conditional Redirect
+    // 4. Conditional Redirect based on user context
     if (isAdminPath) {
       window.location.href = '/system-admin/login';
     } else {
       window.location.href = '/login';
     }
-  }, []); // ✅ EMPTY ARRAY = NO MORE LOOPS
+  }, []);
 
   const fetchUserProfile = useCallback(async () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -82,12 +80,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
 
-    const safeTenantSlug = tenant.toLowerCase().trim().replace(/\s+/g, '-');
+    const cleanTenant = tenant.trim().toLowerCase();
 
     try {
       const { data } = await api.post<AuthResponse>('/api/login/', { 
-        tenant: safeTenantSlug, 
-        tenant_slug: safeTenantSlug,
+        tenant: cleanTenant, 
+        tenant_slug: cleanTenant,
         username: email, 
         email: email,
         password: password 
@@ -95,16 +93,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
-      localStorage.setItem('tenant_slug', safeTenantSlug);
+      localStorage.setItem('tenant_slug', cleanTenant);
       localStorage.setItem('username', email); 
+
+      // ✅ FIX: Manually inject the token into the API instance immediately.
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
 
       setUser(data.user);
 
-      if (!data.user.tos_accepted_at) {
-        window.location.href = '/legal/accept-terms';
-      } else {
-        window.location.href = '/dashboard';
-      }
+      // We use a small delay to ensure localStorage is synced
+      setTimeout(() => {
+        if (!data.user.tos_accepted_at) {
+          window.location.href = '/legal/accept-terms';
+        } else {
+          window.location.href = '/dashboard';
+        }
+      }, 100);
 
       toast.success('Access Granted');
     } catch (error: any) {
@@ -115,33 +119,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginAdmin = async (username: string, password: string) => {
-    // 1. Clear everything first to ensure a clean slate
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('tenant_slug');
     localStorage.removeItem('username');
 
     try {
-      // 2. Auth token request
       const { data } = await api.post<AuthResponse>('/api/auth/token/', { username, password });
       
-      // 3. Get user profile using the fresh token to verify superuser status
-      const userRes = await api.get<User>('/api/users/me/', {
-        headers: { Authorization: `Bearer ${data.access}` }
-      });
+      // Update headers for admin profile fetch
+      api.defaults.headers.common['Authorization'] = `Bearer ${data.access}`;
+
+      const userRes = await api.get<User>('/api/users/me/');
 
       if (!userRes.data.is_superuser) {
         throw new Error('Unauthorized: Not a System Admin');
       }
 
-      // 4. Save new admin data
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('username', username); 
       
       setUser(userRes.data);
       
-      // 5. Hard redirect to bypass any stale React state
       window.location.href = '/system-admin'; 
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || error.message || 'Admin login failed';

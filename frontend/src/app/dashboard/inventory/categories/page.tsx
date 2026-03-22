@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // ✅ Added router import
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
@@ -30,6 +31,7 @@ import { DebouncedInput } from '@/components/shared/debounced-input';
 
 export default function CategoriesPage() {
   const { user } = useAuth();
+  const router = useRouter(); // ✅ Initialized router
   
   // ✅ State holds "final" search term only
   const [search, setSearch] = useState('');
@@ -72,6 +74,8 @@ export default function CategoriesPage() {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsCreateOpen(false);
       setName(''); setDescription('');
+      // ✅ Push user to products page after successful creation
+      router.push('/dashboard/inventory');
     },
     onError: (error: any) => handleApiError(error)
   });

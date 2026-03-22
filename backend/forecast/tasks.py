@@ -167,8 +167,7 @@ def _detect_anomalies(tenant, product, df, model_info):
 @shared_task(bind=True)
 def generate_daily_forecasts(self, tenant_id):
     """
-    Uses the brain to predict tomorrow. 
-    (Anomaly detection removed from here to prevent conflicts)
+    Uses the brain to predict the next 7 days.
     """
     tenant = Tenant.objects.get(id=tenant_id)
     
@@ -182,44 +181,54 @@ def generate_daily_forecasts(self, tenant_id):
     today = timezone.now().date()
     
     with transaction.atomic():
-        Forecast.objects.filter(tenant=tenant, prediction_date__lt=today).delete()
+        # THE FIX: Wipe ALL existing forecasts for this tenant before generating new ones.
+        # This completely destroys the "Ghost of Yesterday" bug.
+        Forecast.objects.filter(tenant=tenant).delete()
 
         for product in Product.objects.filter(tenant=tenant):
             info = model_registry.get(product.id)
             if not info: continue
             
-            tomorrow = today + timedelta(days=1)
-            next_day_index = info['last_day_index'] + 1
-            predicted_qty = 0
-            reason = "Insuff. Data"
-
-            if info['type'] == 'average':
-                predicted_qty = info['avg_sales']
-                reason = "Based on average"
-
-            elif info['type'] == 'linear_trend':
-                reg = info['model_obj']
-                predicted_qty = reg.predict(pd.DataFrame({'day_index': [next_day_index]}))[0]
-                slope = info['slope']
-                reason = "Trending Up 📈" if slope > 0.05 else "Trending Down 📉"
-
-            elif info['type'] == 'seasonal_trend':
-                reg = info['model_obj']
-                dow = tomorrow.weekday()
-                input_data = {'day_index': [next_day_index]}
-                for d in range(7):
-                    input_data[f'dow_{d}'] = [1 if d == dow else 0]
+            # UPGRADE: Loop through the next 7 days instead of just 1!
+            for day_offset in range(1, 8):
+                target_date = today + timedelta(days=day_offset)
+                next_day_index = info['last_day_index'] + day_offset
                 
-                predicted_qty = reg.predict(pd.DataFrame(input_data))[0]
-                day_name = tomorrow.strftime("%A")
-                reason = f"{day_name} Pattern"
+                predicted_qty = 0
+                reason = "Insuff. Data"
 
-            predicted_qty = max(0, round(predicted_qty, 1))
+                if info['type'] == 'average':
+                    predicted_qty = info['avg_sales']
+                    reason = "Based on average"
 
-            Forecast.objects.update_or_create(
-                tenant=tenant, product=product, prediction_date=tomorrow,
-                defaults={'predicted_quantity': predicted_qty, 'reasoning': reason}
-            )
+                elif info['type'] == 'linear_trend':
+                    reg = info['model_obj']
+                    predicted_qty = reg.predict(pd.DataFrame({'day_index': [next_day_index]}))[0]
+                    slope = info['slope']
+                    reason = "Trending Up 📈" if slope > 0.05 else "Trending Down 📉"
+
+                elif info['type'] == 'seasonal_trend':
+                    reg = info['model_obj']
+                    dow = target_date.weekday()
+                    input_data = {'day_index': [next_day_index]}
+                    for d in range(7):
+                        input_data[f'dow_{d}'] = [1 if d == dow else 0]
+                    
+                    predicted_qty = reg.predict(pd.DataFrame(input_data))[0]
+                    day_name = target_date.strftime("%A")
+                    reason = f"{day_name} Pattern"
+
+                # Ensure we don't predict negative sales
+                predicted_qty = max(0, round(predicted_qty, 1))
+
+                # Save the forecast for this specific day in the 7-day loop
+                Forecast.objects.create(
+                    tenant=tenant, 
+                    product=product, 
+                    prediction_date=target_date,
+                    predicted_quantity=predicted_qty, 
+                    reasoning=reason
+                )
 
 @shared_task
 def run_analytics_for_all(sync=False):

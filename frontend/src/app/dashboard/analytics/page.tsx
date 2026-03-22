@@ -3,11 +3,10 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import api from "@/lib/api"; 
+import api from "@/lib/api";
 import {
   forecastService,
   DashboardData,
-  AnomalyAlert,
 } from "@/services/forecastService";
 import {
   TrendingUp,
@@ -24,11 +23,11 @@ import {
   X,
   ExternalLink,
   Lock,
-  Search,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
+  Search,
   LineChart,
-  Eye,
   Ghost,
   Zap
 } from "lucide-react";
@@ -51,7 +50,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -61,15 +66,28 @@ import {
   CartesianGrid, 
   Tooltip as ReChartsTooltip 
 } from "recharts";
-import { 
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip"; 
+} from "@/components/ui/tooltip";
+import { DebouncedInput } from "@/components/shared/debounced-input";
 import { toast } from "sonner";
 
+// --- TYPES ---
 type FilterType = "all" | "critical" | "ghost_stock" | "velocity_spike";
+
+interface ExtendedAnomalyAlert {
+  id: number;
+  product_name: string;
+  product_sku: string;
+  product_id?: number; // Added to help with routing
+  anomaly_type: "shrinkage" | "velocity_spike" | "stockout_risk";
+  severity: "low" | "medium" | "high";
+  description: string;
+  detected_at: string;
+}
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -78,17 +96,25 @@ export default function AnalyticsPage() {
   const [forecasts, setForecasts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [nextPage, setNextPage] = useState<string | null>(null);
-  const [prevPage, setPrevPage] = useState<string | null>(null);
-
+  
   const [isLocked, setIsLocked] = useState(false);
   const [lockMessage, setLockMessage] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
-  const [selectedAlert, setSelectedAlert] = useState<AnomalyAlert | null>(null);
-  const [selectedProductChart, setSelectedProductChart] = useState<{name: string, data: any[]} | null>(null);
 
-  const loadSummary = async () => {
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [selectedAlert, setSelectedAlert] = useState<ExtendedAnomalyAlert | null>(null);
+
+  const [forecastPage, setForecastPage] = useState(1);
+  const [forecastTotal, setForecastTotal] = useState(0);
+  const [forecastSearch, setForecastSearch] = useState(""); 
+  const [isForecastsLoading, setIsForecastsLoading] = useState(false);
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [isChartLoading, setIsChartLoading] = useState(false);
+
+  const loadDashboard = async () => {
+    setLoading(true);
     try {
       const result = await forecastService.getDashboard();
       if ("isLocked" in result && result.isLocked) {
@@ -99,58 +125,71 @@ export default function AnalyticsPage() {
       setData(result as DashboardData);
     } catch (err) {
       setError("Failed to connect to Intelligence Engine.");
-    }
-  };
-
-  const loadForecasts = useCallback(async (url: string = "/api/forecasts/", search: string = "") => {
-    setLoading(true);
-    try {
-      let finalUrl = url;
-      if (search) {
-        const connector = finalUrl.includes("?") ? "&" : "?";
-        finalUrl += `${connector}search=${encodeURIComponent(search)}`;
-      }
-      const { data } = await api.get(finalUrl);
-      setForecasts(data.results || []);
-      setNextPage(data.next);
-      setPrevPage(data.previous);
-    } catch (err) {
-      console.error("Forecast load error:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    loadSummary();
-    loadForecasts();
-  }, [loadForecasts]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadForecasts("/api/forecasts/", searchQuery);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery, loadForecasts]);
-
-  const fetchProductTrend = async (productId: any, productName: string) => {
+  const loadForecasts = async (page: number, search: string = forecastSearch) => {
+    setIsForecastsLoading(true);
     try {
-      const { data } = await api.get(`/api/forecasts/product_chart/?product_id=${productId}`);
-      setSelectedProductChart({ name: productName, data: data.timeline });
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateString = tomorrow.toISOString().split('T')[0];
+
+      const res = await api.get(`/api/forecasts/?page=${page}&prediction_date=${dateString}&search=${search}`);
+      setForecasts(res.data.results);
+      setForecastTotal(res.data.count);
+      setForecastPage(page);
     } catch (err) {
-      toast.error("Failed to load trend data");
+      console.error("Failed to load forecasts", err);
+    } finally {
+      setIsForecastsLoading(false);
     }
   };
 
+  const loadChartData = async (productId: number) => {
+    setIsChartLoading(true);
+    setChartData([]);
+    try {
+      const res = await api.get(`/api/forecasts/product_chart/?product_id=${productId}`);
+      setChartData(res.data.timeline);
+    } catch (err) {
+      console.error("Failed to load chart", err);
+    } finally {
+      setIsChartLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+    loadForecasts(1, "");
+  }, []);
+
+  useEffect(() => {
+    if (!loading) { 
+        loadForecasts(1, forecastSearch);
+    }
+  }, [forecastSearch]);
+
   const getFilteredAlerts = () => {
     if (!data || !data.alerts) return [];
-    if (activeFilter === "all") return data.alerts;
-    return data.alerts.filter((alert) => {
-      if (activeFilter === "critical") return alert.severity === "high";
+    const alerts = data.alerts as unknown as ExtendedAnomalyAlert[];
+    if (activeFilter === "all") return alerts;
+    return alerts.filter((alert) => {
+      if (activeFilter === "critical") return alert.anomaly_type === "stockout_risk" || alert.severity === "high";
       if (activeFilter === "ghost_stock") return alert.anomaly_type === "shrinkage";
       if (activeFilter === "velocity_spike") return alert.anomaly_type === "velocity_spike";
       return true;
     });
+  };
+
+  const openDrawer = (productData: any) => {
+    setSelectedProduct(productData);
+    setIsDrawerOpen(true);
+    if (productData.product) {
+      loadChartData(productData.product);
+    }
   };
 
   if (loading && !data && !isLocked) {
@@ -165,10 +204,33 @@ export default function AnalyticsPage() {
   if (isLocked) {
     return (
       <div className="flex flex-col items-center justify-center h-[70vh] text-center max-w-md mx-auto animate-in fade-in duration-500">
-        <div className="bg-primary/10 p-6 rounded-full mb-6"><Lock className="w-12 h-12 text-primary" /></div>
+        <div className="bg-primary/10 p-6 rounded-full mb-6">
+          <Lock className="w-12 h-12 text-primary" />
+        </div>
         <h2 className="text-3xl font-bold text-foreground mb-3">Enterprise Intelligence</h2>
-        <p className="text-muted-foreground mb-8">{lockMessage || "Upgrade for AI insights."}</p>
-        <Link href="/dashboard/billing" className="w-full"><Button size="lg" className="w-full rounded-xl">Upgrade Now</Button></Link>
+        <p className="text-muted-foreground mb-8 leading-relaxed">
+          {lockMessage || "Unlock AI-driven demand forecasting, anomaly detection, and advanced inventory insights by upgrading your plan."}
+        </p>
+        <Link href="/dashboard/billing">
+          <Button size="lg" className="w-full font-bold text-md h-12 rounded-xl">
+            Upgrade to Enterprise
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Connection Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button onClick={() => { loadDashboard(); loadForecasts(1); }} variant="outline" className="mt-4">
+          Retry
+        </Button>
       </div>
     );
   }
@@ -185,10 +247,17 @@ export default function AnalyticsPage() {
         </div>
         <div className="flex gap-2">
           {activeFilter !== "all" && (
-            <Button variant="ghost" size="sm" onClick={() => setActiveFilter("all")}><FilterX className="mr-2 h-4 w-4" /> Reset</Button>
+            <Button variant="ghost" size="sm" onClick={() => setActiveFilter("all")}>
+              <FilterX className="mr-2 h-4 w-4" /> Reset Filters
+            </Button>
           )}
-          <Button onClick={() => { loadSummary(); loadForecasts(); }} variant="outline" size="sm">
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Sync
+          <Button
+            onClick={() => { loadDashboard(); loadForecasts(1); }}
+            variant="outline"
+            size="sm"
+            disabled={loading || isForecastsLoading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading || isForecastsLoading ? "animate-spin" : ""}`} /> Sync Data
           </Button>
         </div>
       </div>
@@ -199,30 +268,43 @@ export default function AnalyticsPage() {
             title="Total Anomalies" value={summary.total_alerts} icon={AlertTriangle} 
             isActive={activeFilter === "all"} onClick={() => setActiveFilter("all")} 
             className={summary.total_alerts > 0 ? "border-red-200 bg-red-50/50" : ""}
-            description="Total number of irregularities detected across your entire stock catalog."
+            tooltip="Total number of irregularities detected across your entire stock catalog."
         />
         <StatWidget 
             title="Critical Risks" value={summary.critical_alerts} icon={Activity} 
             isActive={activeFilter === "critical"} onClick={() => setActiveFilter("critical")} 
             className={summary.critical_alerts > 0 ? "border-red-400 bg-red-100" : ""} 
-            description="Products at high risk of stockout within 14 days based on current velocity."
+            tooltip="Products at high risk of stockout within 14 days based on current velocity."
         />
         <StatWidget 
             title="Ghost Stock" value={summary.ghost_stock} icon={Ghost} 
             isActive={activeFilter === "ghost_stock"} onClick={() => setActiveFilter("ghost_stock")} 
-            description="Products with positive stock levels but zero recorded sales for over 7 days."
+            tooltip="Products with positive stock levels but zero recorded sales for over 7 days."
         />
         <StatWidget 
             title="Velocity Spikes" value={summary.velocity_spikes} icon={TrendingUp} 
             isActive={activeFilter === "velocity_spike"} onClick={() => setActiveFilter("velocity_spike")} 
-            description="Sudden surges in demand that deviate significantly from the 90-day average."
+            tooltip="Sudden surges in demand that deviate significantly from the baseline average."
         />
       </div>
       </TooltipProvider>
 
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-        <Card className={`lg:col-span-1 border-l-4 ${activeFilter === 'ghost_stock' ? 'border-l-purple-500' : activeFilter === 'velocity_spike' ? 'border-l-blue-500' : 'border-l-red-500'}`}>
-          <CardHeader><CardTitle className="text-lg">Anomaly Feed</CardTitle></CardHeader>
+        {/* --- ANOMALY FEED --- */}
+        <Card className={`lg:col-span-1 border-l-4 transition-all ${
+            activeFilter === 'ghost_stock' ? 'border-l-purple-500' : 
+            activeFilter === 'velocity_spike' ? 'border-l-blue-500' : 
+            activeFilter === 'critical' ? 'border-l-red-500' : 'border-l-yellow-400'
+        }`}>
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg justify-between">
+              <span className="flex items-center">
+                <AlertTriangle className="mr-2 h-5 w-5 text-muted-foreground" />
+                Anomaly Feed
+              </span>
+              <Badge variant="outline">{filteredAlerts.length}</Badge>
+            </CardTitle>
+          </CardHeader>
           <CardContent className="grid gap-4 max-h-[600px] overflow-y-auto pr-2">
             {filteredAlerts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground italic">System Healthy</div>
@@ -249,83 +331,141 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div><CardTitle>Demand Projections</CardTitle><CardDescription>7-Day trend analysis and procurement suggestions.</CardDescription></div>
-              <div className="relative w-full md:w-64"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Search catalog..." className="pl-8" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader><TableRow><TableHead>Item</TableHead><TableHead>Stock</TableHead><TableHead>Daily Velocity</TableHead><TableHead>Strategy</TableHead><TableHead className="text-right">Trend</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {forecasts.map((item, idx) => (
-                  <TableRow key={idx} className="group transition-colors">
-                    <TableCell>
-                      <div className="font-bold text-sm">{item.product_name}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase">{item.product_sku}</div>
-                    </TableCell>
-                    <TableCell><Badge variant={item.current_stock < 10 ? "destructive" : "outline"}>{item.current_stock}</Badge></TableCell>
-                    <TableCell className="font-medium text-primary">~{Number(item.predicted_quantity).toFixed(1)}/day</TableCell>
-                    <TableCell><span className="text-xs font-medium text-slate-600">{item.reasoning}</span></TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-600" onClick={() => fetchProductTrend(item.product, item.product_name)}>
-                        <LineChart className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <p className="text-[10px] text-muted-foreground italic flex items-center gap-2"><Zap className="h-3 w-3 fill-amber-500 text-amber-500" /> Powered by Evolutionary V1 Forecasting Engine</p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={!prevPage} onClick={() => loadForecasts(prevPage!)}><ChevronLeft className="h-4 w-4" /></Button>
-                <Button variant="outline" size="sm" disabled={!nextPage} onClick={() => loadForecasts(nextPage!)}><ChevronRight className="h-4 w-4" /></Button>
+        {/* --- FORECAST TABLE --- */}
+        <Card className="lg:col-span-2 flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center text-lg">
+                  <TrendingUp className="mr-2 h-5 w-5 text-blue-500" />
+                  Demand Projections
+                </CardTitle>
+                <CardDescription>7-Day trend analysis and procurement suggestions.</CardDescription>
+              </div>
+              <div className="w-full sm:w-64 relative">
+                <DebouncedInput 
+                  value={forecastSearch}
+                  onChange={(val) => setForecastSearch(val)}
+                  isLoading={isForecastsLoading}
+                  placeholder="Search products or SKU..."
+                />
               </div>
             </div>
+          </CardHeader>
+          <CardContent className="flex-1 flex flex-col pt-0">
+            <div className="flex-1 overflow-auto rounded-md border">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Stock</TableHead>
+                    <TableHead>Daily Velocity</TableHead>
+                    <TableHead className="hidden md:table-cell">AI Strategy</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {isForecastsLoading && forecasts.length === 0 ? (
+                        <TableRow><TableCell colSpan={5} className="h-48 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                    ) : (
+                        forecasts.map((item, idx) => (
+                        <TableRow 
+                            key={idx} 
+                            onClick={() => openDrawer(item)}
+                            className="cursor-pointer hover:bg-slate-50 transition-colors group"
+                        >
+                            <TableCell>
+                            <div className="font-bold text-sm group-hover:text-blue-600 transition-colors">{item.product_name}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase">{item.product_sku}</div>
+                            </TableCell>
+                            <TableCell><Badge variant={item.current_stock < 10 ? "destructive" : "outline"}>{item.current_stock}</Badge></TableCell>
+                            <TableCell className="font-medium text-primary">~{Number(item.predicted_quantity).toFixed(1)}/day</TableCell>
+                            <TableCell className="hidden md:table-cell"><span className="text-xs font-medium text-slate-600">{item.reasoning}</span></TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" className="h-8 w-8"><LineChart className="h-4 w-4" /></Button>
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    )}
+                </TableBody>
+                </Table>
+            </div>
+            {!isForecastsLoading && forecastTotal > 0 && (
+                <div className="flex items-center justify-between pt-4 border-t mt-4">
+                    <p className="text-[10px] text-muted-foreground italic flex items-center gap-2"><Zap className="h-3 w-3 fill-amber-500 text-amber-500" /> Powered by Evolutionary V1 Engine</p>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" disabled={forecastPage === 1} onClick={() => loadForecasts(forecastPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="sm" disabled={forecastPage >= Math.ceil(forecastTotal / 10)} onClick={() => loadForecasts(forecastPage + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+                </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {selectedProductChart && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <Card className="w-full max-w-4xl border-t-8 border-t-primary">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div><CardTitle className="text-2xl">{selectedProductChart.name}</CardTitle><CardDescription>Predicted sales velocity for the next 7 days</CardDescription></div>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedProductChart(null)} className="rounded-full"><X className="h-6 w-6" /></Button>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[350px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={selectedProductChart.data}>
-                    <defs><linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" /><XAxis dataKey="prediction_date" axisLine={false} tickLine={false} tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {weekday: 'short'})} /><YAxis axisLine={false} tickLine={false} /><ReChartsTooltip labelClassName="text-slate-900 font-bold" />
-                    <Area type="monotone" dataKey="predicted_quantity" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorQty)" name="Predicted Units" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-8">
-                {selectedProductChart.data.map((day: any, i: number) => (
-                  <div key={i} className="border-2 rounded-xl p-3 text-center bg-muted/20 hover:border-primary/30 transition-all">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{new Date(day.prediction_date).toLocaleDateString(undefined, {weekday: 'short'})}</p>
-                    <p className="text-2xl font-black text-primary">{Number(day.predicted_quantity).toFixed(0)}</p>
-                    <p className="text-[9px] text-slate-500 font-medium leading-tight mt-1">{day.reasoning}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* --- TREND DRAWER --- */}
+      <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <SheetContent className="sm:max-w-md w-full border-l overflow-y-auto">
+          <SheetHeader className="pb-4 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              7-Day Demand Trend
+            </SheetTitle>
+            <SheetDescription>Projections for {selectedProduct?.product_name}</SheetDescription>
+          </SheetHeader>
+          <div className="py-6">
+            <div className="bg-slate-50 p-4 rounded-lg border mb-6">
+                <div className="text-lg font-bold">{selectedProduct?.product_name}</div>
+                <div className="flex gap-4 mt-3">
+                    <div>
+                        <div className="text-xs text-muted-foreground uppercase font-bold">Stock</div>
+                        <div className={`text-lg font-medium ${selectedProduct?.current_stock <= 5 ? 'text-red-600' : ''}`}>{selectedProduct?.current_stock}</div>
+                    </div>
+                    <div>
+                        <div className="text-xs text-muted-foreground uppercase font-bold">Tomorrow's Need</div>
+                        <div className="text-lg font-medium text-blue-600">{selectedProduct?.predicted_quantity?.toFixed(1)}</div>
+                    </div>
+                </div>
+            </div>
+            
+            {isChartLoading ? (
+                <div className="flex flex-col items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>
+            ) : (
+                <div className="space-y-6">
+                    <div className="h-48 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <defs><linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="prediction_date" hide />
+                          <YAxis hide />
+                          <ReChartsTooltip />
+                          <Area type="monotone" dataKey="predicted_quantity" stroke="#3b82f6" fill="url(#colorQty)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="space-y-3">
+                        <h3 className="font-semibold text-sm">Timeline Breakdown</h3>
+                        {chartData.map((day, idx) => (
+                            <div key={idx} className="flex items-center justify-between text-sm p-2 rounded border-b">
+                                <span className="text-muted-foreground">{new Date(day.prediction_date).toLocaleDateString(undefined, {weekday: 'short'})}</span>
+                                <span className="font-medium text-blue-600">{day.predicted_quantity.toFixed(1)}</span>
+                                <span className="text-[10px] text-slate-500 italic">{day.reasoning}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {selectedAlert && <InvestigationModal alert={selectedAlert} onClose={() => setSelectedAlert(null)} router={router} />}
     </div>
   );
 }
 
-function StatWidget({ title, value, icon: Icon, className, description, onClick, isActive }: any) {
+function StatWidget({ title, value, icon: Icon, className, tooltip, onClick, isActive }: any) {
   return (
     <Tooltip>
         <TooltipTrigger asChild>
@@ -338,47 +478,31 @@ function StatWidget({ title, value, icon: Icon, className, description, onClick,
             </Card>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="w-64 p-3 bg-slate-900 text-white text-xs rounded-lg shadow-xl">
-            <p className="leading-relaxed">{description}</p>
+            <p className="leading-relaxed">{tooltip}</p>
         </TooltipContent>
     </Tooltip>
   );
 }
 
-function InvestigationModal({ alert, onClose, router }: any) {
+function InvestigationModal({ alert, onClose, router }: { alert: ExtendedAnomalyAlert; onClose: () => void; router: any; }) {
   const getSteps = () => {
-    // Meaningful steps based on actual anomaly types
     if (alert.anomaly_type === "shrinkage") {
-      return [
-        "Perform an immediate physical stock count for this item.",
-        "Verify if the item was misplaced or hidden in the store.",
-        "Check POS return logs for unrecorded stock additions.",
-        "Update the inventory record to reflect the physical reality."
-      ];
+      return ["Perform a physical stock count.", "Check for hidden/misplaced items.", "Verify recent unrecorded returns.", "Review Security footage."];
     }
     if (alert.anomaly_type === "stockout_risk") {
-      return [
-        "Check current cash flow availability for restocking.",
-        "Review the AI-suggested supplier in the alert description.",
-        "Issue a new Purchase Order immediately to avoid stockout.",
-        "Notify relevant staff of the critical stock status."
-      ];
+      return ["Review current stock vs demand velocity.", "Check description for AI-suggested supplier.", "Issue a new Purchase Order immediately.", "Notify procurement staff."];
     }
     if (alert.anomaly_type === "velocity_spike") {
-      return [
-        "Review today's receipts to identify bulk purchases.",
-        "Verify if a recent marketing campaign caused the surge.",
-        "Check for data entry errors in the latest recorded sales.",
-        "Ensure procurement can keep up with the new velocity."
-      ];
+      return ["Review today's receipts for bulk buys.", "Verify recent marketing surges.", "Check for cashier entry errors.", "Update demand baseline if legitimate."];
     }
     return ["Verify history.", "Check for data entry errors.", "Confirm with cashier."];
   };
 
   const handleAction = () => {
     onClose();
-    // Logical routing based on anomaly intent
     if (alert.anomaly_type === "stockout_risk") {
-        router.push("/dashboard/purchases/create");
+        // ✅ CRITICAL: Routes to the procurement flow with product context
+        router.push(`/dashboard/purchases/create?product_id=${alert.product_id || ''}`);
     } else if (alert.anomaly_type === "shrinkage") {
         router.push("/dashboard/inventory");
     } else {
@@ -386,20 +510,26 @@ function InvestigationModal({ alert, onClose, router }: any) {
     }
   };
 
+  const colorConfig = {
+    shrinkage: "bg-purple-600 text-white",
+    stockout_risk: "bg-red-600 text-white",
+    velocity_spike: "bg-blue-600 text-white"
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in zoom-in-95 duration-200">
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border">
-        <div className={`p-5 border-b flex justify-between items-center font-black uppercase tracking-widest text-sm ${alert.anomaly_type === 'shrinkage' ? 'bg-purple-600 text-white' : alert.anomaly_type === 'stockout_risk' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border animate-in zoom-in-95">
+        <div className={`p-5 border-b flex justify-between items-center font-black uppercase tracking-widest text-sm ${colorConfig[alert.anomaly_type] || 'bg-slate-800 text-white'}`}>
             <h2>Investigation: {alert.product_name}</h2>
-            <X className="h-5 w-5 cursor-pointer hover:rotate-90 transition-transform" onClick={onClose} />
+            <X className="h-5 w-5 cursor-pointer" onClick={onClose} />
         </div>
         <div className="p-8 space-y-6">
-          <div className="bg-muted p-4 rounded-xl text-sm border-l-4 border-l-primary font-medium leading-relaxed italic text-slate-700">"{alert.description}"</div>
+          <div className="bg-muted p-4 rounded-xl text-sm border-l-4 border-l-primary font-medium italic text-slate-700">"{alert.description}"</div>
           <div className="space-y-3">
-            <p className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Recommended Actions:</p>
+            <p className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Recommended Steps:</p>
             <div className="grid gap-2">
                 {getSteps().map((s, i) => (
-                    <div key={i} className="flex gap-3 text-sm items-center p-2 rounded-lg bg-slate-50 border border-slate-100">
+                    <div key={i} className="flex gap-3 text-sm items-center p-2 rounded-lg bg-slate-50 border">
                         <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                         <span className="text-slate-700 font-medium">{s}</span>
                     </div>
