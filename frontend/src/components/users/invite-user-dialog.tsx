@@ -196,8 +196,7 @@ export function InviteUserDialog() {
                   <SelectContent>
                     <SelectItem value="staff">Employee</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="manager">Financial Officer</SelectItem>
-                    <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
+                    <SelectItem value="tenant_admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
