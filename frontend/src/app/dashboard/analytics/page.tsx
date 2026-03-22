@@ -50,13 +50,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -82,7 +75,7 @@ interface ExtendedAnomalyAlert {
   id: number;
   product_name: string;
   product_sku: string;
-  product_id?: number; // Added to help with routing
+  product_id?: number;
   anomaly_type: "shrinkage" | "velocity_spike" | "stockout_risk";
   severity: "low" | "medium" | "high";
   description: string;
@@ -108,9 +101,8 @@ export default function AnalyticsPage() {
   const [forecastSearch, setForecastSearch] = useState(""); 
   const [isForecastsLoading, setIsForecastsLoading] = useState(false);
 
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [chartData, setChartData] = useState<any[]>([]);
+  // ✅ Central Modal State
+  const [selectedProductChart, setSelectedProductChart] = useState<{name: string, data: any[]} | null>(null);
   const [isChartLoading, setIsChartLoading] = useState(false);
 
   const loadDashboard = async () => {
@@ -148,14 +140,13 @@ export default function AnalyticsPage() {
     }
   };
 
-  const loadChartData = async (productId: number) => {
+  const fetchProductTrend = async (productId: number, productName: string) => {
     setIsChartLoading(true);
-    setChartData([]);
     try {
-      const res = await api.get(`/api/forecasts/product_chart/?product_id=${productId}`);
-      setChartData(res.data.timeline);
+      const { data } = await api.get(`/api/forecasts/product_chart/?product_id=${productId}`);
+      setSelectedProductChart({ name: productName, data: data.timeline });
     } catch (err) {
-      console.error("Failed to load chart", err);
+      toast.error("Failed to load trend data");
     } finally {
       setIsChartLoading(false);
     }
@@ -182,14 +173,6 @@ export default function AnalyticsPage() {
       if (activeFilter === "velocity_spike") return alert.anomaly_type === "velocity_spike";
       return true;
     });
-  };
-
-  const openDrawer = (productData: any) => {
-    setSelectedProduct(productData);
-    setIsDrawerOpen(true);
-    if (productData.product) {
-      loadChartData(productData.product);
-    }
   };
 
   if (loading && !data && !isLocked) {
@@ -361,7 +344,7 @@ export default function AnalyticsPage() {
                     <TableHead>Stock</TableHead>
                     <TableHead>Daily Velocity</TableHead>
                     <TableHead className="hidden md:table-cell">AI Strategy</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead className="text-right">Trend</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -371,8 +354,7 @@ export default function AnalyticsPage() {
                         forecasts.map((item, idx) => (
                         <TableRow 
                             key={idx} 
-                            onClick={() => openDrawer(item)}
-                            className="cursor-pointer hover:bg-slate-50 transition-colors group"
+                            className="transition-colors group"
                         >
                             <TableCell>
                             <div className="font-bold text-sm group-hover:text-blue-600 transition-colors">{item.product_name}</div>
@@ -382,7 +364,15 @@ export default function AnalyticsPage() {
                             <TableCell className="font-medium text-primary">~{Number(item.predicted_quantity).toFixed(1)}/day</TableCell>
                             <TableCell className="hidden md:table-cell"><span className="text-xs font-medium text-slate-600">{item.reasoning}</span></TableCell>
                             <TableCell className="text-right">
-                              <Button variant="ghost" size="icon" className="h-8 w-8"><LineChart className="h-4 w-4" /></Button>
+                              {/* ✅ Restore Central Card Trigger */}
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 hover:text-blue-600"
+                                onClick={() => fetchProductTrend(item.product, item.product_name)}
+                              >
+                                <LineChart className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                         </TableRow>
                         ))
@@ -403,62 +393,89 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* --- TREND DRAWER --- */}
-      <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <SheetContent className="sm:max-w-md w-full border-l overflow-y-auto">
-          <SheetHeader className="pb-4 border-b">
-            <SheetTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-              7-Day Demand Trend
-            </SheetTitle>
-            <SheetDescription>Projections for {selectedProduct?.product_name}</SheetDescription>
-          </SheetHeader>
-          <div className="py-6">
-            <div className="bg-slate-50 p-4 rounded-lg border mb-6">
-                <div className="text-lg font-bold">{selectedProduct?.product_name}</div>
-                <div className="flex gap-4 mt-3">
-                    <div>
-                        <div className="text-xs text-muted-foreground uppercase font-bold">Stock</div>
-                        <div className={`text-lg font-medium ${selectedProduct?.current_stock <= 5 ? 'text-red-600' : ''}`}>{selectedProduct?.current_stock}</div>
-                    </div>
-                    <div>
-                        <div className="text-xs text-muted-foreground uppercase font-bold">Tomorrow's Need</div>
-                        <div className="text-lg font-medium text-blue-600">{selectedProduct?.predicted_quantity?.toFixed(1)}</div>
-                    </div>
-                </div>
-            </div>
-            
-            {isChartLoading ? (
-                <div className="flex flex-col items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>
-            ) : (
-                <div className="space-y-6">
-                    <div className="h-48 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                          <defs><linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/></linearGradient></defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="prediction_date" hide />
-                          <YAxis hide />
-                          <ReChartsTooltip />
-                          <Area type="monotone" dataKey="predicted_quantity" stroke="#3b82f6" fill="url(#colorQty)" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="space-y-3">
-                        <h3 className="font-semibold text-sm">Timeline Breakdown</h3>
-                        {chartData.map((day, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-sm p-2 rounded border-b">
-                                <span className="text-muted-foreground">{new Date(day.prediction_date).toLocaleDateString(undefined, {weekday: 'short'})}</span>
-                                <span className="font-medium text-blue-600">{day.predicted_quantity.toFixed(1)}</span>
-                                <span className="text-[10px] text-slate-500 italic">{day.reasoning}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* ✅ RESTORED: Central Chart Modal Card */}
+      {selectedProductChart && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <Card className="w-full max-w-4xl border-t-8 border-t-primary shadow-2xl relative">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl flex items-center gap-2">
+                  <BarChart3 className="h-6 w-6 text-primary" />
+                  {selectedProductChart.name}
+                </CardTitle>
+                <CardDescription>Predicted sales velocity for the next 7 days</CardDescription>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setSelectedProductChart(null)} 
+                className="rounded-full hover:bg-muted"
+              >
+                <X className="h-6 w-6" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[350px] w-full bg-slate-50/50 rounded-xl p-4 border border-dashed mb-6">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={selectedProductChart.data}>
+                    <defs>
+                      <linearGradient id="colorQty" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis 
+                      dataKey="prediction_date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fontSize: 12, fontWeight: 500}}
+                      tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, {weekday: 'short'})} 
+                    />
+                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
+                    <ReChartsTooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                      labelClassName="text-slate-900 font-bold" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="predicted_quantity" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3} 
+                      fillOpacity={1} 
+                      fill="url(#colorQty)" 
+                      name="Predicted Units" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                {selectedProductChart.data.map((day: any, i: number) => (
+                  <div key={i} className="border-2 rounded-xl p-3 text-center bg-muted/20 hover:border-primary/30 transition-all group">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">
+                      {new Date(day.prediction_date).toLocaleDateString(undefined, {weekday: 'short'})}
+                    </p>
+                    <p className="text-2xl font-black text-primary group-hover:scale-110 transition-transform">
+                      {Number(day.predicted_quantity).toFixed(0)}
+                    </p>
+                    <p className="text-[9px] text-slate-500 font-medium leading-tight mt-1 line-clamp-2">
+                      {day.reasoning}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Loading Overlay for Chart */}
+      {isChartLoading && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/20 backdrop-blur-[2px]">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        </div>
+      )}
 
       {selectedAlert && <InvestigationModal alert={selectedAlert} onClose={() => setSelectedAlert(null)} router={router} />}
     </div>
@@ -467,20 +484,22 @@ export default function AnalyticsPage() {
 
 function StatWidget({ title, value, icon: Icon, className, tooltip, onClick, isActive }: any) {
   return (
-    <Tooltip>
-        <TooltipTrigger asChild>
-            <Card onClick={onClick} className={`${className} relative cursor-pointer transition-all hover:scale-[1.02] active:scale-95 ${isActive ? "ring-2 ring-primary border-primary shadow-lg" : "border-transparent shadow-sm"}`}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</CardTitle>
-                <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-              </CardHeader>
-              <CardContent><div className="text-3xl font-black">{value ?? 0}</div></CardContent>
-            </Card>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="w-64 p-3 bg-slate-900 text-white text-xs rounded-lg shadow-xl">
-            <p className="leading-relaxed">{tooltip}</p>
-        </TooltipContent>
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip>
+          <TooltipTrigger asChild>
+              <Card onClick={onClick} className={`${className} relative cursor-pointer transition-all hover:scale-[1.02] active:scale-95 ${isActive ? "ring-2 ring-primary border-primary shadow-lg" : "border-transparent shadow-sm"}`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{title}</CardTitle>
+                  <Icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
+                </CardHeader>
+                <CardContent><div className="text-3xl font-black">{value ?? 0}</div></CardContent>
+              </Card>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="w-64 p-3 bg-slate-900 text-white text-xs rounded-lg shadow-xl">
+              <p className="leading-relaxed">{tooltip}</p>
+          </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -501,7 +520,6 @@ function InvestigationModal({ alert, onClose, router }: { alert: ExtendedAnomaly
   const handleAction = () => {
     onClose();
     if (alert.anomaly_type === "stockout_risk") {
-        // ✅ CRITICAL: Routes to the procurement flow with product context
         router.push(`/dashboard/purchases/create?product_id=${alert.product_id || ''}`);
     } else if (alert.anomaly_type === "shrinkage") {
         router.push("/dashboard/inventory");
