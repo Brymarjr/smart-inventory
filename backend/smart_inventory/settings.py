@@ -18,24 +18,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 
 # Load .env file for local development
-# (This file is ignored in production because Render sets env vars via Dashboard)
 local_env_file = os.path.join(BASE_DIR, ".env")
 if os.path.exists(local_env_file):
     env.read_env(local_env_file)
 
 # --- CORE SETTINGS ---
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# It will crash if SECRET_KEY is missing, ensuring you don't use unsafe defaults.
 SECRET_KEY = env('SECRET_KEY')
-
-# SECURITY WARNING: don't run with debug turned on in production!
-# Defaults to False for safety. Set DEBUG=True in your local .env
 DEBUG = env.bool('DEBUG', default=False)
 
-# ALLOWED_HOSTS
-# Local: ['localhost', '127.0.0.1']
-# Render: Adds the .onrender.com domain automatically
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
@@ -71,9 +62,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware', # MUST BE FIRST
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Serves static files everywhere
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -107,13 +98,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'smart_inventory.wsgi.application'
 
-# --- DATABASE (POSTGRES EVERYWHERE) ---
-# We removed the sqlite fallback. This forces you to define DATABASE_URL.
+# --- DATABASE ---
 DATABASES = {
     'default': env.db('DATABASE_URL')
 }
 
-# --- REDIS & CELERY (SSL AWARE) ---
+# --- REDIS & CELERY ---
 CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default=CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -122,19 +112,13 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Africa/Lagos"
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
-# Fix for Upstash/Render (SSL):
-# If the URL starts with 'rediss://' (secure), we tell Celery to ignore cert errors
 if 'rediss://' in CELERY_BROKER_URL:
     CELERY_REDIS_BACKEND_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
     CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
     
 CELERY_TASK_DEFAULT_QUEUE = 'default'
-
 CELERY_TASK_ROUTES = {
-    # THE VIP LANE: Syncs process instantly on their own thread
     'sync.tasks.process_sync_job': {'queue': 'high_priority'},
-    
-    # THE SLOW LANE: Emails go here so they don't block the checkout line
     'notifications.tasks.send_notification_email': {'queue': 'emails'},
     'sales.tasks.notify_low_stock': {'queue': 'emails'},
     'sales.tasks.send_weekly_reports': {'queue': 'emails'},
@@ -142,7 +126,6 @@ CELERY_TASK_ROUTES = {
 }
 
 # --- EMAIL SETTINGS ---
-# Uses SMTP by default. If EMAIL_HOST is missing, it crashes (good for catching errors).
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = env.int('EMAIL_PORT', default=587)
@@ -168,32 +151,35 @@ USE_TZ = True
 # --- STATIC FILES ---
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-# WhiteNoise handles static files in both Dev and Prod
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --- CORS & CSRF ---
-# Explicitly allow Localhost and your Vercel Domains
+# Start with local defaults
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
 
-# Add Vercel URL from environment (Production)
+# 1. Add Vercel URL from environment
 VERCEL_FRONTEND_DOMAIN = env('VERCEL_FRONTEND_DOMAIN', default=None)
 if VERCEL_FRONTEND_DOMAIN:
-    # Remove trailing slash if accidentally added
     CORS_ALLOWED_ORIGINS.append(VERCEL_FRONTEND_DOMAIN.rstrip('/'))
 
+# 2. Sync CORS with CSRF Trusted Origins for redundancy
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=["http://localhost:3000"])
+for origin in CSRF_TRUSTED_ORIGINS:
+    if origin not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(origin.rstrip('/'))
 
-# Explicitly allow the x-tenant header
+# Explicitly allow the x-tenant header and standard auth headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-tenant",
+    "authorization",
+    "content-type",
 ]
 
-# Allow credentials (cookies/auth headers)
 CORS_ALLOW_CREDENTIALS = True
 
 # --- DRF & AUTH ---
@@ -204,11 +190,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'users.permissions.MustChangePasswordPermission',
         'rest_framework.permissions.IsAuthenticated',
-        
-        # 1. Check for Support Restrictions first
         'core.permissions.IsSupportReadOnly',
-        
-        # 2. Then check Tenant active status
         'tenants.permissions.IsTenantActivePermission',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
@@ -275,8 +257,6 @@ CACHES = {
         "LOCATION": env('REDIS_URL', default='redis://127.0.0.1:6379/1'),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            # If Redis takes > 2 seconds to connect or read, stop waiting.
-            # This prevents your Dashboard from freezing if Redis is slow.
             "SOCKET_CONNECT_TIMEOUT": 2,  
             "SOCKET_TIMEOUT": 2,
         }
