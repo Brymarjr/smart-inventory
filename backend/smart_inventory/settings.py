@@ -157,11 +157,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --- CORS & CSRF ---
 
-# Set to True to bypass domain-matching issues in production
+# Permissive mode for production defense
 CORS_ALLOW_ALL_ORIGINS = True 
-
-# Ensures CORS headers are maintained during redirects
-CORS_REPLACE_HTTPS_REFERER = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
