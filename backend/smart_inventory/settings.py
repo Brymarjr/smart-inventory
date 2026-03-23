@@ -156,18 +156,24 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --- CORS & CSRF ---
-# Start with local defaults
+
+# Set to True to bypass domain-matching issues in production
+CORS_ALLOW_ALL_ORIGINS = True 
+
+# Ensures CORS headers are maintained during redirects
+CORS_REPLACE_HTTPS_REFERER = True
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
 
-# 1. Add Vercel URL from environment
+# Add Vercel URL from environment
 VERCEL_FRONTEND_DOMAIN = env('VERCEL_FRONTEND_DOMAIN', default=None)
 if VERCEL_FRONTEND_DOMAIN:
     CORS_ALLOWED_ORIGINS.append(VERCEL_FRONTEND_DOMAIN.rstrip('/'))
 
-# 2. Sync CORS with CSRF Trusted Origins for redundancy
+# Sync CORS with CSRF Trusted Origins
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=["http://localhost:3000"])
 for origin in CSRF_TRUSTED_ORIGINS:
     if origin not in CORS_ALLOWED_ORIGINS:
@@ -178,6 +184,8 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-tenant",
     "authorization",
     "content-type",
+    "accept",
+    "origin",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
