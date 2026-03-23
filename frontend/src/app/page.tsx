@@ -411,12 +411,12 @@ export default function ForeTrackLanding() {
             <Image
               src="/icon-192x192.png"
               alt="ForeTrack Logo"
-              width={40}
-              height={40}
-              className="object-contain rounded-lg opacity-80"
+              width={44}
+              height={44}
+              className="object-contain rounded-xl bg-white/10"
               priority
             />
-            <span className="text-xl font-black tracking-tighter text-white opacity-90">
+            <span className="text-2xl font-black tracking-tighter text-white">
               ForeTrack
             </span>
           </div>
