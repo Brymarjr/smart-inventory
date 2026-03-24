@@ -1,5 +1,5 @@
 """
-Sync app models for the Smart Inventory project.
+Sync app models for the Fore Track project.
 
 Models:
 - Device: registered client device (per-tenant).
