@@ -300,22 +300,30 @@ class SyncDownloadView(APIView):
             elif 'created_at' in field_names:
                 qs = model.objects.filter(**tenant_filter, created_at__gt=query_start_date).order_by('created_at')
             elif 'timestamp' in field_names: 
-                # Catch AuditLogs
                 qs = model.objects.filter(**tenant_filter, timestamp__gt=query_start_date).order_by('timestamp')
             elif model_name == 'SaleItem': 
-                # Catch SaleItems using their parent's date!
                 qs = model.objects.filter(**tenant_filter, sale__created_at__gt=query_start_date).order_by('sale__created_at')
             else:
-                # Catch small tables like Categories and Suppliers
                 qs = model.objects.filter(**tenant_filter).order_by('id')
 
-            # ✅ Apply Pagination Slice
-            # We fetch 'limit + 1' to check if there is a next page
-            records = list(qs[offset : offset + limit + 1])
+            # --- OPTIMIZATION: PREVENT N+1 MEMORY CRASH ---
+            # Explicitly load foreign keys to avoid triggering new queries during serialization
+            if 'product' in field_names:
+                qs = qs.select_related('product')
+            if model_name == 'SaleItem':
+                qs = qs.select_related('sale', 'product')
+            if model_name == 'PurchaseItem':
+                qs = qs.select_related('purchase_order', 'product')
+
+            # Apply Pagination Slice
+            # Use list() to force the optimized query execution before slicing
+            records_plus_one = list(qs[offset : offset + limit + 1])
             
-            if len(records) > limit:
+            if len(records_plus_one) > limit:
                 has_more_data = True
-                records = records[:limit] # Trim the extra one
+                records = records_plus_one[:limit]
+            else:
+                records = records_plus_one
 
             if records:
                 updated_data[model_name.lower()] = serializer_class(records, many=True).data
