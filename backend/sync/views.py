@@ -198,19 +198,26 @@ class SyncDownloadView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
+    # Exactly matching your model class names
     LIMITED_HISTORY_MODELS = [
         'Sale', 
         'SaleItem', 
         'PurchaseOrder', 
         'PurchaseItem', 
-        'AuditLog'
+        'InventoryLog'
     ]
 
     def _get_tenant_filter(self, model, tenant):
-        field_names = [f.name for f in model._meta.get_fields()]
-        if 'tenant' in field_names: return {'tenant': tenant}
-        if model.__name__ == 'SaleItem': return {'sale__tenant': tenant}
-        if model.__name__ == 'PurchaseItem': return {'purchase__tenant': tenant}
+        """
+        Matches your specific model structures for filtering.
+        """
+        model_name = model.__name__
+        if hasattr(model, 'tenant'):
+            return {'tenant': tenant}
+        if model_name == 'SaleItem':
+            return {'sale__tenant': tenant}
+        if model_name == 'PurchaseItem':
+            return {'purchase__tenant': tenant}
         return None
 
     def get(self, request, *args, **kwargs):
@@ -275,51 +282,56 @@ class SyncDownloadView(APIView):
             if is_fresh_sync and model.__name__ in self.LIMITED_HISTORY_MODELS:
                 query_start_date = timezone.now() - timedelta(days=30)
 
-            field_names = [f.name for f in model._meta.get_fields()]
+            # --- DYNAMIC QUERY BUILDING ---
+            qs = model.objects.filter(**tenant_filter)
             
-            # Base Queryset Construction
-            if 'updated_at' in field_names:
-                qs = model.objects.filter(**tenant_filter, updated_at__gt=query_start_date).order_by('updated_at')
-            elif 'created_at' in field_names:
-                qs = model.objects.filter(**tenant_filter, created_at__gt=query_start_date).order_by('created_at')
-            elif 'timestamp' in field_names: 
-                qs = model.objects.filter(**tenant_filter, timestamp__gt=query_start_date).order_by('timestamp')
-            elif model.__name__ == 'SaleItem': 
-                qs = model.objects.filter(**tenant_filter, sale__created_at__gt=query_start_date).order_by('sale__created_at')
+            # Handle Date Filtering based on your models
+            if hasattr(model, 'updated_at'):
+                qs = qs.filter(updated_at__gt=query_start_date).order_by('updated_at')
+            elif hasattr(model, 'created_at'):
+                qs = qs.filter(created_at__gt=query_start_date).order_by('created_at')
+            elif model.__name__ == 'SaleItem':
+                qs = qs.filter(sale__created_at__gt=query_start_date).order_by('sale__created_at')
             elif model.__name__ == 'PurchaseItem':
-                qs = model.objects.filter(**tenant_filter, purchase__created_at__gt=query_start_date).order_by('purchase__created_at')
+                qs = qs.filter(purchase__created_at__gt=query_start_date).order_by('purchase__created_at')
             else:
-                qs = model.objects.filter(**tenant_filter).order_by('id')
+                qs = qs.order_by('id')
 
-            # --- OPTIMIZATION FIX: Only add fields that actually exist on the current model ---
+            # --- PRECISE OPTIMIZATION BASED ON YOUR MODELS.PY ---
             related_fields = []
             
-            # Check for 'product' field (Inventory-linked models)
-            if 'product' in field_names:
+            # Use hasattr to check for foreign keys safely
+            if hasattr(model, 'product'):
                 related_fields.append('product')
+            if hasattr(model, 'category'):
+                related_fields.append('category')
+            if hasattr(model, 'supplier'):
+                related_fields.append('supplier')
             
-            # Check for 'sale' (Specific to SaleItem)
-            if model.__name__ == 'SaleItem' and 'sale' in field_names:
+            # Map specific Item -> Parent relationships
+            if model.__name__ == 'SaleItem' and hasattr(model, 'sale'):
                 related_fields.append('sale')
-            
-            # Check for 'purchase' (Specific to PurchaseItem)
-            if model.__name__ == 'PurchaseItem' and 'purchase' in field_names:
+            if model.__name__ == 'PurchaseItem' and hasattr(model, 'purchase'):
                 related_fields.append('purchase')
 
             if related_fields:
                 qs = qs.select_related(*related_fields)
 
-            # Execution with Pagination
-            records_plus_one = list(qs[offset : offset + limit + 1])
-            
-            if len(records_plus_one) > limit:
-                has_more_data = True
-                records = records_plus_one[:limit]
-            else:
-                records = records_plus_one
+            # Execution with list() to ensure 512MB RAM safety on Render
+            try:
+                records_batch = list(qs[offset : offset + limit + 1])
+                
+                if len(records_batch) > limit:
+                    has_more_data = True
+                    records = records_batch[:limit]
+                else:
+                    records = records_batch
 
-            if records:
-                updated_data[model.__name__.lower()] = serializer_class(records, many=True).data
+                if records:
+                    updated_data[model.__name__.lower()] = serializer_class(records, many=True).data
+            except Exception as e:
+                logger.error(f"Sync error on {model.__name__}: {str(e)}")
+                continue
 
         device.last_seen = timezone.now()
         device.save(update_fields=["last_seen"])
