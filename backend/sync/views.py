@@ -194,16 +194,10 @@ class SyncUploadView(GenericAPIView):
 class SyncDownloadView(APIView):
     """
     The Core "Pull" Endpoint (Server -> Client).
-
-    Implements **Delta Sync** & **Smart Historical Partitioning**:
-    - If `last_sync` is NULL (Fresh Install), restricts historical data (Sales/Stock Logs) 
-      to the last 30 days to prevent massive payloads.
-    - If `last_sync` is provided, sends everything since that date.
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    # Models that get the "30 Day Limit" on fresh syncs
     LIMITED_HISTORY_MODELS = [
         'Sale', 
         'SaleItem', 
@@ -213,20 +207,16 @@ class SyncDownloadView(APIView):
     ]
 
     def _get_tenant_filter(self, model, tenant):
-        """
-        Dynamically determines how to filter a model by Tenant.
-        """
         field_names = [f.name for f in model._meta.get_fields()]
         if 'tenant' in field_names: return {'tenant': tenant}
         if model.__name__ == 'SaleItem': return {'sale__tenant': tenant}
-        if model.__name__ == 'PurchaseItem': return {'purchase_order__tenant': tenant}
+        if model.__name__ == 'PurchaseItem': return {'purchase__tenant': tenant}
         return None
 
     def get(self, request, *args, **kwargs):
         device_id = request.query_params.get("device_id")
         last_sync = request.query_params.get("last_sync")
         
-        # ✅ Get Page Number (Default to 1)
         try:
             page = int(request.query_params.get("page", 1))
         except ValueError:
@@ -235,7 +225,6 @@ class SyncDownloadView(APIView):
         if not device_id:
             return Response({"detail": "device_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Auto-Provision Device (WITH BILLING LIMITS)
         device = sync_models.Device.objects.filter(
             tenant=request.user.tenant,
             device_id=device_id
@@ -244,7 +233,6 @@ class SyncDownloadView(APIView):
         if not device:
             current_device_count = sync_models.Device.objects.filter(tenant=request.user.tenant).count()
             check_plan_limit(request.user.tenant, "max_sync_devices", current_device_count)
-
             device = sync_models.Device.objects.create(
                 tenant=request.user.tenant,
                 device_id=device_id,
@@ -255,7 +243,6 @@ class SyncDownloadView(APIView):
         if device.is_blocked:
             return Response({"detail": "Device blocked."}, status=status.HTTP_403_FORBIDDEN)
 
-        # 1. Determine Sync Start Date
         is_fresh_sync = False
         try:
             if last_sync and last_sync != "null":
@@ -268,10 +255,9 @@ class SyncDownloadView(APIView):
 
         updated_data = {}
         has_more_data = False
-        limit = 2000 # Batch size
-        offset = (page - 1) * limit # ✅ Calculate Offset
+        limit = 2000 
+        offset = (page - 1) * limit 
 
-        # Iterate over all models
         for model_path in getattr(settings, "SYNCED_MODELS", []):
             try:
                 app_label, model_name = model_path.split(".")
@@ -279,44 +265,46 @@ class SyncDownloadView(APIView):
             except LookupError:
                 continue
 
-            serializer_name = f"{model.__name__}Serializer"
-            serializer_class = getattr(sync_serializers, serializer_name, None)
+            serializer_class = getattr(sync_serializers, f"{model.__name__}Serializer", None)
             if not serializer_class: continue
 
             tenant_filter = self._get_tenant_filter(model, request.user.tenant)
             if tenant_filter is None: continue
 
-            # --- SMART HISTORY FILTERING ---
             query_start_date = last_sync_dt
-            if is_fresh_sync and model_name in self.LIMITED_HISTORY_MODELS:
-                thirty_days_ago = timezone.now() - timedelta(days=30)
-                query_start_date = thirty_days_ago
+            if is_fresh_sync and model.__name__ in self.LIMITED_HISTORY_MODELS:
+                query_start_date = timezone.now() - timedelta(days=30)
 
             field_names = [f.name for f in model._meta.get_fields()]
             
-            # Construct Query
+            # Base Queryset
             if 'updated_at' in field_names:
                 qs = model.objects.filter(**tenant_filter, updated_at__gt=query_start_date).order_by('updated_at')
             elif 'created_at' in field_names:
                 qs = model.objects.filter(**tenant_filter, created_at__gt=query_start_date).order_by('created_at')
             elif 'timestamp' in field_names: 
                 qs = model.objects.filter(**tenant_filter, timestamp__gt=query_start_date).order_by('timestamp')
-            elif model_name == 'SaleItem': 
+            elif model.__name__ == 'SaleItem': 
                 qs = model.objects.filter(**tenant_filter, sale__created_at__gt=query_start_date).order_by('sale__created_at')
+            elif model.__name__ == 'PurchaseItem':
+                qs = model.objects.filter(**tenant_filter, purchase__created_at__gt=query_start_date).order_by('purchase__created_at')
             else:
                 qs = model.objects.filter(**tenant_filter).order_by('id')
 
-            # --- OPTIMIZATION: PREVENT N+1 MEMORY CRASH ---
-            # Explicitly load foreign keys to avoid triggering new queries during serialization
+            # --- PRECISE OPTIMIZATION: Match exact ForeignKey names ---
+            related_fields = []
             if 'product' in field_names:
-                qs = qs.select_related('product')
-            if model_name == 'SaleItem':
-                qs = qs.select_related('sale', 'product')
-            if model_name == 'PurchaseItem':
-                qs = qs.select_related('purchase_order', 'product')
+                related_fields.append('product')
+            
+            if model.__name__ == 'SaleItem':
+                related_fields.append('sale')
+            elif model.__name__ == 'PurchaseItem':
+                related_fields.append('purchase')
 
-            # Apply Pagination Slice
-            # Use list() to force the optimized query execution before slicing
+            if related_fields:
+                qs = qs.select_related(*related_fields)
+
+            # Execution with Pagination
             records_plus_one = list(qs[offset : offset + limit + 1])
             
             if len(records_plus_one) > limit:
@@ -326,7 +314,7 @@ class SyncDownloadView(APIView):
                 records = records_plus_one
 
             if records:
-                updated_data[model_name.lower()] = serializer_class(records, many=True).data
+                updated_data[model.__name__.lower()] = serializer_class(records, many=True).data
 
         device.last_seen = timezone.now()
         device.save(update_fields=["last_seen"])
