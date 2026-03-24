@@ -34,38 +34,35 @@ class SupplierPriceSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
-    supplier = SupplierSerializer(read_only=True)
-    # ✅ STRATEGIC INJECTION: Nested Price History
+    # ✅ Removed supplier nested serializer as it's not needed for creation
     supplier_prices = SupplierPriceSerializer(many=True, read_only=True)
 
     category_id = serializers.PrimaryKeyRelatedField(
-        queryset=Category._base_manager.none(),
+        queryset=Category.objects.all(),
         source='category',
-        write_only=True
-    )
-    supplier_id = serializers.PrimaryKeyRelatedField(
-        queryset=Supplier._base_manager.none(),
-        source='supplier',
-        write_only=True
+        write_only=True,
+        required=True,
+        error_messages={'required': 'Please select a product category.'}
     )
 
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'sku', 'category', 'supplier',
+            'id', 'name', 'sku', 'category', 'category_id',
             'quantity', 'price', 'cost_price', 'description',
-            'category_id', 'supplier_id', 'supplier_prices' # ✅ Included here
+            'reorder_level', 'supplier_prices'
         ]
         read_only_fields = ['tenant']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Ensure the queryset is restricted to the current tenant
         try:
-            self.fields['category_id'].queryset = Category.objects.all()
-            self.fields['supplier_id'].queryset = Supplier.objects.all()
-        except TenantNotSetError:
-            self.fields['category_id'].queryset = Category._base_manager.none()
-            self.fields['supplier_id'].queryset = Supplier._base_manager.none()
+            request = self.context.get('request')
+            if request and hasattr(request, 'user'):
+                self.fields['category_id'].queryset = Category.objects.filter(tenant=request.user.tenant)
+        except Exception:
+            self.fields['category_id'].queryset = Category.objects.none()
 
     def create(self, validated_data):
         tenant = self.context['request'].user.tenant
