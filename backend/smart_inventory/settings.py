@@ -159,6 +159,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Permissive mode for production defense
 CORS_ALLOW_ALL_ORIGINS = True 
+CORS_ALLOW_CREDENTIALS = True
+
+# Prevent internal redirects from stripping headers
+APPEND_SLASH = False
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -176,16 +180,25 @@ for origin in CSRF_TRUSTED_ORIGINS:
     if origin not in CORS_ALLOWED_ORIGINS:
         CORS_ALLOWED_ORIGINS.append(origin.rstrip('/'))
 
-# Explicitly allow the x-tenant header and standard auth headers
+# Explicitly allow methods to ensure headers attach to error responses
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+# Explicitly allow standard and custom headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-tenant",
     "authorization",
     "content-type",
     "accept",
     "origin",
+    "device-id",
 ]
-
-CORS_ALLOW_CREDENTIALS = True
 
 # --- DRF & AUTH ---
 REST_FRAMEWORK = {
@@ -259,7 +272,7 @@ MAX_OPS_PER_UPLOAD = 500
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": env('REDIS_URL', default='redis://127.0.0.1:6379/1'),
+        "LOCATION": env('REDIS_URL', default='redis://localhost:6379/1'),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "SOCKET_CONNECT_TIMEOUT": 2,  
