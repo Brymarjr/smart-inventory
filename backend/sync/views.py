@@ -260,8 +260,8 @@ class SyncDownloadView(APIView):
 
         for model_path in getattr(settings, "SYNCED_MODELS", []):
             try:
-                app_label, model_name = model_path.split(".")
-                model = apps.get_model(app_label, model_name)
+                app_label, model_name_str = model_path.split(".")
+                model = apps.get_model(app_label, model_name_str)
             except LookupError:
                 continue
 
@@ -277,7 +277,7 @@ class SyncDownloadView(APIView):
 
             field_names = [f.name for f in model._meta.get_fields()]
             
-            # Base Queryset
+            # Base Queryset Construction
             if 'updated_at' in field_names:
                 qs = model.objects.filter(**tenant_filter, updated_at__gt=query_start_date).order_by('updated_at')
             elif 'created_at' in field_names:
@@ -291,14 +291,19 @@ class SyncDownloadView(APIView):
             else:
                 qs = model.objects.filter(**tenant_filter).order_by('id')
 
-            # --- PRECISE OPTIMIZATION: Match exact ForeignKey names ---
+            # --- OPTIMIZATION FIX: Only add fields that actually exist on the current model ---
             related_fields = []
+            
+            # Check for 'product' field (Inventory-linked models)
             if 'product' in field_names:
                 related_fields.append('product')
             
-            if model.__name__ == 'SaleItem':
+            # Check for 'sale' (Specific to SaleItem)
+            if model.__name__ == 'SaleItem' and 'sale' in field_names:
                 related_fields.append('sale')
-            elif model.__name__ == 'PurchaseItem':
+            
+            # Check for 'purchase' (Specific to PurchaseItem)
+            if model.__name__ == 'PurchaseItem' and 'purchase' in field_names:
                 related_fields.append('purchase')
 
             if related_fields:
