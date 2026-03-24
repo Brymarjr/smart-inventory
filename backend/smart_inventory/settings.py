@@ -27,13 +27,14 @@ if os.path.exists(local_env_file):
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', '.onrender.app', '.onrender.com'])
 RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Application definition
 INSTALLED_APPS = [
+    'corsheaders', # MUST BE AT THE TOP OF APPS
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,7 +43,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third Party
     'rest_framework',
-    'corsheaders',
     'drf_spectacular',
     'django_celery_results',
     'django_celery_beat',
@@ -62,11 +62,11 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # MUST BE FIRST
+    'corsheaders.middleware.CorsMiddleware', # 1. ABSOLUTE FIRST: Handles the handshake before any errors happen
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    'django.middleware.common.CommonMiddleware', # 2. CommonMiddleware handles the "APPEND_SLASH" logic
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'tenants.middleware.TenantMiddleware',
@@ -161,7 +161,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOW_CREDENTIALS = True
 
-# Prevent internal redirects from stripping headers
+# Force Django to allow the handshake even if the response is an Error (401/404/500)
+CORS_PREFLIGHT_MAX_AGE = 86400 
+
+# Prevent internal redirects that strip headers
 APPEND_SLASH = False
 
 CORS_ALLOWED_ORIGINS = [
@@ -169,18 +172,15 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
-# Add Vercel URL from environment
 VERCEL_FRONTEND_DOMAIN = env('VERCEL_FRONTEND_DOMAIN', default=None)
 if VERCEL_FRONTEND_DOMAIN:
     CORS_ALLOWED_ORIGINS.append(VERCEL_FRONTEND_DOMAIN.rstrip('/'))
 
-# Sync CORS with CSRF Trusted Origins
 CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=["http://localhost:3000"])
 for origin in CSRF_TRUSTED_ORIGINS:
     if origin not in CORS_ALLOWED_ORIGINS:
         CORS_ALLOWED_ORIGINS.append(origin.rstrip('/'))
 
-# Explicitly allow methods to ensure headers attach to error responses
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
@@ -190,7 +190,6 @@ CORS_ALLOW_METHODS = [
     "PUT",
 ]
 
-# Explicitly allow standard and custom headers
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-tenant",
     "authorization",
