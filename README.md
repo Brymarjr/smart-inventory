@@ -14,7 +14,7 @@ Global Dependency Resolution: The sync engine implements a self-healing mechanis
 Optimistic Local State: The frontend maintains an IndexedDB-backed local state, performing optimistic updates to inventory levels to provide immediate UI feedback while the background worker reconciles the server-side state.
 
 Multi-Tenant Isolation
-Designed as a software-as-a-service (SaaS) foundation, Smart Inventory enforces strict tenant isolation at the application and query layers.
+Designed as a software-as-a-service (SaaS) foundation, Fore Track enforces strict tenant isolation at the application and query layers.
 
 Logical Partitioning: Every database transaction is scoped to a specific TenantID, ensuring that data leakage between organizations is architecturally impossible.
 
@@ -37,7 +37,7 @@ Manager: Responsible for procurement workflows, product catalog management, oper
 Staff: Front-facing role focused on transaction execution, offline POS operations, and customer interaction.
 
 Machine Learning & Predictive Analytics
-Smart Inventory integrates demand forecasting as a core decision-support utility rather than a standalone feature.
+Fore Track integrates demand forecasting as a core decision-support utility rather than a standalone feature.
 
 Isolated Model Training: Dedicated forecasting models are trained independently for each tenant, ensuring that predictive outputs are grounded in specific local sales patterns and seasonal trends.
 
@@ -80,7 +80,7 @@ Bash;
 npm install && npm run dev
 
 Development Philosophy
-The engineering of Smart Inventory is guided by the principle of correctness over cleverness. By favoring explicit workflows over implicit side effects and ensuring that every background task is idempotent, the system provides a reliable foundation for high-stakes retail operations.
+The engineering of Fore Track is guided by the principle of correctness over cleverness. By favoring explicit workflows over implicit side effects and ensuring that every background task is idempotent, the system provides a reliable foundation for high-stakes retail operations.
 
 ## License
 

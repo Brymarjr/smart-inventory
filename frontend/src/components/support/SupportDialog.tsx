@@ -70,7 +70,7 @@ export default function SupportDialog({ children }: SupportDialogProps) {
           </DialogTitle>
           <DialogDescription>
             {isTenantAdmin 
-              ? "Open a ticket for the Smart Inventory Support Team."
+              ? "Open a ticket for the Fore Track Support Team."
               : "Send a direct message to your store administrator."
             }
           </DialogDescription>
