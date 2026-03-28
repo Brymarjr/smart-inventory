@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CartItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import api from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -48,92 +49,105 @@ export function PosCart({
     0,
   );
 
-  // ✅ Smart Checkout Logic (Online vs Offline)
-  const handleCheckout = async () => {
-    if (cart.length === 0) return;
-    setIsProcessing(true);
+ // ✅ Smart Checkout Logic (Optimized for Online-Direct/Offline-Queue)
+const handleCheckout = async () => {
+  if (cart.length === 0) return;
+  setIsProcessing(true);
 
-    // 1. Detect Status
-    const isOnline = navigator.onLine;
+  // 1. Initial Setup
+  const isOnline = typeof navigator !== 'undefined' && navigator.onLine;
+  const saleTmpId = `sale-${uuidv4()}`;
+  const timestamp = Date.now();
+  // We use POS- for everything online, OFF- only for true offline
+  const reference = isOnline ? `POS-${timestamp}` : `OFF-${timestamp}`;
 
-    try {
-      const saleTmpId = `sale-${uuidv4()}`;
-      const timestamp = Date.now();
-
-      // 2. Generate Reference: POS- for Online, OFF- for Offline
-      const reference = isOnline ? `POS-${timestamp}` : `OFF-${timestamp}`;
-
-      // 3. Queue the Sale Record
-      await queueOperation("sales.Sale", "create", {
-        tmp_id: saleTmpId,
-        reference: reference,
-        customer_name: customerName,
-        payment_method: paymentMethod,
-        total_amount: totalAmount,
-        notes: notes,
-        created_at: new Date().toISOString(),
-      });
-
-      // 4. Queue the Items & UPDATE LOCAL STOCK
-      for (const item of cart) {
-        // A. Queue the sync operation
-        await queueOperation("sales.SaleItem", "create", {
-          sale_tmp_id: saleTmpId,
-          product_id: item.productId,
-          quantity: item.quantity,
-          unit_price: item.price,
-          subtotal: item.price * item.quantity,
-        });
-
-        // B. Optimistic Update
-        const currentProduct = await db.products.get(item.productId);
-        if (currentProduct) {
-          await db.products.update(item.productId, {
-            quantity: currentProduct.quantity - item.quantity,
-          });
-        }
-      }
-
-      // 5. User Feedback
-      if (isOnline) {
-        toast.success("Sale Completed Successfully!");
-      } else {
-        toast.info("Sale Recorded (Offline Mode)");
-      }
-
-      // 6. Construct Smart Receipt Data
-      const receiptData = {
-        id: saleTmpId,
-        receipt_id: reference,
-        is_offline: !isOnline, 
-        // Build the real name, or fallback to username
-        cashier_name: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.username,
-        customer_name: customerName,
-        total_amount: totalAmount,
-        created_at: new Date().toISOString(),
-        items: cart.map((c) => ({
-          product_name: c.name,
-          quantity: c.quantity,
-          unit_price: c.price,
-          subtotal: c.price * c.quantity,
-        })),
-      };
-
-      // Trigger success callback
-      onSaleSuccess(receiptData);
-
-      // Cleanup
-      onClear();
-      setCustomerName("");
-      setNotes("");
-      setPaymentMethod("cash");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to record sale locally.");
-    } finally {
-      setIsProcessing(false);
-    }
+  const saleData = {
+    tmp_id: saleTmpId,
+    reference: reference,
+    customer_name: customerName,
+    payment_method: paymentMethod,
+    total_amount: totalAmount,
+    notes: notes,
+    created_at: new Date().toISOString(),
+    items: cart.map((c) => ({
+      product_id: c.productId,
+      quantity: c.quantity,
+      unit_price: c.price,
+      subtotal: c.price * c.quantity,
+    })),
   };
+
+  try {
+    // 2. OPTIMISTIC UPDATE (Instant UI feedback)
+    for (const item of cart) {
+      const currentProduct = await db.products.get(item.productId);
+      if (currentProduct) {
+        await db.products.update(item.productId, {
+          quantity: currentProduct.quantity - item.quantity,
+        });
+      }
+    }
+
+    // 3. EXECUTION GATEWAY
+    let success = false;
+
+    if (isOnline) {
+      try {
+        // Try the direct API first
+        await api.post("/api/sales/", saleData);
+        toast.success("Sale Completed!");
+        success = true;
+      } catch (apiError: any) {
+        // If the server is down or localhost is unreachable, we don't 'throw',
+        // we just let 'success' stay false so the code falls through to the queue.
+        console.warn("API Reachability issue, falling back to local queue.");
+      }
+    }
+
+    // 4. OFFLINE FALLBACK (Only runs if success is false)
+    if (!success) {
+      // This is the ONLY place queueOperation should be called for a sale
+      await queueOperation("sales.Sale", "create", saleData);
+      
+      if (isOnline) {
+        toast.info("Network lag: Sale queued for sync.");
+      } else {
+        toast.info("Offline: Sale saved locally.");
+      }
+    }
+
+    // 5. RECEIPT GENERATION (Always uses the same data)
+    const receiptData = {
+      id: saleTmpId,
+      receipt_id: reference,
+      is_offline: !success,
+      cashier_name: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.username,
+      customer_name: customerName,
+      total_amount: totalAmount,
+      created_at: new Date().toISOString(),
+      items: cart.map((c) => ({
+        product_name: c.name,
+        quantity: c.quantity,
+        unit_price: c.price,
+        subtotal: c.price * c.quantity,
+      })),
+    };
+
+    onSaleSuccess(receiptData);
+    
+    // 6. CLEANUP
+    onClear();
+    setCustomerName("");
+    setNotes("");
+    setPaymentMethod("cash");
+
+  } catch (error) {
+    console.error("Critical Checkout Error:", error);
+    toast.error("An error occurred. Please check your sales history.");
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   if (cart.length === 0) {
     return (

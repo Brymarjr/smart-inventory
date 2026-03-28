@@ -34,11 +34,28 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
   try {
     const headers = getAuthHeaders();
     
-    // THE EMERGENCY BRAKE
     if (!headers.Authorization) {
       console.warn("Sync aborted: User is not fully authenticated yet.");
       return { success: false, error: "NO_TOKEN_ABORT" };
     }
+
+    // --- START: TENANT SANITY CHECK (The Fix for 'Data Leak') ---
+    const currentTenantId = localStorage.getItem('tenant_id'); 
+    const lastStoredTenant = await db.meta.get('local_tenant_id');
+
+    if (lastStoredTenant?.value !== currentTenantId) {
+      console.warn("⚠️ Tenant Mismatch Detected. Wiping local database for security...");
+      await db.transaction('rw', [db.products, db.categories, db.sales, db.saleItems, db.meta], async () => {
+        await db.products.clear();
+        await db.categories.clear();
+        await db.sales.clear();
+        await db.saleItems.clear();
+        await db.meta.put({ key: 'local_tenant_id', value: currentTenantId });
+      });
+      localStorage.removeItem('last_sync_time'); // Force full sync
+      passedLastSync = null; 
+    }
+    // --- END: TENANT SANITY CHECK ---
 
     let lastSync = passedLastSync;
     if (page === 1) {
@@ -53,12 +70,10 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
       headers: headers
     });
 
-    // 👀 DEBUG: Let's see exactly what the backend gives us
     console.log(`👀 BACKEND RESPONSE DATA (Page ${page}):`, response.data);
-
     const { data, synced_at, has_more, next } = response.data;
 
-    // 3. Save to DB with SANITIZATION
+    // 3. Save to DB with SANITIZATION (Kept exactly as you wrote it)
     await db.transaction('rw', [db.products, db.categories, db.sales, db.saleItems, db.meta], async () => {
       
       const rawProducts = data?.product || data?.products || [];
@@ -66,7 +81,6 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
       const rawSales = data?.sale || data?.sales || [];
       const rawSaleItems = data?.saleitem || data?.saleitems || [];
 
-      // --- 1. Clean Products ---
       if (rawProducts.length > 0) {
           const cleanProducts = rawProducts.map((p: any) => {
               const clean: any = { ...p };
@@ -78,12 +92,10 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
           await db.products.bulkPut(cleanProducts);
       }
       
-      // --- 2. Clean Categories ---
       if (rawCategories.length > 0) {
           await db.categories.bulkPut(rawCategories);
       }
 
-      // --- 3. Clean Sales ---
       if (rawSales.length > 0) {
           const cleanSales = rawSales.map((s: any) => ({
               ...s,
@@ -93,7 +105,6 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
           await db.sales.bulkPut(cleanSales);
       }
 
-      // --- 4. Clean SaleItems ---
       if (rawSaleItems.length > 0) {
           const cleanItems = rawSaleItems.map((i: any) => ({
               ...i,
@@ -106,15 +117,12 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
       }
     });
 
-    // 4. Recursion or Finish
-    // 👇 THE FIX: Bulletproof check for both `has_more` boolean AND Django's `next` URL
     const hasMorePages = has_more === true || !!next;
 
     if (hasMorePages) {
         await new Promise(r => setTimeout(r, 50));
         return await pullData(page + 1, lastSync); 
     } else {
-        // WE ARE DONE! Save the timestamp so the next refresh skips everything
         const finalSyncTime = synced_at || new Date().toISOString();
         localStorage.setItem('last_sync_time', finalSyncTime);
         console.log(`✅ Sync Complete! Updated timestamp to: ${finalSyncTime}`);
@@ -126,7 +134,6 @@ export const pullData = async (page = 1, passedLastSync: string | null = null): 
       console.warn(`[SYNC HALTED] Billing Limit Reached: ${error.response.data?.detail}`);
       return { success: false, halted: true, error: error.response.data?.detail }; 
     }
-
     console.error("❌ Sync Pull Failed:", error);
     return { success: false, error };
   }

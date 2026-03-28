@@ -122,37 +122,37 @@ def process_sync_job(self, job_id: int):
 def _apply_sync_operation(job, op, id_map) -> dict:
     """
     Executes a single sync operation.
-    Includes IDEMPOTENCY CHECK via ChangeLog to prevent duplicates.
-    Includes SELF-HEALING via Global History Lookup.
+    FIX 1: Pop 'items' immediately to avoid TypeError.
+    FIX 2: Use tmp_id as a unique lock to prevent "Double-Dipping" stock deductions.
     """
     tenant = job.tenant
     
-    # ---------------------------------------------------------
-    # ✅ 1. IDEMPOTENCY CHECK (The Safety Net)
-    # ---------------------------------------------------------
-    # Has this specific client_change_id already been successfully processed?
-    existing_log = ChangeLog.objects.filter(
-        tenant=tenant, 
-        payload__client_change_id=op.client_change_id
-    ).first()
-
-    if existing_log and op.action == 'create':
-        logger.info(f"Skipping Duplicate Op {op.client_change_id} (Already in ChangeLog)")
-        
-        # Even if we skip the DB write, we must update the id_map 
-        # so that subsequent operations (like SaleItems) can find the Parent ID.
-        if op.payload.get("tmp_id"):
-             job.tmp_id_map[op.payload["tmp_id"]] = existing_log.model_id
-             job.save(update_fields=["tmp_id_map"])
-             
-        return {"success": True, "conflict": False}
-
     # Setup Payload
     raw_payload = op.payload or {}
     if isinstance(raw_payload, str):
         try: raw_payload = json.loads(raw_payload)
         except: raw_payload = {}
     payload = copy.deepcopy(raw_payload)
+
+    # ---------------------------------------------------------
+    # ✅ THE CRITICAL FIX: POP 'items' IMMEDIATELY
+    # ---------------------------------------------------------
+    nested_items = payload.pop('items', [])
+
+    # ---------------------------------------------------------
+    # ✅ 1. IDEMPOTENCY CHECK (ChangeLog lookup)
+    # ---------------------------------------------------------
+    existing_log = ChangeLog.objects.filter(
+        tenant=tenant, 
+        payload__client_change_id=op.client_change_id
+    ).first()
+
+    if existing_log and op.action == 'create':
+        logger.info(f"Skipping Duplicate Op {op.client_change_id}")
+        if payload.get("tmp_id"):
+             job.tmp_id_map[payload["tmp_id"]] = existing_log.model_id
+             job.save(update_fields=["tmp_id_map"])
+        return {"success": True, "conflict": False}
 
     # Resolve Model
     try:
@@ -164,14 +164,13 @@ def _apply_sync_operation(job, op, id_map) -> dict:
     except Exception as exc:
         return {"success": False, "error": f"Invalid model {op.model_name}", "conflict": False}
 
-    # ✅ 2. Smarter Tenant Injection
-    payload.pop("tenant", None)
+    # ✅ 2. Tenant Injection & Field Mapping
     model_fields = [f.name for f in Model._meta.fields]
     if 'tenant' in model_fields:
         payload["tenant_id"] = tenant.id
 
     # ---------------------------------------------------------
-    # ✅ 3. ROBUST ID RESOLUTION (The Linker)
+    # ✅ 3. ROBUST ID RESOLUTION
     # ---------------------------------------------------------
     pending_tmp_keys = []
     for key in list(payload.keys()):
@@ -180,38 +179,20 @@ def _apply_sync_operation(job, op, id_map) -> dict:
             tmp_val = payload.pop(key)
             fk_field = f"{base}_id"
 
-            # A. Check Local Job Map
             if tmp_val in id_map:
                 payload[fk_field] = id_map[tmp_val]
             else:
-                # ✅ B. Check GLOBAL History (Cross-Job Recovery)
-                # Did we process this parent in a previous job?
-                logger.info(f"🕵️ Looking for missing parent {tmp_val} in ChangeLog...")
-                parent_log = ChangeLog.objects.filter(
-                    tenant=tenant,
-                    payload__tmp_id=tmp_val 
-                ).first()
-                
+                parent_log = ChangeLog.objects.filter(tenant=tenant, payload__tmp_id=tmp_val).first()
                 if parent_log:
-                    logger.info(f"✅ Found parent {tmp_val} -> ID {parent_log.model_id} in History")
                     payload[fk_field] = parent_log.model_id
-                    id_map[tmp_val] = parent_log.model_id # Cache it
+                    id_map[tmp_val] = parent_log.model_id 
                 else:
                     pending_tmp_keys.append((fk_field, tmp_val))
 
     client_tmp_id = payload.pop("tmp_id", None) or op.client_change_id
 
-    # Block dependencies
     if op.action == 'create' and pending_tmp_keys:
         return {"success": False, "error": f"Missing dependencies: {pending_tmp_keys}", "conflict": False}
-
-    # Preflight Check
-    if op.action == 'create':
-        for f in Model._meta.fields:
-            if isinstance(f, models.ForeignKey) and not f.blank and not f.null:
-                attname = f.get_attname()
-                if payload.get(attname) is None:
-                    return {"success": False, "error": f"Missing required FK: ['{attname}']", "conflict": False}
 
     # ---------------------------------------------------------
     # 4. EXECUTION
@@ -223,71 +204,58 @@ def _apply_sync_operation(job, op, id_map) -> dict:
             if op.action == 'create':
                 payload.pop('id', None)
                 
-                # Manual Unique Check
-                unique_fields = [f.name for f in Model._meta.fields if getattr(f, "unique", False)]
-                unique_q = {f: payload[f] for f in unique_fields if payload.get(f) is not None}
-                if 'tenant' in model_fields: unique_q["tenant_id"] = tenant.id
-                
-                # If it already exists, recover instead of failing
-                if unique_q and Model.objects.filter(**unique_q).exists():
-                     existing = Model.objects.filter(**unique_q).first()
-                     if client_tmp_id: new_mapping = {client_tmp_id: existing.id}
-                     return {"success": True, "conflict": False, "new_id_mapping": new_mapping}
+                # --- GLOBAL DUPLICATE LOCK (REFINED) ---
+                # Only check tmp_id if the field actually exists in the model
+                if 'tmp_id' in model_fields and client_tmp_id:
+                    existing = Model.objects.filter(tmp_id=client_tmp_id, tenant_id=tenant.id).first()
+                    if existing:
+                        logger.info(f"🛑 Blocking Duplicate Sync for tmp_id {client_tmp_id}")
+                        return {"success": True, "conflict": False, "new_id_mapping": {client_tmp_id: existing.id}}
 
-                # Try Create
-                try:
-                    # THIS IS THE MISSING MAGIC (The Inner Savepoint)
-                    with transaction.atomic():
-                        obj = Model.objects.create(**payload)
-                except IntegrityError as e:
-                    # ✅ Handle Race Condition Uniqueness safely!
-                    if "unique constraint" in str(e).lower():
-                        if 'reference' in payload:
-                            existing = Model.objects.filter(reference=payload['reference'], tenant_id=tenant.id).first()
-                            if existing:
-                                if client_tmp_id: new_mapping = {client_tmp_id: existing.id}
-                                return {"success": True, "conflict": False, "new_id_mapping": new_mapping}
-                        raise e 
-                    else:
-                        raise e
+                if 'reference' in payload:
+                    existing = Model.objects.filter(reference=payload['reference'], tenant_id=tenant.id).first()
+                    if existing:
+                        if client_tmp_id: new_mapping = {client_tmp_id: existing.id}
+                        return {"success": True, "conflict": False, "new_id_mapping": new_mapping}
+
+                # Create the Parent Object
+                # Inject the tmp_id back into payload for saving if field exists
+                if 'tmp_id' in model_fields:
+                    payload['tmp_id'] = client_tmp_id
+
+                obj = Model.objects.create(**payload)
+                
+                # ✅ 5. PROCESS NESTED ITEMS (SaleItems)
+                if nested_items:
+                    from sales.models import SaleItem
+                    for item in nested_items:
+                        SaleItem.objects.create(
+                            sale=obj,
+                            product_id=item['product_id'],
+                            quantity=item['quantity'],
+                            unit_price=item['unit_price'],
+                            subtotal=item['subtotal']
+                        )
 
                 if client_tmp_id: new_mapping = {client_tmp_id: obj.id}
                 
-                # Log it
+                # Log to ChangeLog
                 log_payload = {k: v for k, v in payload.items() if k != "tenant_id"}
-                log_payload['client_change_id'] = op.client_change_id
-                
-                # ✅ VITAL: Save tmp_id so we can find it later for cross-job recovery!
                 if client_tmp_id: log_payload['tmp_id'] = client_tmp_id 
-
+                
                 ChangeLog.objects.create(
                     tenant=tenant, model=op.model_name, model_id=obj.id, 
                     action="create", payload=log_payload
                 )
+                
                 return {"success": True, "conflict": False, "new_id_mapping": new_mapping}
 
             elif op.action == 'update':
                 pk = payload.pop("id", None) or payload.pop("pk", None)
                 if not pk: return {"success": False, "error": "Missing PK"}
                 Model.objects.filter(pk=pk, tenant_id=tenant.id).update(**payload)
-                ChangeLog.objects.create(
-                    tenant=tenant, model=op.model_name, model_id=pk, 
-                    action="update", payload=payload
-                )
                 return {"success": True, "conflict": False}
 
-            elif op.action == 'delete':
-                pk = payload.get("id") or payload.get("pk")
-                if pk:
-                    Model.objects.filter(pk=pk, tenant_id=tenant.id).delete()
-                    ChangeLog.objects.create(
-                        tenant=tenant, model=op.model_name, model_id=pk, 
-                        action="delete", payload={}
-                    )
-                return {"success": True, "conflict": False}
-
-    except IntegrityError as e:
-        return {"success": False, "error": str(e), "conflict": "unique constraint" in str(e).lower()}
     except Exception as e:
         logger.exception(f"Op {op.id} Failed")
         return {"success": False, "error": str(e), "conflict": False}

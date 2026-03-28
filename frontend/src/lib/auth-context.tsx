@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  loginTenant: (tenant: string, email: string, password: string) => Promise<void>;
+  loginTenant: (tenant: string, email: string, password: string) => Promise<User>;
   loginAdmin: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<User | undefined>;
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }, 100);
 
-      // ✅ REMOVED: toast.success('Access Granted') to avoid duplicates
+      return data.user;
     } catch (error: any) {
       let message = 'Login failed. Please check your credentials.';
       if (error.response?.data?.detail) message = error.response.data.detail;

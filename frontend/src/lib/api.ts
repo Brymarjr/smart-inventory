@@ -47,7 +47,7 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     const isAdminPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/system-admin');
 
-    // ✅ GLOBAL BILLING HANDLER: Catch Limits (402)
+    //  GLOBAL BILLING HANDLER: Catch Limits (402)
     if (error.response?.status === 402) {
       toast.error("Plan Limit Reached", {
         description: error.response.data.detail || "You need to upgrade your plan to perform this action.",
@@ -60,7 +60,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // ✅ GLOBAL BILLING HANDLER: Catch Feature Locks (403)
+    //  GLOBAL BILLING HANDLER: Catch Feature Locks (403)
     if (error.response?.status === 403 && error.response.data?.detail?.toLowerCase().includes('plan')) {
       toast.info("Premium Feature", {
         description: error.response.data.detail,
@@ -69,7 +69,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // ✅ GLOBAL SUSPENSION HANDLER: Catch Suspended Tenants (403)
+    //  GLOBAL SUSPENSION HANDLER: Catch Suspended Tenants (403)
     if (error.response?.status === 403 && error.response.data?.detail === 'tenant_suspended') {
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/suspended')) {
         window.location.href = '/suspended';

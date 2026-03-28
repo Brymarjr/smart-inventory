@@ -27,12 +27,12 @@ class TenantMiddleware:
     def __call__(self, request):
         tenant = None
 
-        # 1️⃣ Try header first
+        # 1️Try header first
         tenant_header = request.headers.get("X-Tenant") or request.META.get("HTTP_X_TENANT")
         if tenant_header:
             try:
                 tenant = Tenant.objects.get(slug=tenant_header)
-                print(f"✅ TenantMiddleware: resolved from header → {tenant.slug}")
+                print(f"TenantMiddleware: resolved from header → {tenant.slug}")
             except Tenant.DoesNotExist:
                 return HttpResponseForbidden("Invalid tenant")
 
@@ -55,7 +55,7 @@ class BlockWriteIfSubscriptionExpiredMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        print(f"🔍 BlockWriteIfSubscriptionExpiredMiddleware triggered: {request.path} {request.method}")
+        print(f"BlockWriteIfSubscriptionExpiredMiddleware triggered: {request.path} {request.method}")
 
         # Allow safe methods and Paystack webhook
         if request.method in ("GET", "HEAD", "OPTIONS") or request.path.startswith("/api/billing/"):
@@ -68,7 +68,7 @@ class BlockWriteIfSubscriptionExpiredMiddleware:
         if not tenant and user and hasattr(user, "tenant"):
             tenant = getattr(user, "tenant", None)
 
-        print("➡️ Tenant found:", bool(tenant))
+        print("Tenant found:", bool(tenant))
         if tenant:
             from billing.models import Subscription
 
@@ -86,7 +86,7 @@ class BlockWriteIfSubscriptionExpiredMiddleware:
             now = timezone.now()
             active = sub.status == "active" and sub.expires_at > now
 
-            print(f"📅 Subscription check → plan={sub.plan.name}, active={active}")
+            print(f"Subscription check → plan={sub.plan.name}, active={active}")
 
             if not active:
                 # Free plan expired
@@ -95,7 +95,7 @@ class BlockWriteIfSubscriptionExpiredMiddleware:
                 else:
                     msg = f"Your {sub.plan.name} plan subscription has expired. Please renew to regain write access."
 
-                print("🚫 Blocking write for expired tenant:", tenant)
+                print("Blocking write for expired tenant:", tenant)
                 return JsonResponse({"detail": msg}, status=403)
 
         return self.get_response(request)

@@ -66,7 +66,6 @@ function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof tenantSchema>) {
-    // 1. CRITICAL FIX: Extract the flag immediately before any async logic
     const wasRedirectedFromRegister = searchParams.get("registered") === "true";
     
     setIsLoading(true);
@@ -74,17 +73,20 @@ function LoginForm() {
     toast.dismiss();
 
     try {
-      // 2. Perform the login
-      await loginTenant(values.tenant, values.email, values.password);
+      // 1. Perform the login (Cast result to 'any' or 'User' to fix TS error)
+      const userData: any = await loginTenant(values.tenant, values.email, values.password);
       
-      // 3. Use the "locked" constant to determine the toast
-      
-        toast.success("Login verified!", {
-        description: " Welcome!",
-        });
-       
-      
+      // 2. CRITICAL SYNC FIX: Save the tenant_id for the Sync Manager
+      if (userData && userData.tenant_id) {
+        localStorage.setItem('tenant_id', userData.tenant_id.toString());
+      }
 
+      // 3. UI Feedback
+      toast.success("Login verified!", {
+        description: "Welcome back!",
+      });
+
+      // 4. Redirect (Matches your current logic)
       setTimeout(() => {
         router.refresh(); 
       }, 1500);
