@@ -225,8 +225,8 @@ export default function AnalyticsPage() {
     <div className="space-y-6 p-6 relative">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Intelligence Center</h1>
-          <p className="text-muted-foreground">AI-driven anomaly detection and procurement routing.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Store Analytics</h1>
+          <p className="text-muted-foreground">Data analysis and Anomaly detectiom</p>
         </div>
         <div className="flex gap-2">
           {activeFilter !== "all" && (
